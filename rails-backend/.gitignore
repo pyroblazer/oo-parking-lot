@@ -1,0 +1,176 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# Bundler
+/.bundle/
+/vendor/bundle
+/lib/bundler/man/
+
+# RSpec
+/coverage/
+/spec/examples.txt
+
+# SimpleCov
+/.simplecov
+
+# Rails
+*.rbc
+capybara-*.html
+.rspec
+/db/*.sqlite3
+/db/*.sqlite3-journal
+/db/*.sqlite3-[0-9]*
+/public/system
+/coverage/
+/spec/tmp
+*.orig
+rerun.txt
+pickle-email-*.html
+
+# YARD documentation
+/.yardoc/
+/_yardoc/
+/doc/
+/rdoc/
+
+# Environment normalization:
+/.bundle/
+/vendor/bundle
+/lib/bundler/man/
+
+# Rails 3+:
+/tmp/
+/log/
+
+# Rails 4+:
+/public/assets/
+
+# Rails 5+:
+/public/packs
+/public/packs-test
+/node_modules/
+yarn-error.log
+yarn-debug.log*
+.pnpm-debug.log*
+
+# Rails 6+:
+app/javascript/packs
+
+# Rails 7+:
+/storage/*
+!/storage/.keep
+/tmp/storage/*
+!/tmp/storage/.keep
+
+# Ignore uploaded files in development
+/storage/*
+!/storage/.keep
+/tmp/storage/*
+!/tmp/storage/.keep
+
+# Ignore master key for decrypting credentials and more.
+/config/master.key
+/config/credentials/*.key
+
+# Ignore pidfiles, but keep the directory.
+/tmp/pids/*
+!/tmp/pids/
+!/tmp/pids/.keep
+
+# Ignore uploaded test files
+/coverage/
+
+# Ignore database dumps
+*.sql
+*.sql.gz
+*.dump
+
+# Ignore byebug history
+.byebug_history
+
+# Ignore Spring files
+/spring/*.pid
+
+# Ignore RSpec status
+.rspec_status
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+log/*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.cache
+
+# Test coverage
+coverage/
+*.coverprofile
+
+# RSpec
+/spec/examples.txt
+
+# RuboCop
+.rubocop-https--*
+
+# Sidekiq
+/sidekiq.log
+
+# Puma
+/puma.pid
+/puma.state
+
+# Assets
+/public/assets
+/public/packs
+
+# Node modules (if any)
+node_modules/
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Ignore action cable pid
+/tmp/cable-*.pid
+
+# Ignore bootsnap cache
+/tmp/cache/bootsnap
+
+# Ignore sassc cache
+/tmp/cache/sassc
+
+# Ignore webpacker cache
+/tmp/cache/webpacker
+
+# Ignore Brakeman scan results (generated output)
+brakeman-results.json

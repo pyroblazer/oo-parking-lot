@@ -1,0 +1,21 @@
+[test]
+# Configure test environment to use jsdom for DOM support
+environment = "jsdom"
+
+# Preload setup file for additional test utilities
+preload = ["./src/test/bun-setup.ts"]
+
+# Test file patterns
+testMatch = [
+  "**/__tests__/**/*.test.{ts,tsx}",
+  "**/__tests__/**/*.spec.{ts,tsx}",
+  "**/*.test.{ts,tsx}",
+  "**/*.spec.{ts,tsx}"
+]
+
+# Ignore patterns
+testIgnore = [
+  "node_modules",
+  "dist",
+  "build"
+]

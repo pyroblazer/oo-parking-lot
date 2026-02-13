@@ -1,0 +1,97 @@
+# Gemfile
+source 'https://rubygems.org'
+git_source(:github) { |repo| "https://github.com/#{repo}.git" }
+
+# Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
+gem 'rails', '~> 8.0.1'
+
+# Use postgresql as the database for Active Record
+gem 'pg', '~> 1.5.6'
+
+# Use Puma as the app server
+gem 'puma', '~> 6.4'
+
+# Redis - Required for Sidekiq and caching
+gem 'redis', '~> 5.2'
+
+# Windows does not include zoneinfo files, so bundle tzinfo-data gem
+gem 'tzinfo-data', '~> 1.2024', platforms: %i[mswin mswin64 mingw x64_mingw jruby]
+
+# Reduces boot times through caching; required in config/boot.rb
+gem 'bootsnap', '~> 1.18', require: false
+
+# ============================================================================
+# MANDATORY: Background Processing (Sidekiq)
+# ============================================================================
+gem 'sidekiq', '~> 7.3'
+gem 'sidekiq-cron', '~> 2.0'
+
+# ============================================================================
+# MANDATORY: Structured Logging
+# ============================================================================
+gem 'lograge', '~> 0.14'
+gem 'semantic_logger', '~> 4.13'
+
+# ============================================================================
+# MANDATORY: Observability - Metrics
+# ============================================================================
+gem 'prometheus_exporter', '~> 2.2'
+
+# ============================================================================
+# MANDATORY: Observability - Tracing
+# ============================================================================
+gem 'opentelemetry-api', '~> 1.4'
+gem 'opentelemetry-exporter-otlp', '~> 0.28'
+gem 'opentelemetry-instrumentation-all', '~> 0.57'
+gem 'opentelemetry-sdk', '~> 1.4'
+
+# ============================================================================
+# MANDATORY: Observability - Error Tracking
+# ============================================================================
+gem 'sentry-rails', '~> 5.18'
+gem 'sentry-ruby', '~> 5.18'
+
+# ============================================================================
+# MANDATORY: Pagination
+# ============================================================================
+gem 'kaminari', '~> 1.2'
+
+# ============================================================================
+# MANDATORY: Kafka Event System
+# ============================================================================
+# Note: ruby-kafka is unmaintained and not used. WaterDrop is used instead.
+# gem 'ruby-kafka', '~> 1.5' # Commented out - not used, WaterDrop is used instead
+gem 'waterdrop', '~> 2.8'
+
+# ============================================================================
+# MANDATORY: Security
+# ============================================================================
+gem 'rack-attack', '~> 6.7'
+gem 'rack-cors', '~> 2.0'
+gem 'secure_headers', '~> 6.6'
+
+# ============================================================================
+# MANDATORY: Testing
+# ============================================================================
+group :development, :test do
+  # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
+  gem 'benchmark-ips', '~> 2.13', require: false
+  gem 'capybara', '~> 3.40'
+  gem 'database_cleaner-active_record', '~> 2.0'
+  gem 'debug', '~> 1.9', platforms: %i[mswin mswin64 mingw x64_mingw jruby]
+  gem 'factory_bot_rails', '~> 6.2'
+  gem 'faker', '~> 3.2'
+  gem 'rack-mini-profiler', '~> 3.3', require: false
+  gem 'rspec_junit_formatter', '~> 0.6'
+  gem 'rspec-rails', '~> 6.1'
+  gem 'rspec-sidekiq', '~> 4.1'
+  gem 'ruby-prof', '~> 1.7', require: false
+  gem 'selenium-webdriver', '~> 4.23'
+  gem 'shoulda-matchers', '~> 5.3'
+  gem 'simplecov', '~> 0.22', require: false
+  gem 'simplecov-json', '~> 0.2', require: false
+  gem 'stackprof', '~> 0.2', require: false
+  gem 'timecop', '~> 0.9'
+  gem 'vcr', '~> 6.2'
+  gem 'webmock', '~> 3.19'
+end

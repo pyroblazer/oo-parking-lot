@@ -1,0 +1,4138 @@
+{
+  "info": {
+    "_postman_id": "parking-lot-api-collection",
+    "name": "Parking Lot API",
+    "description": "A unified Postman collection for both Ruby and Golang Parking Lot APIs. Both APIs share the same request structure and response format.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "",
+      "type": "string",
+      "description": "Ruby API: http://localhost:3000\nGolang API: http://localhost:8082"
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Check the health status of the API. Change base_url variable to switch between Go (http://localhost:8082) and Ruby (http://localhost:3001) backends."
+          },
+          "response": [
+            {
+              "name": "Success Response (Healthy)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/health",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "health"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"ok\",\n  \"service\": \"parking-lot-api\",\n  \"version\": \"1.0.0\",\n  \"timestamp\": \"2024-01-15T10:30:00Z\",\n  \"checks\": {\n    \"database\": {\n      \"status\": \"healthy\"\n    }\n  }\n}"
+            },
+            {
+              "name": "Service Unavailable (Unhealthy Database)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/health",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "health"
+                  ]
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"error\",\n  \"service\": \"parking-lot-api\",\n  \"version\": \"1.0.0\",\n  \"timestamp\": \"2024-01-15T10:30:00Z\",\n  \"checks\": {\n    \"database\": {\n      \"status\": \"unhealthy\"\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Health Check",
+                  "",
+                  "// 1. Verify status code is 200 or 503",
+                  "pm.test(\"Status code is 200 or 503\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 503]);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. Verify response has status field",
+                  "pm.test(\"Response has status field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "});",
+                  "",
+                  "// 6. Verify status is 'ok' or 'error'",
+                  "pm.test(\"Status is 'ok' or 'error'\", function () {",
+                  "    pm.expect(jsonData.status).to.be.oneOf(['ok', 'error']);",
+                  "});",
+                  "",
+                  "// 7. Verify response has service field",
+                  "pm.test(\"Response has service field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('service');",
+                  "});",
+                  "",
+                  "// 8. Verify response has version field",
+                  "pm.test(\"Response has version field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('version');",
+                  "});",
+                  "",
+                  "// 9. Verify response has timestamp field",
+                  "pm.test(\"Response has timestamp field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('timestamp');",
+                  "});",
+                  "",
+                  "// 10. Verify response has checks field",
+                  "pm.test(\"Response has checks field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('checks');",
+                  "});",
+                  "",
+                  "// 11. Verify checks has database field",
+                  "pm.test(\"Checks has database field\", function () {",
+                  "    pm.expect(jsonData.checks).to.have.property('database');",
+                  "});",
+                  "",
+                  "// 12. Verify database check has status field",
+                  "pm.test(\"Database check has status field\", function () {",
+                  "    pm.expect(jsonData.checks.database).to.have.property('status');",
+                  "});",
+                  "",
+                  "// 13. Verify database status is 'healthy' or 'unhealthy'",
+                  "pm.test(\"Database status is 'healthy' or 'unhealthy'\", function () {",
+                  "    pm.expect(jsonData.checks.database.status).to.be.oneOf(['healthy', 'unhealthy']);",
+                  "});",
+                  "",
+                  "// 14. Verify timestamp is a valid ISO date",
+                  "pm.test(\"Timestamp is a valid ISO date\", function () {",
+                  "    pm.expect(jsonData.timestamp).to.match(/\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+                  "});",
+                  "",
+                  "// 15. Verify service name is 'parking-lot-api'",
+                  "pm.test(\"Service name is 'parking-lot-api'\", function () {",
+                  "    pm.expect(jsonData.service).to.eql('parking-lot-api');",
+                  "});",
+                  "",
+                  "// 16. If status is 200, verify database is healthy",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"When status is 200, database should be healthy\", function () {",
+                  "        pm.expect(jsonData.status).to.eql('ok');",
+                  "        pm.expect(jsonData.checks.database.status).to.eql('healthy');",
+                  "    });",
+                  "}",
+                  "",
+                  "// 17. If status is 503, verify database is unhealthy",
+                  "if (pm.response.code === 503) {",
+                  "    pm.test(\"When status is 503, database should be unhealthy\", function () {",
+                  "        pm.expect(jsonData.status).to.eql('error');",
+                  "        pm.expect(jsonData.checks.database.status).to.eql('unhealthy');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Entry Points",
+      "item": [
+        {
+          "name": "List Entry Points",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/entry_points",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entry_points"
+              ]
+            },
+            "description": "Get all entry points in the parking lot."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/entry_points",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "entry_points"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"1\",\n      \"identifier\": \"A\",\n      \"name\": \"Entry Point A\"\n    },\n    {\n      \"id\": \"2\",\n      \"identifier\": \"B\",\n      \"name\": \"Entry Point B\"\n    },\n    {\n      \"id\": \"3\",\n      \"identifier\": \"C\",\n      \"name\": \"Entry Point C\"\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: List Entry Points",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. Verify response has success field",
+                  "pm.test(\"Response has success field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('success');",
+                  "});",
+                  "",
+                  "// 6. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 7. Verify response has data field",
+                  "pm.test(\"Response has data field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "});",
+                  "",
+                  "// 8. Verify data is an array",
+                  "pm.test(\"Data is an array\", function () {",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});",
+                  "",
+                  "// 9. Verify entry points exist",
+                  "pm.test(\"At least one entry point exists\", function () {",
+                  "    pm.expect(jsonData.data.length).to.be.at.least(1);",
+                  "});",
+                  "",
+                  "// 10. Verify each entry point has required fields",
+                  "pm.test(\"Each entry point has required fields\", function () {",
+                  "    jsonData.data.forEach(function(entryPoint) {",
+                  "        pm.expect(entryPoint).to.have.property('id');",
+                  "        pm.expect(entryPoint).to.have.property('identifier');",
+                  "        pm.expect(entryPoint).to.have.property('name');",
+                  "        pm.expect(entryPoint).to.have.property('created_at');",
+                  "        pm.expect(entryPoint).to.have.property('updated_at');",
+                  "    });",
+                  "});",
+                  "",
+                  "// 11. Verify identifier is a single letter (A, B, C)",
+                  "pm.test(\"Entry point identifiers are valid\", function () {",
+                  "    const validIdentifiers = ['A', 'B', 'C', 'D'];",
+                  "    jsonData.data.forEach(function(entryPoint) {",
+                  "        if (entryPoint.identifier !== '') {",
+                  "            pm.expect(validIdentifiers).to.include(entryPoint.identifier);",
+                  "        }",
+                  "    });",
+                  "});",
+                  "",
+                  "// 12. Verify no duplicate identifiers",
+                  "pm.test(\"No duplicate entry point identifiers\", function () {",
+                  "    const identifiers = jsonData.data.map(ep => ep.identifier);",
+                  "    const uniqueIdentifiers = [...new Set(identifiers)];",
+                  "    pm.expect(identifiers.length).to.eql(uniqueIdentifiers.length);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Entry Point",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entry_point\": {\n    \"identifier\": \"D\",\n    \"name\": \"Entry Point D\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/entry_points",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entry_points"
+              ]
+            },
+            "description": "Create a new entry point."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"entry_point\": {\n    \"identifier\": \"D\",\n    \"name\": \"Entry Point D\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/entry_points",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "entry_points"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 4,\n    \"identifier\": \"D\",\n    \"name\": \"Entry Point D\"\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Create Entry Point",
+                  "",
+                  "// 1. Verify status code is 201",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "// 2. Verify response has success field",
+                  "pm.test(\"Response has success field\", function () {",
+                  "    pm.expect(pm.response.json()).to.have.property('success');",
+                  "});",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Verify response has data field",
+                  "pm.test(\"Response has data field\", function () {",
+                  "    pm.expect(pm.response.json()).to.have.property('data');",
+                  "});",
+                  "",
+                  "// 5. Verify data has id, identifier, and name",
+                  "pm.test(\"Data has required fields\", function () {",
+                  "    pm.expect(pm.response.json().data).to.have.property('id');",
+                  "    pm.expect(pm.response.json().data).to.have.property('identifier');",
+                  "    pm.expect(pm.response.json().data).to.have.property('name');",
+                  "    pm.expect(pm.response.json().data).to.have.property('created_at');",
+                  "    pm.expect(pm.response.json().data).to.have.property('updated_at');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Entry Point",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entry_point\": {\n    \"name\": \"Updated Entry Point A\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/entry_points/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entry_points",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{entry_point_id_to_update}}",
+                  "description": "Entry point ID"
+                }
+              ]
+            },
+            "description": "Update an existing entry point."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"entry_point\": {\n    \"name\": \"Updated Entry Point A\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/entry_points/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "entry_points",
+                    ":id"
+                  ],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "1",
+                      "description": "Entry point ID"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 1,\n    \"identifier\": \"A\",\n    \"name\": \"Updated Entry Point A\"\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Prerequest: Ensure entry point with ID exists",
+                  "",
+                  "// Get base_url from variables (environment > collection > global)",
+                  "const baseUrl = pm.variables.get('base_url') || 'http://localhost:8082';",
+                  "",
+                  "// Try to list entry points first to see what's available",
+                  "pm.sendRequest({",
+                  "  url: baseUrl + '/api/v1/entry_points',",
+                  "  method: 'GET',",
+                  "  header: { 'Content-Type': 'application/json' }",
+                  "}, function (err, res) {",
+                  "  if (!err && res.code === 200) {",
+                  "    var jsonData = res.json();",
+                  "    var entryPointId = null;",
+                  "    ",
+                  "    // Check if we have entry points and get the first one",
+                  "    if (jsonData.data && jsonData.data.length > 0) {",
+                  "      entryPointId = jsonData.data[0].id;",
+                  "      console.log('Found entry point with ID:', entryPointId);",
+                  "      ",
+                  "      // Store the ID for the update request",
+                  "      pm.variables.set('entry_point_id_to_update', entryPointId);",
+                  "    } else {",
+                  "      console.log('No entry points found, will use ID 1');",
+                  "      pm.variables.set('entry_point_id_to_update', '1');",
+                  "    }",
+                  "  } else {",
+                  "    console.log('Failed to list entry points, using ID 1');",
+                  "    pm.variables.set('entry_point_id_to_update', '1');",
+                  "  }",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Update Entry Point",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Verify response has success field",
+                  "pm.test(\"Response has success field\", function () {",
+                  "    pm.expect(pm.response.json()).to.have.property('success');",
+                  "});",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Verify response has data field",
+                  "pm.test(\"Response has data field\", function () {",
+                  "    pm.expect(pm.response.json()).to.have.property('data');",
+                  "});",
+                  "",
+                  "// 5. Verify data has id, identifier, and name",
+                  "pm.test(\"Data has required fields\", function () {",
+                  "    pm.expect(pm.response.json().data).to.have.property('id');",
+                  "    pm.expect(pm.response.json().data).to.have.property('identifier');",
+                  "    pm.expect(pm.response.json().data).to.have.property('name');",
+                  "    pm.expect(pm.response.json().data).to.have.property('created_at');",
+                  "    pm.expect(pm.response.json().data).to.have.property('updated_at');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Entry Point",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/entry_points/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entry_points",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Entry point ID"
+                }
+              ]
+            },
+            "description": "Delete an entry point."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/entry_points/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "entry_points",
+                    ":id"
+                  ],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "1",
+                      "description": "Entry point ID"
+                    }
+                  ]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [],
+              "body": ""
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Delete Entry Point",
+                  "",
+                  "// 1. Verify status code is 204",
+                  "pm.test(\"Status code is 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "// 2. Verify response body is empty",
+                  "pm.test(\"Response body is empty\", function () {",
+                  "    pm.expect(pm.response.text()).to.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "item": [
+        {
+          "name": "Park Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "vehicle_type",
+                  "value": "S",
+                  "description": "Vehicle type: S (Small), M (Medium), or L (Large)"
+                },
+                {
+                  "key": "entry_point_id",
+                  "value": "A",
+                  "description": "Entry point identifier (e.g., A, B, C)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions"
+              ]
+            },
+            "description": "Park a vehicle at the closest available slot for the specified vehicle type and entry point."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "S"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "A"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-123\",\n    \"parking_slot\": {\n      \"id\": \"1\",\n      \"slot_label\": \"SP-1\",\n      \"slot_type\": \"SP\"\n    },\n    \"entry_point\": {\n      \"id\": \"1\",\n      \"identifier\": \"A\",\n      \"name\": \"Entry Point A\"\n    },\n    \"parked_at\": \"2024-01-15T10:30:00Z\"\n  }\n}"
+            },
+            {
+              "name": "No Available Slot",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "L"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "A"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"No available parking slot for vehicle type L\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Park Vehicle",
+                  "",
+                  "// 1. Verify status code is 201 (success) or 409 (no slots)",
+                  "pm.test(\"Status code is 201 or 409\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. If successful (201), verify response structure",
+                  "if (pm.response.code === 201) {",
+                  "    pm.test(\"Response has success field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('success');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Success is true\", function () {",
+                  "        pm.expect(jsonData.success).to.be.true;",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Response has data field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('data');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has session_id\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('session_id');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has parking_slot\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('parking_slot');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Parking slot has required fields\", function () {",
+                  "        pm.expect(jsonData.data.parking_slot).to.have.property('id');",
+                  "        pm.expect(jsonData.data.parking_slot).to.have.property('slot_label');",
+                  "        pm.expect(jsonData.data.parking_slot).to.have.property('slot_type');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has entry_point\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('entry_point');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has parked_at\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('parked_at');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Session ID is not empty\", function () {",
+                  "        pm.expect(jsonData.data.session_id).to.not.be.null.and.to.not.be.undefined;",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Parked at is a valid ISO date\", function () {",
+                  "        pm.expect(jsonData.data.parked_at).to.match(/\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+                  "    });",
+                  "    ",
+                  "    // Store session_id for subsequent tests",
+                  "    pm.collectionVariables.set(\"session_id\", jsonData.data.session_id);",
+                  "}",
+                  "",
+                  "// 6. If no slots (409), verify error structure",
+                  "if (pm.response.code === 409) {",
+                  "    pm.test(\"Response has error field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('error');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Error message is not empty\", function () {",
+                  "        pm.expect(jsonData.error).to.not.be.empty;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{session_id}}",
+                  "description": "Session ID"
+                }
+              ]
+            },
+            "description": "Get details of a specific parking session."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions/session-123",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions",
+                    "session-123"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-123\",\n    \"vehicle_type\": \"S\",\n    \"parking_slot\": {\n      \"id\": \"1\",\n      \"slot_label\": \"SP-1\",\n      \"slot_type\": \"SP\"\n    },\n    \"entry_point\": {\n      \"id\": \"1\",\n      \"identifier\": \"A\",\n      \"name\": \"Entry Point A\"\n    },\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"exited_at\": null,\n    \"is_active\": true,\n    \"is_continuous\": false\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Get Session",
+                  "",
+                  "// 1. Verify status code is 200 or 404 (not found)",
+                  "pm.test(\"Status code is 200 or 404\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. If found (200), verify response structure",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has success field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('success');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Success is true\", function () {",
+                  "        pm.expect(jsonData.success).to.be.true;",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Response has data field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('data');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has session_id\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('session_id');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has vehicle_type\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('vehicle_type');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has parking_slot\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('parking_slot');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has entry_point\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('entry_point');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has parked_at\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('parked_at');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has exited_at\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('exited_at');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has is_active\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('is_active');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has is_continuous\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('is_continuous');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Vehicle type is valid\", function () {",
+                  "        pm.expect(['S', 'M', 'L']).to.include(jsonData.data.vehicle_type);",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"is_active is boolean\", function () {",
+                  "        pm.expect(jsonData.data.is_active).to.be.a('boolean');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"is_continuous is boolean\", function () {",
+                  "        pm.expect(jsonData.data.is_continuous).to.be.a('boolean');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Parked at is a valid ISO date\", function () {",
+                  "        pm.expect(jsonData.data.parked_at).to.match(/\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+                  "    });",
+                  "}",
+                  "",
+                  "// 6. If not found (404), verify error structure",
+                  "if (pm.response.code === 404) {",
+                  "    pm.test(\"Response has error field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('error');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Sessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions?page=1&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "per_page",
+                  "value": "20",
+                  "description": "Items per page (default: 20, max: 100)"
+                }
+              ]
+            },
+            "description": "Get a paginated list of all parking sessions."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions?page=1&per_page=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "per_page",
+                      "value": "20"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"session_id\": \"session-123\",\n      \"vehicle_type\": \"S\",\n      \"parking_slot\": {\n        \"id\": \"1\",\n        \"slot_label\": \"SP-1\",\n        \"slot_type\": \"SP\"\n      },\n      \"entry_point\": {\n        \"id\": \"1\",\n        \"identifier\": \"A\",\n        \"name\": \"Entry Point A\"\n      },\n      \"parked_at\": \"2024-01-15T10:30:00Z\",\n      \"exited_at\": null,\n      \"is_active\": true,\n      \"is_continuous\": false\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: List Sessions",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. Verify response has success field",
+                  "pm.test(\"Response has success field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('success');",
+                  "});",
+                  "",
+                  "// 6. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 7. Verify response has data field",
+                  "pm.test(\"Response has data field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "});",
+                  "",
+                  "// 8. Verify data is an array",
+                  "pm.test(\"Data is an array\", function () {",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});",
+                  "",
+                  "// 9. Verify each session has required fields",
+                  "pm.test(\"Each session has required fields\", function () {",
+                  "    jsonData.data.forEach(function(session) {",
+                  "        pm.expect(session).to.have.property('session_id');",
+                  "        pm.expect(session).to.have.property('vehicle_type');",
+                  "        pm.expect(session).to.have.property('parking_slot');",
+                  "        pm.expect(session).to.have.property('entry_point');",
+                  "        pm.expect(session).to.have.property('parked_at');",
+                  "        pm.expect(session).to.have.property('exited_at');",
+                  "        pm.expect(session).to.have.property('is_active');",
+                  "        pm.expect(session).to.have.property('is_continuous');",
+                  "    });",
+                  "});",
+                  "",
+                  "// 10. Verify vehicle types are valid",
+                  "pm.test(\"Vehicle types are valid\", function () {",
+                  "    const validTypes = ['S', 'M', 'L'];",
+                  "    jsonData.data.forEach(function(session) {",
+                  "        pm.expect(validTypes).to.include(session.vehicle_type);",
+                  "    });",
+                  "});",
+                  "",
+                  "// 11. Verify is_active is boolean",
+                  "pm.test(\"is_active is boolean for all sessions\", function () {",
+                  "    jsonData.data.forEach(function(session) {",
+                  "        pm.expect(session.is_active).to.be.a('boolean');",
+                  "    });",
+                  "});",
+                  "",
+                  "// 12. Verify is_continuous is boolean",
+                  "pm.test(\"is_continuous is boolean for all sessions\", function () {",
+                  "    jsonData.data.forEach(function(session) {",
+                  "        pm.expect(session.is_continuous).to.be.a('boolean');",
+                  "    });",
+                  "});",
+                  "",
+                  "// 13. Verify parked_at is a valid ISO date",
+                  "pm.test(\"parked_at is a valid ISO date for all sessions\", function () {",
+                  "    jsonData.data.forEach(function(session) {",
+                  "        pm.expect(session.parked_at).to.match(/\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+                  "    });",
+                  "});",
+                  "",
+                  "// 14. Verify no duplicate session IDs",
+                  "pm.test(\"No duplicate session IDs\", function () {",
+                  "    const sessionIds = jsonData.data.map(s => s.session_id);",
+                  "    const uniqueIds = [...new Set(sessionIds)];",
+                  "    pm.expect(sessionIds.length).to.eql(uniqueIds.length);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unpark Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/:id/unpark",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions",
+                ":id",
+                "unpark"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{session_id}}",
+                  "description": "Session ID"
+                }
+              ]
+            },
+            "description": "Unpark a vehicle and calculate the parking fee."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions/session-123/unpark",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions",
+                    "session-123",
+                    "unpark"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-123\",\n    \"vehicle_type\": \"S\",\n    \"parking_slot\": {\n      \"id\": \"1\",\n      \"slot_label\": \"SP-1\",\n      \"slot_type\": \"SP\"\n    },\n    \"entry_point\": \"A\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"exited_at\": \"2024-01-15T14:30:00Z\",\n    \"duration_hours\": 4,\n    \"total_fee\": 40.0,\n    \"fee_breakdown\": {\n      \"total_fee\": 40.0,\n      \"duration_hours\": 4,\n      \"is_continuous\": false,\n      \"long_term\": {\n        \"days\": 0,\n        \"fee\": 0.0\n      },\n      \"remaining\": {\n        \"total\": 40.0,\n        \"base_fee\": 40.0,\n        \"exceeding_hours\": 0,\n        \"exceeding_fee\": 0.0\n      }\n    },\n    \"breakdown\": {\n      \"total_fee\": 40.0,\n      \"duration_hours\": 4,\n      \"is_continuous\": false,\n      \"long_term\": {\n        \"days\": 0,\n        \"fee\": 0.0\n      },\n      \"remaining\": {\n        \"total\": 40.0,\n        \"base_fee\": 40.0,\n        \"exceeding_hours\": 0,\n        \"exceeding_fee\": 0.0\n      }\n    },\n    \"is_continuous\": false\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Unpark Vehicle",
+                  "",
+                  "// 1. Verify status code is 200 (success) or 404 (not found or already unparked)",
+                  "pm.test(\"Status code is 200 or 404\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. If successful (200), verify response structure",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has success field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('success');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Success is true\", function () {",
+                  "        pm.expect(jsonData.success).to.be.true;",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Response has data field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('data');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has session_id\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('session_id');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has vehicle_type\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('vehicle_type');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has parking_slot\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('parking_slot');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has entry_point\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('entry_point');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Entry point is an object\", function () {",
+                  "        pm.expect(jsonData.data.entry_point).to.be.an('object');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Entry point has id\", function () {",
+                  "        pm.expect(jsonData.data.entry_point).to.have.property('id');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Entry point has identifier\", function () {",
+                  "        pm.expect(jsonData.data.entry_point).to.have.property('identifier');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Entry point has name\", function () {",
+                  "        pm.expect(jsonData.data.entry_point).to.have.property('name');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has parked_at\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('parked_at');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has exited_at\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('exited_at');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has duration_hours\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('duration_hours');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has total_fee\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('total_fee');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has fee_breakdown\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('fee_breakdown');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has breakdown\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('breakdown');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has is_continuous\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('is_continuous');",
+                  "    });",
+                  "    pm.test(\"duration_hours is a number\", function () {",
+                  "        pm.expect(jsonData.data.duration_hours).to.be.a('number');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"duration_hours is non-negative\", function () {",
+                  "        pm.expect(jsonData.data.duration_hours).to.be.at.least(0);",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"total_fee is a number\", function () {",
+                  "        pm.expect(jsonData.data.total_fee).to.be.a('number');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"total_fee is non-negative\", function () {",
+                  "        pm.expect(jsonData.data.total_fee).to.be.at.least(0);",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"exited_at is a valid ISO date\", function () {",
+                  "        pm.expect(jsonData.data.exited_at).to.match(/\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"parked_at is before exited_at\", function () {",
+                  "        const parkedAt = new Date(jsonData.data.parked_at);",
+                  "        const exitedAt = new Date(jsonData.data.exited_at);",
+                  "        pm.expect(parkedAt).to.be.at.most(exitedAt);",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"fee_breakdown has total_fee\", function () {",
+                  "        pm.expect(jsonData.data.fee_breakdown).to.have.property('total_fee');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"fee_breakdown has duration_hours\", function () {",
+                  "        pm.expect(jsonData.data.fee_breakdown).to.have.property('duration_hours');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"fee_breakdown has long_term\", function () {",
+                  "        pm.expect(jsonData.data.fee_breakdown).to.have.property('long_term');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"fee_breakdown has remaining\", function () {",
+                  "        pm.expect(jsonData.data.fee_breakdown).to.have.property('remaining');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"long_term has days and fee\", function () {",
+                  "        pm.expect(jsonData.data.fee_breakdown.long_term).to.have.property('days');",
+                  "        pm.expect(jsonData.data.fee_breakdown.long_term).to.have.property('fee');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"remaining has required fields\", function () {",
+                  "        pm.expect(jsonData.data.fee_breakdown.remaining).to.have.property('total');",
+                  "        pm.expect(jsonData.data.fee_breakdown.remaining).to.have.property('base_fee');",
+                  "        pm.expect(jsonData.data.fee_breakdown.remaining).to.have.property('exceeding_hours');",
+                  "        pm.expect(jsonData.data.fee_breakdown.remaining).to.have.property('exceeding_fee');",
+                  "    });",
+                  "}",
+                  "",
+                  "// 6. If not found (404), verify error structure",
+                  "if (pm.response.code === 404) {",
+                  "    pm.test(\"Response has error field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('error');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Park Vehicle - Entry Point B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "vehicle_type",
+                  "value": "S",
+                  "description": "Vehicle type: S (Small), M (Medium), or L (Large)"
+                },
+                {
+                  "key": "entry_point_id",
+                  "value": "B",
+                  "description": "Entry point identifier (e.g., A, B, C)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions"
+              ]
+            },
+            "description": "Park a vehicle at entry point B - tests slot allocation from different entry point."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Park Vehicle - Entry Point B",
+                  "",
+                  "// 1. Verify status code is 201 or 409 (no slots)",
+                  "pm.test(\"Status code is 201 or 409\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. If successful (201), verify response structure",
+                  "if (pm.response.code === 201) {",
+                  "    pm.test(\"Response has success field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('success');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Success is true\", function () {",
+                  "        pm.expect(jsonData.success).to.be.true;",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Response has data field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('data');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has session_id\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('session_id');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has parking_slot\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('parking_slot');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Data has entry_point\", function () {",
+                  "        pm.expect(jsonData.data).to.have.property('entry_point');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Entry point is B\", function () {",
+                  "        pm.expect(jsonData.data.entry_point.identifier || jsonData.data.entry_point).to.eql('B');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Session ID is not empty\", function () {",
+                  "        pm.expect(jsonData.data.session_id).to.not.be.null.and.to.not.be.undefined;",
+                  "    });",
+                  "    ",
+                  "    // Store session_id for subsequent tests",
+                  "    pm.collectionVariables.set(\"entry_point_b_session_id\", jsonData.data.session_id);",
+                  "}",
+                  "",
+                  "// 6. If no slots (409), verify error structure",
+                  "if (pm.response.code === 409) {",
+                  "    pm.test(\"Response has error field\", function () {",
+                  "        pm.expect(jsonData).to.have.property('error');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Error message is not empty\", function () {",
+                  "        pm.expect(jsonData.error).to.not.be.empty;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unpark Vehicle - Invalid Session",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/invalid-session-id-99999/unpark",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions",
+                "invalid-session-id-99999",
+                "unpark"
+              ]
+            },
+            "description": "Test unparking a non-existent session - should return 404 error."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Unpark Vehicle - Invalid Session",
+                  "",
+                  "// 1. Verify status code is 404 (not found)",
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. Verify response has error field",
+                  "pm.test(\"Response has error field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "});",
+                  "",
+                  "// 6. Verify error message is not empty",
+                  "pm.test(\"Error message is not empty\", function () {",
+                  "    pm.expect(jsonData.error).to.not.be.empty;",
+                  "});",
+                  "",
+                  "// 7. Verify error message contains 'not found' or 'session'",
+                  "pm.test(\"Error message contains relevant text\", function () {",
+                  "    pm.expect(jsonData.error.toLowerCase()).to.satisfy(function(msg) {",
+                  "        return msg.includes('not found') || msg.includes('session');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Slots",
+      "item": [
+        {
+          "name": "List Slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/slots",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "slots"
+              ]
+            },
+            "description": "Get all parking slots in the parking lot."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/slots",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "slots"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"1\",\n      \"slot_label\": \"SP-1\",\n      \"slot_type\": \"SP\",\n      \"distances\": [10, 20, 30],\n      \"available\": true\n    },\n    {\n      \"id\": \"2\",\n      \"slot_label\": \"MP-1\",\n      \"slot_type\": \"MP\",\n      \"distances\": [15, 25, 35],\n      \"available\": true\n    },\n    {\n      \"id\": \"3\",\n      \"slot_label\": \"LP-1\",\n      \"slot_type\": \"LP\",\n      \"distances\": [20, 30, 40],\n      \"available\": false\n    }\n  ]\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: List Slots",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. Verify response has success field",
+                  "pm.test(\"Response has success field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('success');",
+                  "});",
+                  "",
+                  "// 6. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 7. Verify response has data field",
+                  "pm.test(\"Response has data field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "});",
+                  "",
+                  "// 8. Verify data is an array",
+                  "pm.test(\"Data is an array\", function () {",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});",
+                  "",
+                  "// 9. Verify at least one slot exists",
+                  "pm.test(\"At least one slot exists\", function () {",
+                  "    pm.expect(jsonData.data.length).to.be.at.least(1);",
+                  "});",
+                  "",
+                  "// 10. Verify each slot has required fields",
+                  "pm.test(\"Each slot has required fields\", function () {",
+                  "    jsonData.data.forEach(function(slot) {",
+                  "        pm.expect(slot).to.have.property('id');",
+                  "        pm.expect(slot).to.have.property('slot_label');",
+                  "        pm.expect(slot).to.have.property('slot_type');",
+                  "        pm.expect(slot).to.have.property('distances');",
+                  "        pm.expect(slot).to.have.property('available');",
+                  "    });",
+                  "});",
+                  "",
+                  "// 11. Verify slot types are valid",
+                  "pm.test(\"Slot types are valid\", function () {",
+                  "    const validTypes = ['SP', 'MP', 'LP'];",
+                  "    jsonData.data.forEach(function(slot) {",
+                  "        pm.expect(validTypes).to.include(slot.slot_type);",
+                  "    });",
+                  "});",
+                  "",
+                  "// 12. Verify distances is an array",
+                  "pm.test(\"Distances is an array for all slots\", function () {",
+                  "    jsonData.data.forEach(function(slot) {",
+                  "        pm.expect(slot.distances).to.be.an('array');",
+                  "    });",
+                  "});",
+                  "",
+                  "// 13. Verify distances has exactly 3 values (for 3 entry points)",
+                  "pm.test(\"Distances has 3 values for all slots\", function () {",
+                  "    jsonData.data.forEach(function(slot) {",
+                  "        pm.expect(slot.distances.length).to.eql(3);",
+                  "    });",
+                  "});",
+                  "",
+                  "// 14. Verify distances are non-negative numbers",
+                  "pm.test(\"Distances are non-negative numbers\", function () {",
+                  "    jsonData.data.forEach(function(slot) {",
+                  "        slot.distances.forEach(function(distance) {",
+                  "            pm.expect(distance).to.be.at.least(0);",
+                  "        });",
+                  "    });",
+                  "});",
+                  "",
+                  "// 15. Verify available is boolean",
+                  "pm.test(\"Available is boolean for all slots\", function () {",
+                  "    jsonData.data.forEach(function(slot) {",
+                  "        pm.expect(slot.available).to.be.a('boolean');",
+                  "    });",
+                  "});",
+                  "",
+                  "// 16. Verify no duplicate slot labels",
+                  "pm.test(\"No duplicate slot labels\", function () {",
+                  "    const slotLabels = jsonData.data.map(s => s.slot_label);",
+                  "    const uniqueLabels = [...new Set(slotLabels)];",
+                  "    pm.expect(slotLabels.length).to.eql(uniqueLabels.length);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Available Slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/slots/available?vehicle_type=S&entry_point_id=A",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "slots",
+                "available"
+              ],
+              "query": [
+                {
+                  "key": "vehicle_type",
+                  "value": "S",
+                  "description": "Vehicle type: S (Small), M (Medium), or L (Large)"
+                },
+                {
+                  "key": "entry_point_id",
+                  "value": "A",
+                  "description": "Entry point identifier (e.g., A, B, C)"
+                }
+              ]
+            },
+            "description": "Get available slots for a specific vehicle type from a specific entry point, sorted by distance."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/slots/available?vehicle_type=S&entry_point_id=A",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "slots",
+                    "available"
+                  ],
+                  "query": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "S"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "A"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"available_slots\": [\n      {\n        \"id\": \"1\",\n        \"slot_label\": \"SP-1\",\n        \"slot_type\": \"SP\",\n        \"distances\": [10, 20, 30],\n        \"available\": true\n      },\n      {\n        \"id\": \"2\",\n        \"slot_label\": \"SP-2\",\n        \"slot_type\": \"SP\",\n        \"distances\": [15, 25, 35],\n        \"available\": true\n      }\n    ],\n    \"total_available\": 2\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Available Slots",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. Verify response has success field",
+                  "pm.test(\"Response has success field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('success');",
+                  "});",
+                  "",
+                  "// 6. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 7. Verify response has data field",
+                  "pm.test(\"Response has data field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "});",
+                  "",
+                  "// 8. Verify data has available_slots",
+                  "pm.test(\"Data has available_slots\", function () {",
+                  "    pm.expect(jsonData.data).to.have.property('available_slots');",
+                  "});",
+                  "",
+                  "// 9. Verify data has total_available",
+                  "pm.test(\"Data has total_available\", function () {",
+                  "    pm.expect(jsonData.data).to.have.property('total_available');",
+                  "});",
+                  "",
+                  "// 10. Verify available_slots is an array",
+                  "pm.test(\"available_slots is an array\", function () {",
+                  "    pm.expect(jsonData.data.available_slots).to.be.an('array');",
+                  "});",
+                  "",
+                  "// 11. Verify total_available is a number",
+                  "pm.test(\"total_available is a number\", function () {",
+                  "    pm.expect(jsonData.data.total_available).to.be.a('number');",
+                  "});",
+                  "",
+                  "// 12. Verify total_available is non-negative",
+                  "pm.test(\"total_available is non-negative\", function () {",
+                  "    pm.expect(jsonData.data.total_available).to.be.at.least(0);",
+                  "});",
+                  "",
+                  "// 13. Verify total_available matches array length",
+                  "pm.test(\"total_available matches available_slots length\", function () {",
+                  "    pm.expect(jsonData.data.total_available).to.eql(jsonData.data.available_slots.length);",
+                  "});",
+                  "",
+                  "// 14. Verify each slot has required fields",
+                  "pm.test(\"Each slot has required fields\", function () {",
+                  "    jsonData.data.available_slots.forEach(function(slot) {",
+                  "        pm.expect(slot).to.have.property('id');",
+                  "        pm.expect(slot).to.have.property('slot_label');",
+                  "        pm.expect(slot).to.have.property('slot_type');",
+                  "        pm.expect(slot).to.have.property('distances');",
+                  "        pm.expect(slot).to.have.property('available');",
+                  "    });",
+                  "});",
+                  "",
+                  "// 15. Verify all slots are available",
+                  "pm.test(\"All slots are available\", function () {",
+                  "    jsonData.data.available_slots.forEach(function(slot) {",
+                  "        pm.expect(slot.available).to.be.true;",
+                  "    });",
+                  "});",
+                  "",
+                  "// 16. Verify slot types match the requested vehicle type",
+                  "pm.test(\"Slot types match requested vehicle type\", function () {",
+                  "    const vehicleType = pm.request.url.query.get('vehicle_type');",
+                  "    const expectedSlotType = vehicleType === 'S' ? 'SP' : vehicleType === 'M' ? 'MP' : 'LP';",
+                  "    jsonData.data.available_slots.forEach(function(slot) {",
+                  "        pm.expect(slot.slot_type).to.eql(expectedSlotType);",
+                  "    });",
+                  "});",
+                  "",
+                  "// 17. Verify distances is an array with 3 values",
+                  "pm.test(\"Distances is an array with 3 values for all slots\", function () {",
+                  "    jsonData.data.available_slots.forEach(function(slot) {",
+                  "        pm.expect(slot.distances).to.be.an('array');",
+                  "        pm.expect(slot.distances.length).to.eql(3);",
+                  "    });",
+                  "});",
+                  "",
+                  "// 18. Verify distances are non-negative",
+                  "pm.test(\"Distances are non-negative for all slots\", function () {",
+                  "    jsonData.data.available_slots.forEach(function(slot) {",
+                  "        slot.distances.forEach(function(distance) {",
+                  "            pm.expect(distance).to.be.at.least(0);",
+                  "        });",
+                  "    });",
+                  "});",
+                  "",
+                  "// 19. Verify slots are sorted by distance from the specified entry point",
+                  "pm.test(\"Slots are sorted by distance from entry point\", function () {",
+                  "    const entryPointId = pm.request.url.query.get('entry_point_id');",
+                  "    const entryPointIndex = entryPointId === 'A' ? 0 : entryPointId === 'B' ? 1 : 2;",
+                  "    const distances = jsonData.data.available_slots.map(slot => slot.distances[entryPointIndex]);",
+                  "    for (let i = 1; i < distances.length; i++) {",
+                  "        pm.expect(distances[i]).to.be.at.least(distances[i - 1]);",
+                  "    }",
+                  "});",
+                  "",
+                  "// 20. Verify no duplicate slot labels",
+                  "pm.test(\"No duplicate slot labels\", function () {",
+                  "    const slotLabels = jsonData.data.available_slots.map(s => s.slot_label);",
+                  "    const uniqueLabels = [...new Set(slotLabels)];",
+                  "    pm.expect(slotLabels.length).to.eql(uniqueLabels.length);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Available Slots - Entry Point B",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/slots/available?vehicle_type=M&entry_point_id=B",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "slots",
+                "available"
+              ],
+              "query": [
+                {
+                  "key": "vehicle_type",
+                  "value": "M",
+                  "description": "Vehicle type: S (Small), M (Medium), or L (Large)"
+                },
+                {
+                  "key": "entry_point_id",
+                  "value": "B",
+                  "description": "Entry point identifier (e.g., A, B, C)"
+                }
+              ]
+            },
+            "description": "Get available medium vehicle slots from entry point B - tests filtering by entry point."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Available Slots - Entry Point B",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. Verify response has success field",
+                  "pm.test(\"Response has success field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('success');",
+                  "});",
+                  "",
+                  "// 6. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 7. Verify response has data field",
+                  "pm.test(\"Response has data field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "});",
+                  "",
+                  "// 8. Verify data has available_slots",
+                  "pm.test(\"Data has available_slots\", function () {",
+                  "    pm.expect(jsonData.data).to.have.property('available_slots');",
+                  "});",
+                  "",
+                  "// 9. Verify data has total_available",
+                  "pm.test(\"Data has total_available\", function () {",
+                  "    pm.expect(jsonData.data).to.have.property('total_available');",
+                  "});",
+                  "",
+                  "// 10. Verify available_slots is an array",
+                  "pm.test(\"available_slots is an array\", function () {",
+                  "    pm.expect(jsonData.data.available_slots).to.be.an('array');",
+                  "});",
+                  "",
+                  "// 11. Verify total_available is a number",
+                  "pm.test(\"total_available is a number\", function () {",
+                  "    pm.expect(jsonData.data.total_available).to.be.a('number');",
+                  "});",
+                  "",
+                  "// 12. Verify total_available is non-negative",
+                  "pm.test(\"total_available is non-negative\", function () {",
+                  "    pm.expect(jsonData.data.total_available).to.be.at.least(0);",
+                  "});",
+                  "",
+                  "// 13. Verify total_available matches array length",
+                  "pm.test(\"total_available matches available_slots length\", function () {",
+                  "    pm.expect(jsonData.data.total_available).to.eql(jsonData.data.available_slots.length);",
+                  "});",
+                  "",
+                  "// 14. Verify each slot has required fields",
+                  "pm.test(\"Each slot has required fields\", function () {",
+                  "    jsonData.data.available_slots.forEach(function(slot) {",
+                  "        pm.expect(slot).to.have.property('id');",
+                  "        pm.expect(slot).to.have.property('slot_label');",
+                  "        pm.expect(slot).to.have.property('slot_type');",
+                  "        pm.expect(slot).to.have.property('distances');",
+                  "        pm.expect(slot).to.have.property('available');",
+                  "    });",
+                  "});",
+                  "",
+                  "// 15. Verify all slots are available",
+                  "pm.test(\"All slots are available\", function () {",
+                  "    jsonData.data.available_slots.forEach(function(slot) {",
+                  "        pm.expect(slot.available).to.be.true;",
+                  "    });",
+                  "});",
+                  "",
+                  "// 16. Verify slot types match the requested vehicle type (MP for M)",
+                  "pm.test(\"Slot types match requested vehicle type\", function () {",
+                  "    jsonData.data.available_slots.forEach(function(slot) {",
+                  "        pm.expect(slot.slot_type).to.eql('MP');",
+                  "    });",
+                  "});",
+                  "",
+                  "// 17. Verify distances is an array with 3 values",
+                  "pm.test(\"Distances is an array with 3 values for all slots\", function () {",
+                  "    jsonData.data.available_slots.forEach(function(slot) {",
+                  "        pm.expect(slot.distances).to.be.an('array');",
+                  "        pm.expect(slot.distances.length).to.eql(3);",
+                  "    });",
+                  "});",
+                  "",
+                  "// 18. Verify distances are non-negative",
+                  "pm.test(\"Distances are non-negative for all slots\", function () {",
+                  "    jsonData.data.available_slots.forEach(function(slot) {",
+                  "        slot.distances.forEach(function(distance) {",
+                  "            pm.expect(distance).to.be.at.least(0);",
+                  "        });",
+                  "    });",
+                  "});",
+                  "",
+                  "// 19. Verify slots are sorted by distance from entry point B (index 1)",
+                  "pm.test(\"Slots are sorted by distance from entry point B\", function () {",
+                  "    const entryPointIndex = 1; // B is at index 1",
+                  "    const distances = jsonData.data.available_slots.map(slot => slot.distances[entryPointIndex]);",
+                  "    for (let i = 1; i < distances.length; i++) {",
+                  "        pm.expect(distances[i]).to.be.at.least(distances[i - 1]);",
+                  "    }",
+                  "});",
+                  "",
+                  "// 20. Verify no duplicate slot labels",
+                  "pm.test(\"No duplicate slot labels\", function () {",
+                  "    const slotLabels = jsonData.data.available_slots.map(s => s.slot_label);",
+                  "    const uniqueLabels = [...new Set(slotLabels)];",
+                  "    pm.expect(slotLabels.length).to.eql(uniqueLabels.length);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Green Flow",
+      "item": [
+        {
+          "name": "Initialize System",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entry_points\": [\n    {\"identifier\": \"A\", \"name\": \"Entry Point A\"},\n    {\"identifier\": \"B\", \"name\": \"Entry Point B\"},\n    {\"identifier\": \"C\", \"name\": \"Entry Point C\"}\n  ],\n  \"parking_slots\": [\n    {\"slot_label\": \"SP-1\", \"slot_type\": \"SP\", \"distances\": [1, 4, 5]},\n    {\"slot_label\": \"SP-2\", \"slot_type\": \"SP\", \"distances\": [3, 2, 4]},\n    {\"slot_label\": \"SP-3\", \"slot_type\": \"SP\", \"distances\": [4, 1, 3]},\n    {\"slot_label\": \"MP-1\", \"slot_type\": \"MP\", \"distances\": [5, 2, 3]},\n    {\"slot_label\": \"MP-2\", \"slot_type\": \"MP\", \"distances\": [6, 3, 1]},\n    {\"slot_label\": \"LP-1\", \"slot_type\": \"LP\", \"distances\": [7, 4, 2]},\n    {\"slot_label\": \"LP-2\", \"slot_type\": \"LP\", \"distances\": [2, 5, 6]}\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/initialize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "initialize"
+              ]
+            },
+            "description": "Initialize parking system with entry points and parking slots based on specification."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"entry_points\": [\n    {\"identifier\": \"A\", \"name\": \"Entry Point A\"},\n    {\"identifier\": \"B\", \"name\": \"Entry Point B\"},\n    {\"identifier\": \"C\", \"name\": \"Entry Point C\"}\n  ],\n  \"parking_slots\": [\n    {\"slot_label\": \"SP-1\", \"slot_type\": \"SP\", \"distances\": [1, 4, 5]},\n    {\"slot_label\": \"SP-2\", \"slot_type\": \"SP\", \"distances\": [3, 2, 4]},\n    {\"slot_label\": \"SP-3\", \"slot_type\": \"SP\", \"distances\": [4, 1, 3]},\n    {\"slot_label\": \"MP-1\", \"slot_type\": \"MP\", \"distances\": [5, 2, 3]},\n    {\"slot_label\": \"MP-2\", \"slot_type\": \"MP\", \"distances\": [6, 3, 1]},\n    {\"slot_label\": \"LP-1\", \"slot_type\": \"LP\", \"distances\": [7, 4, 2]},\n    {\"slot_label\": \"LP-2\", \"slot_type\": \"LP\", \"distances\": [2, 5, 6]}\n  ]\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/initialize",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "initialize"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"entry_points_created\": 3,\n    \"parking_slots_created\": 7,\n    \"message\": \"System initialized successfully\"\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Initialize System",
+                  "",
+                  "// 1. Verify status code is 201",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "// 2. Verify response time is reasonable (< 500ms)",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "// 3. Verify Content-Type header",
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// 4. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 5. Verify response has success field",
+                  "pm.test(\"Response has success field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('success');",
+                  "});",
+                  "",
+                  "// 6. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 7. Verify response has data field",
+                  "pm.test(\"Response has data field\", function () {",
+                  "    pm.expect(jsonData).to.have.property('data');",
+                  "});",
+                  "",
+                  "// 8. Verify entry points were created (minimum 3)",
+                  "pm.test(\"At least 3 entry points created\", function () {",
+                  "    pm.expect(jsonData.data.entry_points_created).to.be.at.least(3);",
+                  "});",
+                  "",
+                  "// 9. Verify parking slots were created",
+                  "pm.test(\"Parking slots created\", function () {",
+                  "    pm.expect(jsonData.data.parking_slots_created).to.be.at.least(1);",
+                  "});",
+                  "",
+                  "// 10. Verify message is present",
+                  "pm.test(\"Initialization message is present\", function () {",
+                  "    pm.expect(jsonData.data).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Green Flow - Small Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "vehicle_type",
+                  "value": "S",
+                  "description": "Small vehicle"
+                },
+                {
+                  "key": "entry_point_id",
+                  "value": "A",
+                  "description": "Entry point A"
+                },
+                {
+                  "key": "parked_at",
+                  "value": "2024-01-15T10:30:00Z",
+                  "description": "Parked at time for testing"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions"
+              ]
+            },
+            "description": "Park a small vehicle at entry point A - should get closest SP slot (SP-1 at distance 1)."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "S"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "A"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-123\",\n    \"vehicle_type\": \"S\",\n    \"parking_slot\": {\n      \"id\": \"1\",\n      \"slot_label\": \"SP-1\",\n      \"slot_type\": \"SP\"\n    },\n    \"entry_point\": \"A\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"is_active\": true\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Green Flow - Small Vehicle Park",
+                  "",
+                  "// 1. Verify status code is 201",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "// 2. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Verify vehicle type is S",
+                  "pm.test(\"Vehicle type is S\", function () {",
+                  "    pm.expect(jsonData.data.vehicle_type).to.eql('S');",
+                  "});",
+                  "",
+                  "// 5. Verify slot type is SP",
+                  "pm.test(\"Slot type is SP\", function () {",
+                  "    pm.expect(jsonData.data.parking_slot.slot_type).to.eql('SP');",
+                  "});",
+                  "",
+                  "// 6. Verify entry point is A",
+                  "pm.test(\"Entry point is A\", function () {",
+                  "    pm.expect(jsonData.data.entry_point.identifier || jsonData.data.entry_point).to.eql('A');",
+                  "});",
+                  "",
+                  "// 7. Verify is_active is true",
+                  "pm.test(\"Session is active\", function () {",
+                  "    pm.expect(jsonData.data.is_active).to.be.true;",
+                  "});",
+                  "",
+                  "// 8. Store session_id for unpark test",
+                  "pm.collectionVariables.set(\"session_id\", jsonData.data.session_id);",
+                  "pm.collectionVariables.set(\"small_vehicle_session_id\", jsonData.data.session_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unpark Small Vehicle (2 hours - flat rate)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/{{small_vehicle_session_id}}/unpark",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions",
+                "{{small_vehicle_session_id}}",
+                "unpark"
+              ],
+              "query": [
+                {
+                  "key": "exited_at",
+                  "value": "2024-01-15T12:30:00Z",
+                  "description": "Exit time for testing purposes"
+                }
+              ]
+            },
+            "description": "Unpark small vehicle after 2 hours - should charge flat rate of 40 pesos."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions/session-123/unpark",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions",
+                    "session-123",
+                    "unpark"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-123\",\n    \"vehicle_type\": \"S\",\n    \"parking_slot\": {\n      \"id\": \"1\",\n      \"slot_label\": \"SP-1\",\n      \"slot_type\": \"SP\"\n    },\n    \"entry_point\": \"A\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"exited_at\": \"2024-01-15T12:30:00Z\",\n    \"duration_hours\": 2,\n    \"total_fee\": 40.0,\n    \"fee_breakdown\": {\n      \"total_fee\": 40.0,\n      \"duration_hours\": 2,\n      \"is_continuous\": false,\n      \"long_term\": {\n        \"days\": 0,\n        \"fee\": 0.0\n      },\n      \"remaining\": {\n        \"total\": 40.0,\n        \"base_fee\": 40.0,\n        \"exceeding_hours\": 0,\n        \"exceeding_fee\": 0.0\n      }\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Set test times for Unpark Small Vehicle (2 hours - flat rate)",
+                  "const parkedAt = '2024-01-15T10:30:00Z';",
+                  "const exitedAt = '2024-01-15T12:30:00Z';",
+                  "",
+                  "// Store times for the park request",
+                  "pm.collectionVariables.set('test_parked_at', parkedAt);",
+                  "pm.collectionVariables.set('test_exited_at', exitedAt);",
+                  "",
+                  "// For park requests that create sessions, set the parked_at time",
+                  "// This ensures the backend uses the correct time for duration calculation"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Unpark Small Vehicle (2 hours)",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Verify total_fee is 40.0 (flat rate for 3 hours)",
+                  "pm.test(\"Total fee is 40.0\", function () {",
+                  "    pm.expect(jsonData.data.total_fee).to.eql(40.0);",
+                  "});",
+                  "",
+                  "// 5. Verify duration_hours is 2",
+                  "pm.test(\"Duration is 2 hours\", function () {",
+                  "    pm.expect(jsonData.data.duration_hours).to.eql(2.0);",
+                  "});",
+                  "",
+                  "// 6. Verify base_fee is 40.0",
+                  "pm.test(\"Base fee is 40.0\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.base_fee).to.eql(40.0);",
+                  "});",
+                  "",
+                  "// 7. Verify exceeding_hours is 0",
+                  "pm.test(\"Exceeding hours is 0\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.exceeding_hours).to.eql(0);",
+                  "});",
+                  "",
+                  "// 8. Verify exceeding_fee is 0.0",
+                  "pm.test(\"Exceeding fee is 0.0\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.exceeding_fee).to.eql(0.0);",
+                  "});",
+                  "",
+                  "// 9. Verify is_continuous is false",
+                  "pm.test('Is continuous is true', function () {",
+                  "    pm.expect(jsonData.data.is_continuous).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Green Flow - Medium Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "vehicle_type",
+                  "value": "M",
+                  "description": "Medium vehicle"
+                },
+                {
+                  "key": "entry_point_id",
+                  "value": "B",
+                  "description": "Entry point B"
+                },
+                {
+                  "key": "parked_at",
+                  "value": "2024-01-15T10:30:00Z",
+                  "description": "Parked at time for testing"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions"
+              ]
+            },
+            "description": "Park a medium vehicle at entry point B - should get closest MP slot (MP-1 at distance 2)."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "M"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "B"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-456\",\n    \"vehicle_type\": \"M\",\n    \"parking_slot\": {\n      \"id\": \"4\",\n      \"slot_label\": \"MP-1\",\n      \"slot_type\": \"MP\"\n    },\n    \"entry_point\": \"B\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"is_active\": true\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Green Flow - Medium Vehicle Park",
+                  "",
+                  "// 1. Verify status code is 201",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "// 2. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Verify vehicle type is M",
+                  "pm.test(\"Vehicle type is M\", function () {",
+                  "    pm.expect(jsonData.data.vehicle_type).to.eql('M');",
+                  "});",
+                  "",
+                  "// 5. Verify slot type is MP",
+                  "pm.test(\"Slot type is MP\", function () {",
+                  "    pm.expect(jsonData.data.parking_slot.slot_type).to.eql('MP');",
+                  "});",
+                  "",
+                  "// 6. Verify entry point is B",
+                  "pm.test(\"Entry point is B\", function () {",
+                  "    pm.expect(jsonData.data.entry_point.identifier || jsonData.data.entry_point).to.eql('B');",
+                  "});",
+                  "",
+                  "// 7. Store session_id for unpark test",
+                  "pm.collectionVariables.set(\"session_id\", jsonData.data.session_id);",
+                  "pm.collectionVariables.set(\"medium_vehicle_session_id\", jsonData.data.session_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unpark Medium Vehicle (5 hours - hourly rate)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/{{medium_vehicle_session_id}}/unpark",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions",
+                "{{medium_vehicle_session_id}}",
+                "unpark"
+              ],
+              "query": [
+                {
+                  "key": "exited_at",
+                  "value": "2024-01-15T15:30:00Z",
+                  "description": "Exit time for testing purposes"
+                }
+              ]
+            },
+            "description": "Unpark medium vehicle after 5 hours - should charge 40 (base) + 2*60 (2 hours at 60/hour) = 160 pesos."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions/session-456/unpark",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions",
+                    "session-456",
+                    "unpark"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-456\",\n    \"vehicle_type\": \"M\",\n    \"parking_slot\": {\n      \"id\": \"4\",\n      \"slot_label\": \"MP-1\",\n      \"slot_type\": \"MP\"\n    },\n    \"entry_point\": \"B\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"exited_at\": \"2024-01-15T15:30:00Z\",\n    \"duration_hours\": 5,\n    \"total_fee\": 160.0,\n    \"fee_breakdown\": {\n      \"total_fee\": 160.0,\n      \"duration_hours\": 5,\n      \"is_continuous\": false,\n      \"long_term\": {\n        \"days\": 0,\n        \"fee\": 0.0\n      },\n      \"remaining\": {\n        \"total\": 160.0,\n        \"base_fee\": 40.0,\n        \"exceeding_hours\": 2,\n        \"exceeding_fee\": 120.0\n      }\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Set test times for Unpark Medium Vehicle (5 hours - hourly rate)",
+                  "const parkedAt = '2024-01-15T10:30:00Z';",
+                  "const exitedAt = '2024-01-15T15:30:00Z';",
+                  "",
+                  "// Store times for the park request",
+                  "pm.collectionVariables.set('test_parked_at', parkedAt);",
+                  "pm.collectionVariables.set('test_exited_at', exitedAt);",
+                  "",
+                  "// For park requests that create sessions, set the parked_at time",
+                  "// This ensures the backend uses the correct time for duration calculation"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Unpark Medium Vehicle (5 hours)",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Verify total_fee is 160.0 (40 base + 2*60)",
+                  "pm.test(\"Total fee is 160.0\", function () {",
+                  "    pm.expect(jsonData.data.total_fee).to.eql(160.0);",
+                  "});",
+                  "",
+                  "// 5. Verify duration_hours is 5",
+                  "pm.test(\"Duration is 5 hours\", function () {",
+                  "    pm.expect(jsonData.data.duration_hours).to.eql(5.0);",
+                  "});",
+                  "",
+                  "// 6. Verify base_fee is 40.0",
+                  "pm.test(\"Base fee is 40.0\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.base_fee).to.eql(40.0);",
+                  "});",
+                  "",
+                  "// 7. Verify exceeding_hours is 2",
+                  "pm.test(\"Exceeding hours is 2\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.exceeding_hours).to.eql(2);",
+                  "});",
+                  "",
+                  "// 8. Verify exceeding_fee is 120.0 (2*60)",
+                  "pm.test(\"Exceeding fee is 120.0\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.exceeding_fee).to.eql(120.0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Green Flow - Large Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "vehicle_type",
+                  "value": "L",
+                  "description": "Large vehicle"
+                },
+                {
+                  "key": "entry_point_id",
+                  "value": "C",
+                  "description": "Entry point C"
+                },
+                {
+                  "key": "parked_at",
+                  "value": "2024-01-15T10:30:00Z",
+                  "description": "Parked at time for testing"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions"
+              ]
+            },
+            "description": "Park a large vehicle at entry point C - should get closest LP slot (LP-1 at distance 2)."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "L"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "C"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-789\",\n    \"vehicle_type\": \"L\",\n    \"parking_slot\": {\n      \"id\": \"6\",\n      \"slot_label\": \"LP-1\",\n      \"slot_type\": \"LP\"\n    },\n    \"entry_point\": \"C\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"is_active\": true\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Green Flow - Large Vehicle Park",
+                  "",
+                  "// 1. Verify status code is 201",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "// 2. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Verify vehicle type is L",
+                  "pm.test(\"Vehicle type is L\", function () {",
+                  "    pm.expect(jsonData.data.vehicle_type).to.eql('L');",
+                  "});",
+                  "",
+                  "// 5. Verify slot type is LP",
+                  "pm.test(\"Slot type is LP\", function () {",
+                  "    pm.expect(jsonData.data.parking_slot.slot_type).to.eql('LP');",
+                  "});",
+                  "",
+                  "// 6. Verify entry point is C",
+                  "pm.test(\"Entry point is C\", function () {",
+                  "    pm.expect(jsonData.data.entry_point.identifier || jsonData.data.entry_point).to.eql('C');",
+                  "});",
+                  "",
+                  "// 7. Store session_id for unpark test",
+                  "pm.collectionVariables.set(\"session_id\", jsonData.data.session_id);",
+                  "pm.collectionVariables.set(\"large_vehicle_session_id\", jsonData.data.session_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unpark Large Vehicle (4 hours - hourly rate)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/{{large_vehicle_session_id}}/unpark",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions",
+                "{{large_vehicle_session_id}}",
+                "unpark"
+              ],
+              "query": [
+                {
+                  "key": "exited_at",
+                  "value": "2024-01-15T14:30:00Z",
+                  "description": "Exit time for testing purposes"
+                }
+              ]
+            },
+            "description": "Unpark large vehicle after 4 hours - should charge 40 (base) + 1*100 (1 hour at 100/hour) = 140 pesos."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions/session-789/unpark",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions",
+                    "session-789",
+                    "unpark"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-789\",\n    \"vehicle_type\": \"L\",\n    \"parking_slot\": {\n      \"id\": \"6\",\n      \"slot_label\": \"LP-1\",\n      \"slot_type\": \"LP\"\n    },\n    \"entry_point\": \"C\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"exited_at\": \"2024-01-15T14:30:00Z\",\n    \"duration_hours\": 4,\n    \"total_fee\": 140.0,\n    \"fee_breakdown\": {\n      \"total_fee\": 140.0,\n      \"duration_hours\": 4,\n      \"is_continuous\": false,\n      \"long_term\": {\n        \"days\": 0,\n        \"fee\": 0.0\n      },\n      \"remaining\": {\n        \"total\": 140.0,\n        \"base_fee\": 40.0,\n        \"exceeding_hours\": 1,\n        \"exceeding_fee\": 100.0\n      }\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Set test times for Unpark Large Vehicle (4 hours - hourly rate)",
+                  "const parkedAt = '2024-01-15T10:30:00Z';",
+                  "const exitedAt = '2024-01-15T14:30:00Z';",
+                  "",
+                  "// Store times for the park request",
+                  "pm.collectionVariables.set('test_parked_at', parkedAt);",
+                  "pm.collectionVariables.set('test_exited_at', exitedAt);",
+                  "",
+                  "// For park requests that create sessions, set the parked_at time",
+                  "// This ensures the backend uses the correct time for duration calculation"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Unpark Large Vehicle (4 hours)",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Verify total_fee is 140.0 (40 base + 1*100)",
+                  "pm.test(\"Total fee is 140.0\", function () {",
+                  "    pm.expect(jsonData.data.total_fee).to.eql(140.0);",
+                  "});",
+                  "",
+                  "// 5. Verify duration_hours is 4",
+                  "pm.test(\"Duration is 4 hours\", function () {",
+                  "    pm.expect(jsonData.data.duration_hours).to.eql(4.0);",
+                  "});",
+                  "",
+                  "// 6. Verify base_fee is 40.0",
+                  "pm.test(\"Base fee is 40.0\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.base_fee).to.eql(40.0);",
+                  "});",
+                  "",
+                  "// 7. Verify exceeding_hours is 1",
+                  "pm.test(\"Exceeding hours is 1\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.exceeding_hours).to.eql(1);",
+                  "});",
+                  "",
+                  "// 8. Verify exceeding_fee is 100.0 (1*100)",
+                  "pm.test(\"Exceeding fee is 100.0\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.exceeding_fee).to.eql(100.0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Green Flow - Long-term Parking (26 hours)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "vehicle_type",
+                  "value": "L",
+                  "description": "Large vehicle"
+                },
+                {
+                  "key": "entry_point_id",
+                  "value": "A",
+                  "description": "Entry point A"
+                },
+                {
+                  "key": "parked_at",
+                  "value": "2024-01-15T10:30:00Z",
+                  "description": "Parked at time for testing"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions"
+              ]
+            },
+            "description": "Park a large vehicle for long-term test - 26 hours (1 full 24-hour chunk + 2 hours)."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "L"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "A"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-longterm\",\n    \"vehicle_type\": \"L\",\n    \"parking_slot\": {\n      \"id\": \"7\",\n      \"slot_label\": \"LP-2\",\n      \"slot_type\": \"LP\"\n    },\n    \"entry_point\": \"A\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"is_active\": true\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Green Flow - Long-term Parking",
+                  "",
+                  "// 1. Verify status code is 201",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "// 2. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Store session_id for unpark test",
+                  "pm.collectionVariables.set(\"session_id\", jsonData.data.session_id);",
+                  "pm.collectionVariables.set(\"longterm_session_id\", jsonData.data.session_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unpark Long-term Vehicle (26 hours - 5000 + 40)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/{{longterm_session_id}}/unpark",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions",
+                "{{longterm_session_id}}",
+                "unpark"
+              ],
+              "query": [
+                {
+                  "key": "exited_at",
+                  "value": "2024-01-16T12:30:00Z",
+                  "description": "Exit time for testing purposes"
+                }
+              ]
+            },
+            "description": "Unpark after 26 hours - should charge 5000 (24h) + 40 (base for 2h) = 5040 pesos."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions/session-longterm/unpark",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions",
+                    "session-longterm",
+                    "unpark"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-longterm\",\n    \"vehicle_type\": \"L\",\n    \"parking_slot\": {\n      \"id\": \"7\",\n      \"slot_label\": \"LP-2\",\n      \"slot_type\": \"LP\"\n    },\n    \"entry_point\": \"A\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"exited_at\": \"2024-01-16T12:30:00Z\",\n    \"duration_hours\": 26,\n    \"total_fee\": 5040.0,\n    \"fee_breakdown\": {\n      \"total_fee\": 5040.0,\n      \"duration_hours\": 26,\n      \"is_continuous\": false,\n      \"long_term\": {\n        \"days\": 1,\n        \"fee\": 5000.0\n      },\n      \"remaining\": {\n        \"total\": 40.0,\n        \"base_fee\": 40.0,\n        \"exceeding_hours\": 0,\n        \"exceeding_fee\": 0.0\n      }\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Set test times for Unpark Long-term Vehicle (26 hours - 5000 + 40)",
+                  "const parkedAt = '2024-01-15T10:30:00Z';",
+                  "const exitedAt = '2024-01-16T12:30:00Z';",
+                  "",
+                  "// Store times for the park request",
+                  "pm.collectionVariables.set('test_parked_at', parkedAt);",
+                  "pm.collectionVariables.set('test_exited_at', exitedAt);",
+                  "",
+                  "// For park requests that create sessions, set the parked_at time",
+                  "// This ensures the backend uses the correct time for duration calculation"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Unpark Long-term Vehicle (26 hours)",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Verify total_fee is 5040.0 (5000 + 40)",
+                  "pm.test(\"Total fee is 5040.0\", function () {",
+                  "    pm.expect(jsonData.data.total_fee).to.eql(5040.0);",
+                  "});",
+                  "",
+                  "// 5. Verify duration_hours is 26",
+                  "pm.test(\"Duration is 26 hours\", function () {",
+                  "    pm.expect(jsonData.data.duration_hours).to.eql(26.0);",
+                  "});",
+                  "",
+                  "// 6. Verify long_term days is 1",
+                  "pm.test(\"Long-term days is 1\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.long_term.days).to.eql(1);",
+                  "});",
+                  "",
+                  "// 7. Verify long_term fee is 5000.0",
+                  "pm.test(\"Long-term fee is 5000.0\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.long_term.fee).to.eql(5000.0);",
+                  "});",
+                  "",
+                  "// 8. Verify remaining total is 40.0",
+                  "pm.test(\"Remaining total is 40.0\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.total).to.eql(40.0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Green Flow - Continuous Parking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "vehicle_type",
+                  "value": "S",
+                  "description": "Small vehicle"
+                },
+                {
+                  "key": "entry_point_id",
+                  "value": "A",
+                  "description": "Entry point A"
+                },
+                {
+                  "key": "parked_at",
+                  "value": "2024-01-15T10:30:00Z",
+                  "description": "Parked at time for testing"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions"
+              ]
+            },
+            "description": "Park small vehicle for continuous parking test - second visit within 1 hour."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "S"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "A"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-continuous-2\",\n    \"vehicle_type\": \"S\",\n    \"parking_slot\": {\n      \"id\": \"2\",\n      \"slot_label\": \"SP-2\",\n      \"slot_type\": \"SP\"\n    },\n    \"entry_point\": \"A\",\n    \"parked_at\": \"2024-01-15T11:00:00Z\",\n    \"is_active\": true,\n    \"is_continuous\": true\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Create a previous session that exited within 1 hour to test continuous parking",
+                  "// Use a unique vehicle type to avoid affecting other tests",
+                  "const previousSessionData = {",
+                  "    vehicle_type: 'S',",
+                  "    entry_point_id: 'A',",
+                  "    parked_at: '2024-01-15T09:45:00Z'  // 45 minutes before the new session",
+                  "};",
+                  "",
+                  "// Create the previous session",
+                  "pm.sendRequest({",
+                  "    url: pm.variables.get('base_url') + '/api/v1/sessions',",
+                  "    method: 'POST',",
+                  "    header: {",
+                  "        'Content-Type': 'application/x-www-form-urlencoded'",
+                  "    },",
+                  "    body: {",
+                  "        mode: 'urlencoded',",
+                  "        urlencoded: [",
+                  "            { key: 'vehicle_type', value: previousSessionData.vehicle_type },",
+                  "            { key: 'entry_point_id', value: previousSessionData.entry_point_id },",
+                  "            { key: 'parked_at', value: previousSessionData.parked_at }",
+                  "        ]",
+                  "    }",
+                  "}, function (err, res) {",
+                  "    if (err) {",
+                  "        console.log('Error creating previous session:', err);",
+                  "    } else if (res.code === 201) {",
+                  "        const jsonData = res.json();",
+                  "        const sessionId = jsonData.data.session_id;",
+                  "        console.log('Created previous session:', sessionId);",
+                  "        ",
+                  "        // Unpark the previous session within 1 hour",
+                  "        pm.sendRequest({",
+                  "            url: pm.variables.get('base_url') + '/api/v1/sessions/' + sessionId + '/unpark?exited_at=2024-01-15T10:15:00Z',",
+                  "            method: 'POST'",
+                  "        }, function (err, res) {",
+                  "            if (err) {",
+                  "                console.log('Error unparking previous session:', err);",
+                  "            } else {",
+                  "                console.log('Unparked previous session');",
+                  "            }",
+                  "        });",
+                  "    } else {",
+                  "        console.log('Failed to create previous session:', res.code);",
+                  "    }",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test script for Green Flow - Continuous Parking",
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Success is true', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Is continuous is true', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.is_continuous).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Green Flow - Hour Rounding (6.4 hours)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "vehicle_type",
+                  "value": "S",
+                  "description": "Small vehicle"
+                },
+                {
+                  "key": "entry_point_id",
+                  "value": "A",
+                  "description": "Entry point A"
+                },
+                {
+                  "key": "parked_at",
+                  "value": "2024-01-15T11:20:00Z",
+                  "description": "Parked at time for testing"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions"
+              ]
+            },
+            "description": "Park small vehicle for hour rounding test - 6.4 hours should round up to 7 hours."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "S"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "A"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-rounding\",\n    \"vehicle_type\": \"S\",\n    \"parking_slot\": {\n      \"id\": \"3\",\n      \"slot_label\": \"SP-3\",\n      \"slot_type\": \"SP\"\n    },\n    \"entry_point\": \"A\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"is_active\": true\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Green Flow - Hour Rounding",
+                  "",
+                  "// 1. Verify status code is 201",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "// 2. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Store session_id for unpark test",
+                  "pm.collectionVariables.set(\"session_id\", jsonData.data.session_id);",
+                  "pm.collectionVariables.set(\"rounding_session_id\", jsonData.data.session_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unpark Rounding Test (6.4h -> 7h, fee: 120)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/{{rounding_session_id}}/unpark",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions",
+                "{{rounding_session_id}}",
+                "unpark"
+              ],
+              "query": [
+                {
+                  "key": "exited_at",
+                  "value": "2024-01-15T17:44:00Z",
+                  "description": "Exit time for testing purposes"
+                }
+              ]
+            },
+            "description": "Unpark after 6.4 hours - should round to 7 hours and charge 40 (base) + 4*20 = 120 pesos."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions/session-rounding/unpark",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions",
+                    "session-rounding",
+                    "unpark"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"session_id\": \"session-rounding\",\n    \"vehicle_type\": \"S\",\n    \"parking_slot\": {\n      \"id\": \"3\",\n      \"slot_label\": \"SP-3\",\n      \"slot_type\": \"SP\"\n    },\n    \"entry_point\": \"A\",\n    \"parked_at\": \"2024-01-15T10:30:00Z\",\n    \"exited_at\": \"2024-01-15T17:04:00Z\",\n    \"duration_hours\": 7,\n    \"total_fee\": 120.0,\n    \"fee_breakdown\": {\n      \"total_fee\": 120.0,\n      \"duration_hours\": 7,\n      \"is_continuous\": false,\n      \"long_term\": {\n        \"days\": 0,\n        \"fee\": 0.0\n      },\n      \"remaining\": {\n        \"total\": 120.0,\n        \"base_fee\": 40.0,\n        \"exceeding_hours\": 4,\n        \"exceeding_fee\": 80.0\n      }\n    }\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Set test times for Unpark Rounding Test (6.4h -> 7h, fee: 120)",
+                  "const parkedAt = '2024-01-15T10:30:00Z';",
+                  "const exitedAt = '2024-01-15T17:24:00Z';",
+                  "",
+                  "// Store times for the park request",
+                  "pm.collectionVariables.set('test_parked_at', parkedAt);",
+                  "pm.collectionVariables.set('test_exited_at', exitedAt);",
+                  "",
+                  "// For park requests that create sessions, set the parked_at time",
+                  "// This ensures the backend uses the correct time for duration calculation"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Test: Unpark Rounding Test (6.4h -> 7h)",
+                  "",
+                  "// 1. Verify status code is 200",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Parse JSON response",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// 3. Verify success is true",
+                  "pm.test(\"Success is true\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "// 4. Verify total_fee is 140.0 (40 base + 5*20)",
+                  "pm.test('Total fee is 120.0', function () {",
+                  "    pm.expect(jsonData.data.total_fee).to.eql(120.0);",
+                  "});",
+                  "",
+                  "// 5. Verify duration_hours is 7 (rounded up from 6.4)",
+                  "pm.test(\"Duration is 7 hours (rounded up)\", function () {",
+                  "    pm.expect(jsonData.data.duration_hours).to.eql(7.0);",
+                  "});",
+                  "",
+                  "// 6. Verify base_fee is 40.0",
+                  "pm.test(\"Base fee is 40.0\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.base_fee).to.eql(40.0);",
+                  "});",
+                  "",
+                  "// 7. Verify exceeding_hours is 5",
+                  "pm.test(\"Exceeding hours is 4\", function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.exceeding_hours).to.eql(4);",
+                  "});",
+                  "",
+                  "// 8. Verify exceeding_fee is 100.0 (5*20)",
+                  "pm.test('Exceeding fee is 80.0', function () {",
+                  "    pm.expect(jsonData.data.fee_breakdown.remaining.exceeding_fee).to.eql(80.0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Continuous Parking Scenarios",
+          "item": [
+            {
+              "name": "Continuous Parking - Park First Session",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "S",
+                      "description": "Small vehicle"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "A",
+                      "description": "Entry point A"
+                    },
+                    {
+                      "key": "parked_at",
+                      "value": "2024-01-15T09:00:00Z",
+                      "description": "Parked at time for testing"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ]
+                },
+                "description": "Park a small vehicle for continuous parking test - first session."
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Test: Continuous Parking - Park First Session",
+                      "",
+                      "// 1. Verify status code is 201",
+                      "pm.test(\"Status code is 201\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "// 2. Parse JSON response",
+                      "var jsonData = pm.response.json();",
+                      "",
+                      "// 3. Verify success is true",
+                      "pm.test(\"Success is true\", function () {",
+                      "    pm.expect(jsonData.success).to.be.true;",
+                      "});",
+                      "",
+                      "// 4. Verify is_continuous is false for first session",
+                      "pm.test(\"Is continuous is false for first session\", function () {",
+                      "    pm.expect(jsonData.data.is_continuous).to.be.false;",
+                      "});",
+                      "",
+                      "// 5. Store session_id for unpark test",
+                      "pm.collectionVariables.set(\"continuous_session_1_id\", jsonData.data.session_id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Continuous Parking - Unpark First Session",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions/{{continuous_session_1_id}}/unpark",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions",
+                    "{{continuous_session_1_id}}",
+                    "unpark"
+                  ],
+                  "query": [
+                    {
+                      "key": "exited_at",
+                      "value": "2024-01-15T09:30:00Z",
+                      "description": "Exit time - 30 minutes after parking"
+                    }
+                  ]
+                },
+                "description": "Unpark first session after 30 minutes - should be successful."
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Test: Continuous Parking - Unpark First Session",
+                      "",
+                      "// 1. Verify status code is 200",
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "// 2. Parse JSON response",
+                      "var jsonData = pm.response.json();",
+                      "",
+                      "// 3. Verify success is true",
+                      "pm.test(\"Success is true\", function () {",
+                      "    pm.expect(jsonData.success).to.be.true;",
+                      "});",
+                      "",
+                      "// 4. Verify duration is 0.5 hours (30 minutes)",
+                      "pm.test(\"Duration is 0.5 hours\", function () {",
+                      "    pm.expect(jsonData.data.duration_hours).to.eql(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Continuous Parking - Park Second Session (within 1 hour)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "vehicle_type",
+                      "value": "S",
+                      "description": "Small vehicle (same type as first session)"
+                    },
+                    {
+                      "key": "entry_point_id",
+                      "value": "A",
+                      "description": "Entry point A"
+                    },
+                    {
+                      "key": "parked_at",
+                      "value": "2024-01-15T09:45:00Z",
+                      "description": "Parked at time - 15 minutes after first unpark (within 1 hour)"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions"
+                  ]
+                },
+                "description": "Park same vehicle type again within 1 hour - should be marked as continuous."
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Test: Continuous Parking - Park Second Session (within 1 hour)",
+                      "",
+                      "// 1. Verify status code is 201",
+                      "pm.test(\"Status code is 201\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "// 2. Parse JSON response",
+                      "var jsonData = pm.response.json();",
+                      "",
+                      "// 3. Verify success is true",
+                      "pm.test(\"Success is true\", function () {",
+                      "    pm.expect(jsonData.success).to.be.true;",
+                      "});",
+                      "",
+                      "// 4. Verify is_continuous is true for second session (within 1 hour)",
+                      "pm.test(\"Is continuous is true for second session\", function () {",
+                      "    pm.expect(jsonData.data.is_continuous).to.be.true;",
+                      "});",
+                      "",
+                      "// 5. Verify vehicle type is S (same as first session)",
+                      "pm.test(\"Vehicle type is S\", function () {",
+                      "    pm.expect(jsonData.data.vehicle_type).to.eql('S');",
+                      "});",
+                      "",
+                      "// 6. Store session_id for unpark test",
+                      "pm.collectionVariables.set(\"continuous_session_2_id\", jsonData.data.session_id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Continuous Parking - Unpark Second Session",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions/{{continuous_session_2_id}}/unpark",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions",
+                    "{{continuous_session_2_id}}",
+                    "unpark"
+                  ],
+                  "query": [
+                    {
+                      "key": "exited_at",
+                      "value": "2024-01-15T10:15:00Z",
+                      "description": "Exit time - 30 minutes after second parking"
+                    }
+                  ]
+                },
+                "description": "Unpark second session - should calculate continuous parking fee."
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Test: Continuous Parking - Unpark Second Session",
+                      "",
+                      "// 1. Verify status code is 200",
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "// 2. Parse JSON response",
+                      "var jsonData = pm.response.json();",
+                      "",
+                      "// 3. Verify success is true",
+                      "pm.test(\"Success is true\", function () {",
+                      "    pm.expect(jsonData.success).to.be.true;",
+                      "});",
+                      "",
+                      "// 4. Verify is_continuous is true",
+                      "pm.test(\"Is continuous is true\", function () {",
+                      "    pm.expect(jsonData.data.is_continuous).to.be.true;",
+                      "});",
+                      "",
+                      "// 5. Verify total_fee is calculated correctly for continuous parking",
+                      "pm.test(\"Total fee is calculated\", function () {",
+                      "    pm.expect(jsonData.data.total_fee).to.be.a('number');",
+                      "    pm.expect(jsonData.data.total_fee).to.be.at.least(0);",
+                      "});",
+                      "",
+                      "// 6. Verify fee_breakdown has is_continuous flag",
+                      "pm.test(\"Fee breakdown has is_continuous flag\", function () {",
+                      "    pm.expect(jsonData.data.fee_breakdown).to.have.property('is_continuous');",
+                      "    pm.expect(jsonData.data.fee_breakdown.is_continuous).to.be.true;",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Continuous Parking - Try Unpark Already Unparked Session",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/sessions/{{continuous_session_1_id}}/unpark",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sessions",
+                    "{{continuous_session_1_id}}",
+                    "unpark"
+                  ],
+                  "query": [
+                    {
+                      "key": "exited_at",
+                      "value": "2024-01-15T10:30:00Z",
+                      "description": "Exit time - trying to unpark again"
+                    }
+                  ]
+                },
+                "description": "Try to unpark already unparked session - should return 404."
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Test: Continuous Parking - Try Unpark Already Unparked Session",
+                      "",
+                      "// 1. Verify status code is 404 (already unparked)",
+                      "pm.test(\"Status code is 404 for already unparked session\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});",
+                      "",
+                      "// 2. Parse JSON response",
+                      "var jsonData = pm.response.json();",
+                      "",
+                      "// 3. Verify response has error field",
+                      "pm.test(\"Response has error field\", function () {",
+                      "    pm.expect(jsonData).to.have.property('error');",
+                      "});",
+                      "",
+                      "// 4. Verify error message is not empty",
+                      "pm.test(\"Error message is not empty\", function () {",
+                      "    pm.expect(jsonData.error).to.not.be.empty;",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

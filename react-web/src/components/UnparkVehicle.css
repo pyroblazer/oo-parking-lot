@@ -1,0 +1,109 @@
+.unpark-vehicle {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.unpark-vehicle h2 {
+  color: #667eea;
+  margin-bottom: 30px;
+}
+
+.unpark-vehicle form {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* More specific selector to override global styles */
+.unpark-vehicle .form-group label {
+  color: #1a1a1a !important;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 16px;
+  background-color: #f9f9f9;
+}
+
+.unpark-vehicle button[type="submit"] {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.unpark-vehicle button[type="submit"]:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(240, 87, 108, 0.3);
+}
+
+.unpark-vehicle button[type="submit"]:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.result-box {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f0f4f8;
+  border-radius: 10px;
+  border-left: 4px solid #4caf50;
+}
+
+.result-box h3 {
+  color: #4caf50;
+  margin-top: 0;
+}
+
+.result-details {
+  margin-top: 15px;
+}
+
+.result-details p {
+  margin-bottom: 10px;
+  color: #1a1a1a;
+}
+
+.result-details strong {
+  color: #1a1a1a;
+}
+
+/* More specific selectors to override global styles */
+.unpark-vehicle .result-details p {
+  color: #1a1a1a !important;
+}
+
+.unpark-vehicle .result-details strong {
+  color: #1a1a1a !important;
+}
+
+.continuous-badge {
+  background: linear-gradient(135deg, #ff9800 0%, #ff512f 100%);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 5px;
+  display: inline-block;
+  margin-top: 10px;
+  font-weight: 600;
+}

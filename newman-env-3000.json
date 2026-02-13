@@ -1,0 +1,11 @@
+{
+  "id": "go-backend-3000",
+  "name": "Go Backend - Port 3000",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "enabled": true
+    }
+  ]
+}

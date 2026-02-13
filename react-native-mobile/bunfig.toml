@@ -1,0 +1,10 @@
+# Bun configuration for React Native testing
+
+[test]
+# Test configuration
+root = "."
+preload = ["./src/test/bun-setup.ts"]
+
+[install]
+# Cache configuration
+cache = true

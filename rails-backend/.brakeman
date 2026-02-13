@@ -1,0 +1,7 @@
+# Brakeman configuration file
+# Ignore warnings about EOL Ruby and Rails versions since we're aware of the versions
+# and will update them in a future release
+
+ignore_fingerprints:
+  - 715ee6d743a8af33c7b930d728708ce19c765fb40e2ad9d2b974db04d92dc7d1  # EOLRuby - Ruby 3.2.3 support ends on 2026-03-31
+  - d84924377155b41e094acae7404ec2e521629d86f97b0ff628e3d1b263f8101c  # EOLRails - Rails 7.1.6 support ended on 2025-10-01

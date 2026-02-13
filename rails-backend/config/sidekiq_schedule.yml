@@ -1,0 +1,32 @@
+# Sidekiq Schedule Configuration
+# Cron jobs for periodic tasks
+
+session_reconciliation:
+  cron: '0 * * * *' # Every hour
+  class: SessionReconciliationJob
+  queue: 'audit'
+  description: 'Reconcile parking sessions and detect anomalies'
+
+kafka_event_retry:
+  cron: '*/5 * * * *' # Every 5 minutes
+  class: KafkaEventRetryJob
+  queue: 'kafka_events'
+  description: 'Retry failed Kafka events'
+
+billing_audit_cleanup:
+  cron: '0 2 * * *' # Daily at 2 AM
+  class: BillingAuditCleanupJob
+  queue: 'audit'
+  description: 'Clean up old billing audit logs'
+
+analytics_report:
+  cron: '0 3 * * *' # Daily at 3 AM
+  class: AnalyticsReportJob
+  queue: 'analytics'
+  description: 'Generate daily analytics reports'
+
+slot_utilization_report:
+  cron: '0 */6 * * *' # Every 6 hours
+  class: SlotUtilizationReportJob
+  queue: 'analytics'
+  description: 'Generate slot utilization reports'

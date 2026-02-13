@@ -1,0 +1,85 @@
+.view-session {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.view-session h2 {
+  color: #667eea;
+  margin-bottom: 30px;
+}
+
+.session-card {
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.session-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.session-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.status-badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.status-badge.active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.status-badge.completed {
+  background: rgba(76, 175, 80, 1);
+}
+
+.session-details {
+  padding: 25px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row .label {
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.detail-row .value {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.detail-row.continuous {
+  background: #fff3cd;
+  border-radius: 8px;
+  padding: 10px 15px;
+}
+
+.error-message {
+  background: #fee2e2;
+  color: white;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 1.1rem;
+}

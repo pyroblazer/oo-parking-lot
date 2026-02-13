@@ -1,0 +1,1069 @@
+# .github/workflows/ci.yml
+# CI/CD Pipeline
+# Automated testing, linting, and deployment
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+  pull-requests: write
+  security-events: write
+
+env:
+  RUBY_VERSION: '3.2.0'
+  GO_VERSION: '1.24'
+  NODE_VERSION: '18'
+
+jobs:
+  # ============================================================================
+  # Linting
+  # ============================================================================
+
+  rubocop:
+    name: RuboCop Linting
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rails-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: |
+          gem install rubocop rubocop-rails rubocop-rspec rubocop-performance
+
+      - name: Run RuboCop
+        run: rubocop --parallel
+
+  go-lint:
+    name: Go Linting
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./go-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: ./go-backend
+          args: --timeout=5m
+          install-mode: binary
+
+  eslint:
+    name: ESLint Linting
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./react-web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run ESLint
+        run: bun run lint
+
+  react-native-lint:
+    name: React Native Linting
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./react-native-mobile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ./react-native-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run ESLint
+        run: npm run lint
+
+  # ============================================================================
+  # Testing
+  # ============================================================================
+
+  rspec-tests:
+    name: RSpec Tests
+    runs-on: ubuntu-latest
+    needs: [rubocop]
+    defaults:
+      run:
+        working-directory: ./rails-backend
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: oo_parking_lot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: |
+          gem install bundler
+          bundle config set --local deployment 'true'
+          bundle config set --local without 'development'
+          bundle install --jobs 4 --retry 3
+
+      - name: Setup database
+        env:
+          RAILS_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
+        run: |
+          bundle exec rails db:create
+          bundle exec rails db:test:prepare
+
+      - name: Run tests
+        env:
+          RAILS_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
+          REDIS_URL: redis://localhost:6379/0
+        run: bundle exec rspec --format documentation --format RspecJunitFormatter --out rspec-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rspec-results
+          path: rspec-results.xml
+
+      - name: Publish test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: rails-backend/rspec-results.xml
+          check_name: RSpec Test Results
+
+  go-tests:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    needs: [go-lint]
+    defaults:
+      run:
+        working-directory: ./go-backend
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: oo_parking_lot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic -json ./... > go-test-results.json
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-test-results
+          path: go-test-results.json
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.out
+          flags: go-backend
+
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    needs: [eslint]
+    defaults:
+      run:
+        working-directory: ./react-web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run tests
+        run: bun run test:coverage -- --reporter=json --outputFile=test-results.json
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-results
+          path: test-results.json
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/coverage-final.json
+          flags: react-web
+
+  playwright-e2e-tests:
+    name: Playwright E2E Tests (Chromium Only)
+    runs-on: ubuntu-latest
+    needs: [eslint]
+    defaults:
+      run:
+        working-directory: ./react-web
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: oo_parking_lot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install Playwright Browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Setup Go backend
+        working-directory: ./go-backend
+        run: |
+          go mod download
+          psql postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable -f scripts/init-db.sql
+
+      - name: Build and start Go backend
+        working-directory: ./go-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          go build -a -installsuffix cgo -o main ./cmd/server/main.go
+          ./main > /tmp/go-server.log 2>&1 &
+
+      - name: Wait for Go backend to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -f http://localhost:8082/health; then
+              echo "Go backend is ready"
+              break
+            fi
+            echo "Waiting for Go backend... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run Playwright E2E tests
+        env:
+          CI: true
+        run: bun run test:e2e
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: |
+            playwright-report/
+            test-results.json
+
+      - name: Upload Playwright screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: test-results/
+          retention-days: 7
+
+      - name: Upload Playwright videos
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-videos
+          path: test-results/
+          retention-days: 7
+
+      - name: Upload Go server logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-server-logs
+          path: /tmp/go-server.log
+          retention-days: 7
+
+  react-native-tests:
+    name: React Native Tests
+    runs-on: ubuntu-latest
+    needs: [react-native-lint]
+    defaults:
+      run:
+        working-directory: ./react-native-mobile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ./react-native-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm run test:coverage -- --json --outputFile=test-results.json
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-native-test-results
+          path: test-results.json
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/coverage-final.json
+          flags: react-native-mobile
+
+  # ============================================================================
+  # Build
+  # ============================================================================
+
+  build-rails:
+    name: Build Rails
+    runs-on: ubuntu-latest
+    needs: [rspec-tests]
+    defaults:
+      run:
+        working-directory: ./rails-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: |
+          gem install bundler
+          bundle config set --local deployment 'true'
+          bundle config set --local without 'development test'
+          bundle install --jobs 4 --retry 3
+
+      - name: Verify application builds
+        run: bundle exec rails runner "puts 'Rails application builds successfully'"
+
+  build-go:
+    name: Build Go
+    runs-on: ubuntu-latest
+    needs: [go-tests]
+    defaults:
+      run:
+        working-directory: ./go-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build -a -installsuffix cgo -o main ./cmd/server/main.go
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-build
+          path: main
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: [frontend-tests, playwright-e2e-tests]
+    defaults:
+      run:
+        working-directory: ./react-web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-build
+          path: dist
+
+  build-react-native:
+    name: Build React Native
+    runs-on: ubuntu-latest
+    needs: [react-native-tests]
+    defaults:
+      run:
+        working-directory: ./react-native-mobile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ./react-native-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-native-build
+          path: |
+            package.json
+            tsconfig.json
+
+  # ============================================================================
+  # Security Scanning
+  # ============================================================================
+
+  brakeman-scan:
+    name: Brakeman Security Scan (Rails)
+    runs-on: ubuntu-latest
+    needs: [rubocop]
+    defaults:
+      run:
+        working-directory: ./rails-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Install Brakeman
+        run: gem install brakeman
+
+      - name: Run Brakeman
+        run: brakeman --no-pager --no-exit-on-warn --format json --output brakeman-results.json
+
+      - name: Upload Brakeman results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: brakeman-results
+          path: brakeman-results.json
+
+  bundler-audit:
+    name: Bundler Audit (Rails)
+    runs-on: ubuntu-latest
+    needs: [rubocop]
+    defaults:
+      run:
+        working-directory: ./rails-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Install Bundler-Audit
+        run: gem install bundler-audit
+
+      - name: Run Bundler-Audit
+        run: bundler-audit check --update
+        continue-on-error: true
+
+  npm-audit:
+    name: NPM Audit (React Web)
+    runs-on: ubuntu-latest
+    needs: [eslint]
+    defaults:
+      run:
+        working-directory: ./react-web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run NPM Audit
+        run: bun audit
+        continue-on-error: true
+
+  npm-audit-react-native:
+    name: NPM Audit (React Native)
+    runs-on: ubuntu-latest
+    needs: [react-native-lint]
+    defaults:
+      run:
+        working-directory: ./react-native-mobile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ./react-native-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run NPM Audit
+        run: npm audit
+        continue-on-error: true
+
+  gosec:
+    name: GoSec Security Scan (Go)
+    runs-on: ubuntu-latest
+    needs: [go-lint]
+    defaults:
+      run:
+        working-directory: ./go-backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run GoSec
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt sarif -out gosec-results.sarif -verbose=text -stdout ./...'
+
+      - name: Upload GoSec results as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gosec-results
+          path: gosec-results.sarif
+          retention-days: 30
+
+      - name: Upload GoSec results to GitHub Security
+        if: always()
+        continue-on-error: true  # Continue if Code Scanning is not available
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: 'gosec-results.sarif'
+          category: gosec
+          checkout_path: /home/runner/work/oo-parking-lot/oo-parking-lot
+
+  trivy-scan:
+    name: Trivy Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: [build-rails, build-go, build-frontend, build-react-native]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results
+        continue-on-error: true  # Continue if Code Scanning is not available
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ============================================================================
+  # Performance Benchmarking
+  # ============================================================================
+
+  # ============================================================================
+  # Cross-Backend E2E Testing (Newman)
+  # ============================================================================
+
+  newman-ruby-tests:
+    name: Newman Tests (Ruby Backend)
+    runs-on: ubuntu-latest
+    needs: [rubocop]
+    defaults:
+      run:
+        working-directory: ./rails-backend
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: oo_parking_lot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: |
+          gem install bundler
+          bundle config set --local deployment 'true'
+          bundle config set --local without 'development'
+          bundle install --jobs 4 --retry 3
+
+      - name: Setup database
+        env:
+          RAILS_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
+        run: |
+          bundle exec rails db:create
+          bundle exec rails db:test:prepare
+
+      - name: Reset database
+        env:
+          RAILS_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
+        run: bundle exec rails db:reset
+
+      - name: Start Ruby server
+        env:
+          RAILS_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
+          REDIS_URL: redis://localhost:6379/0
+        run: bundle exec rails server -b puma -p 3000 > /tmp/ruby-server.log 2>&1 &
+
+      - name: Wait for Ruby server to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -f http://localhost:3000/health; then
+              echo "Rails backend is ready"
+              break
+            fi
+            echo "Waiting for Rails backend... ($i/30)"
+            sleep 2
+          done
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Run Newman tests
+        env:
+          BASE_URL: http://localhost:3000
+        run: |
+          newman run "Parking Lot API.postman_collection.json" \
+            -e newman-env.json \
+            --global-var baseUrl=$BASE_URL \
+            --reporters cli,json \
+            --reporter-json-export newman-ruby-results.json
+
+      - name: Upload Newman results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-ruby-results
+          path: newman-ruby-results.json
+
+      - name: Check for test failures
+        run: |
+          if [ -f newman-ruby-results.json ]; then
+            cat newman-ruby-results.json | python3 -c "import sys, json; data = json.load(sys.stdin); failures = [r for r in data.get('run', {}).get('executions', []) if r.get('failures', [])]; sys.exit(1 if failures else 0"
+
+  newman-go-tests:
+    name: Newman Tests (Go Backend)
+    runs-on: ubuntu-latest
+    needs: [go-lint]
+    defaults:
+      run:
+        working-directory: ./go-backend
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: oo_parking_lot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Setup and reset database
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable
+        run: |
+          psql $DATABASE_URL -f scripts/init-db.sql
+
+      - name: Build Go server
+        run: go build -a -installsuffix cgo -o main ./cmd/server/main.go
+
+      - name: Start Go server
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+        run: ./main > /tmp/go-server.log 2>&1 &
+
+      - name: Wait for Go server to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -f http://localhost:8082/health; then
+              echo "Go backend is ready"
+              break
+            fi
+            echo "Waiting for Go backend... ($i/30)"
+            sleep 2
+          done
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Run Newman tests
+        env:
+          BASE_URL: http://localhost:8082
+        run: |
+          newman run "Parking Lot API.postman_collection.json" \
+            -e newman-env.json \
+            --global-var baseUrl=$BASE_URL \
+            --reporters cli,json \
+            --reporter-json-export newman-go-results.json
+
+      - name: Upload Newman results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-go-results
+          path: newman-go-results.json
+
+      - name: Check for test failures
+        run: |
+          if [ -f newman-go-results.json ]; then
+            cat newman-go-results.json | python3 -c "import sys, json; data = json.load(sys.stdin); failures = [r for r in data.get('run', {}).get('executions', []) if r.get('failures', [])]; sys.exit(1 if failures else 0"
+
+  # ============================================================================
+  # Performance Benchmarking
+  # ============================================================================
+
+  performance-benchmark:
+    name: Performance Benchmark
+    runs-on: ubuntu-latest
+    needs: [build-rails, build-go, build-frontend, build-react-native]
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: oo_parking_lot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Install dependencies
+        working-directory: ./rails-backend
+        run: |
+          gem install bundler
+          bundle config set --local deployment 'true'
+          bundle config set --local without 'development'
+          bundle install --jobs 4 --retry 3
+
+      - name: Setup database
+        working-directory: ./rails-backend
+        env:
+          RAILS_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
+        run: |
+          bundle exec rails db:create
+          bundle exec rails db:test:prepare
+
+      - name: Install benchmark tools
+        run: |
+          gem install benchmark-ips ruby-prof
+
+      - name: Run performance benchmarks
+        working-directory: ./rails-backend
+        env:
+          RAILS_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
+          REDIS_URL: redis://localhost:6379/0
+        run: bundle exec rspec spec/performance --format documentation
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-benchmark-results
+          path: tmp/performance

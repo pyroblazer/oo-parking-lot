@@ -1,0 +1,286 @@
+# OO Parking Lot - Docker Compose Configuration
+# Production-grade, distributed system with all required services
+
+services:
+  # ============================================================================
+  # Infrastructure Services
+  # ============================================================================
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: oo-parking-postgres
+    environment:
+      POSTGRES_DB: oo_parking_lot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oo-parking-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: oo-parking-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oo-parking-network
+
+  # Apache Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: oo-parking-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - oo-parking-network
+
+  # Zookeeper (required for Kafka)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: oo-parking-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oo-parking-network
+
+  # Kafka UI (AKHQ)
+  kafka-ui:
+    image: tchiotludo/akhq:0.24.0
+    container_name: oo-parking-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8085:8082"
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            docker-kafka-server:
+              type: kafka
+              properties:
+                bootstrap.servers: kafka:9092
+    networks:
+      - oo-parking-network
+
+  # Jaeger (Distributed Tracing)
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    container_name: oo-parking-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # gRPC receiver
+      - "14268:14268"  # HTTP thrift receiver
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    networks:
+      - oo-parking-network
+    profiles:
+      - observability
+
+  # ============================================================================
+  # Application Services
+  # ============================================================================
+
+  # Rails Backend (Control Plane)
+  rails-backend:
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    build:
+      context: ./rails-backend
+      dockerfile: Dockerfile
+    container_name: oo-parking-rails-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8082:3000"
+    environment:
+      RAILS_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/oo_parking_lot
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_NAME: oo_parking_lot
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      PROMETHEUS_EXPORTER_PORT: 9394
+    volumes:
+      - ./rails-backend:/app
+      - bundle_cache:/usr/local/bundle
+    command: sh -c "bundle exec rails db:prepare && bundle exec rails db:seed && bundle exec rails server -b 0.0.0.0"
+    networks:
+      - oo-parking-network
+
+  # Sidekiq (Rails Background Jobs)
+  sidekiq:
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    build:
+      context: ./rails-backend
+      dockerfile: Dockerfile
+    container_name: oo-parking-sidekiq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      RAILS_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/oo_parking_lot
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SIDEKIQ_CONCURRENCY: 10
+    volumes:
+      - ./rails-backend:/app
+      - bundle_cache:/usr/local/bundle
+    command: bundle exec sidekiq -C config/sidekiq_schedule.yml
+    networks:
+      - oo-parking-network
+
+  # Go Backend (Data Plane)
+  go-backend:
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    build:
+      context: ./go-backend
+      dockerfile: Dockerfile
+    container_name: oo-parking-go-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:8082"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/oo_parking_lot?sslmode=disable
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: oo_parking_lot
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      PORT: 8082
+    volumes:
+      - ./go-backend:/app
+    networks:
+      - oo-parking-network
+
+  # ============================================================================
+  # Frontend Services
+  # ============================================================================
+
+  # React Web Frontend
+  react-web:
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    build:
+      context: ./react-web
+      dockerfile: Dockerfile
+    container_name: oo-parking-react-web
+    depends_on:
+      - rails-backend
+    ports:
+      - "3001:3000"
+    environment:
+      VITE_API_URL: http://localhost:8082/api/v1
+      VITE_GO_API_URL: http://localhost:3000/api/v1
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    volumes:
+      - ./react-web:/app
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - oo-parking-network
+
+  # React Native Mobile (Development Server)
+  react-native-mobile:
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    build:
+      context: ./react-native-mobile
+      dockerfile: Dockerfile
+    container_name: oo-parking-react-native-mobile
+    depends_on:
+      - rails-backend
+    ports:
+      - "8081:8081"
+    environment:
+      API_URL: http://localhost:8082/api/v1
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    volumes:
+      - ./react-native-mobile:/app
+      - /app/node_modules
+    command: npm start
+    networks:
+      - oo-parking-network
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  postgres_data:
+  redis_data:
+  kafka_data:
+  zookeeper_data:
+  zookeeper_log:
+  bundle_cache:
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  oo-parking-network:
+    driver: bridge

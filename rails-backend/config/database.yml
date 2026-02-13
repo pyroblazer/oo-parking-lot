@@ -1,0 +1,21 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  url: <%= ENV.fetch("DATABASE_URL") { 
+    "postgresql://#{ENV.fetch('DATABASE_USERNAME') { 'postgres' }}:#{ENV.fetch('DATABASE_PASSWORD') { '' }}@#{ENV.fetch('DATABASE_HOST') { 'localhost' }}:#{ENV.fetch('DATABASE_PORT') { 5432 }}/#{ENV.fetch('DATABASE_NAME') { 'oo_parking_lot_development' }}"
+  } %>
+
+development:
+  <<: *default
+  database: oo_parking_lot_development
+
+test:
+  <<: *default
+  database: oo_parking_lot_test
+
+production:
+  <<: *default
+  database: oo_parking_lot_production
+  username: oo_parking_lot
+  password: <%= ENV["OO_PARKING_LOT_DATABASE_PASSWORD"] %>

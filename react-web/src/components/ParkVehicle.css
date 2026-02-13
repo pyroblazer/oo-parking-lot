@@ -1,0 +1,141 @@
+.park-vehicle {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.park-vehicle h2 {
+  color: #667eea;
+  margin-bottom: 30px;
+}
+
+.park-vehicle form {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.required-indicator {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+.form-group select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 16px;
+  background-color: #f9f9f9;
+  color: #1a1a1a;
+}
+
+.park-vehicle button[type="submit"] {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.park-vehicle button[type="submit"]:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+}
+
+.park-vehicle button[type="submit"]:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.info-box {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f0f4f8;
+  border-radius: 10px;
+  border-left: 4px solid #667eea;
+}
+
+.info-box h3 {
+  color: #667eea;
+  margin-top: 0;
+}
+
+.info-box ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.info-box li {
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.info-box li strong {
+  color: #1a1a1a;
+}
+
+/* Ensure dropdown text is visible */
+.magnetic-select {
+  color: #1a1a1a !important;
+}
+
+.magnetic-select option {
+  color: #1a1a1a;
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.success-message {
+  background: #4caf50;
+  color: white;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* HealthCheck component text visibility fixes */
+.health-check-header .health-status-text {
+  color: #1a1a1a !important;
+}
+
+.health-check-header .auto-refresh-indicator {
+  color: #333 !important;
+}
+
+.health-check-header .auto-refresh-indicator span {
+  color: #1a1a1a !important;
+}
+
+/* Make headings darker for better contrast on white backgrounds */
+.park-vehicle h2.kinetic-typography {
+  color: #1a1a1a;
+}
+
+.info-box h3 {
+  color: #1a1a1a;
+}
