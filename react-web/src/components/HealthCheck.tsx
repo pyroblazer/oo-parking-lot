@@ -1,15 +1,15 @@
 /**
  * Health Check Component
- * 
+ *
  * Implements FEAT-016: Check System Health
  * - Health status display (Online/Offline/Checking)
  * - Auto-refresh indicator
  * - Display-only badge (not clickable)
- * 
+ *
  * @module HealthCheck
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import './HealthCheck.css';
 
@@ -24,7 +24,6 @@ interface HealthCheckProps {
  */
 function HealthCheck({ className = '' }: HealthCheckProps): JSX.Element {
   const [healthStatus, setHealthStatus] = useState<HealthStatus>('checking');
-  const [lastChecked, setLastChecked] = useState<Date>(new Date());
 
   useEffect(() => {
     // Initial health check
@@ -63,8 +62,6 @@ function HealthCheck({ className = '' }: HealthCheckProps): JSX.Element {
       }
     } catch (error) {
       setHealthStatus('offline');
-    } finally {
-      setLastChecked(new Date());
     }
   };
 

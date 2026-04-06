@@ -16,13 +16,14 @@ import type {
   VehicleType,
   EntryPointIdentifier,
   SessionId,
+  RecentExit,
 } from './types';
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8082/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8082/api/v1';
 
 // ============================================================================
 // AXIOS INSTANCE
@@ -194,13 +195,23 @@ export async function initializeSystem(
  */
 export async function parkVehicle(
   vehicleType: VehicleType,
-  entryPointId: EntryPointIdentifier
+  entryPointId: EntryPointIdentifier,
+  licensePlate?: string,
+  previousSessionId?: string
 ): Promise<ParkingSession> {
   try {
     const params = new URLSearchParams();
     params.append('vehicle_type', vehicleType);
     params.append('entry_point_id', entryPointId);
-    
+
+    if (licensePlate) {
+      params.append('license_plate', licensePlate);
+    }
+
+    if (previousSessionId) {
+      params.append('previous_session_id', previousSessionId);
+    }
+
     const response = await api.post<ApiResponse<ParkingSession>>('/sessions', params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -213,8 +224,28 @@ export async function parkVehicle(
 }
 
 /**
+ * Get recent exit sessions for continuous parking selection
+ *
+ * @param vehicleType - Vehicle type to filter by
+ * @returns Promise resolving to array of recent exit sessions
+ * @throws Error if retrieval fails
+ */
+export async function fetchRecentExits(
+  vehicleType: VehicleType
+): Promise<RecentExit[]> {
+  try {
+    const response = await api.get<ApiResponse<RecentExit[]>>(
+      `/sessions/recent_exits?vehicle_type=${vehicleType}`
+    );
+    return extractData(response);
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
  * Get all parking sessions
- * 
+ *
  * @returns Promise resolving to array of parking sessions
  * @throws Error if retrieval fails
  */
@@ -280,6 +311,41 @@ export async function deleteSession(sessionId: SessionId): Promise<{ message: st
   try {
     const response = await api.delete<ApiResponse<{ message: string }>>(
       `/sessions/${sessionId}`
+    );
+    return extractData(response);
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Update a parking session
+ * 
+ * @param sessionId - Session ID to update
+ * @param exitedAt - Optional exited_at timestamp in ISO8601 format
+ * @param totalFee - Optional total fee value
+ * @returns Promise resolving to updated session
+ * @throws Error if update fails
+ */
+export async function updateSession(
+  sessionId: SessionId,
+  exitedAt?: string,
+  totalFee?: number
+): Promise<ParkingSession> {
+  try {
+    const requestBody: any = {};
+    
+    if (exitedAt !== undefined) {
+      requestBody.exited_at = exitedAt;
+    }
+    
+    if (totalFee !== undefined) {
+      requestBody.total_fee = totalFee;
+    }
+    
+    const response = await api.put<ApiResponse<ParkingSession>>(
+      `/sessions/${sessionId}`,
+      requestBody
     );
     return extractData(response);
   } catch (error) {
@@ -395,11 +461,28 @@ export async function updateSlot(
  */
 export async function deleteSlot(id: number): Promise<{ message: string }> {
   try {
+    console.log('=== FRONTEND DELETE SLOT ===');
+    console.log('Slot ID:', id);
+    console.log('Slot ID type:', typeof id);
+    console.log('Request URL:', `/slots/${id}`);
+    
     const response = await api.delete<ApiResponse<{ message: string }>>(
       `/slots/${id}`
     );
+    
+    console.log('Delete response status:', response.status);
+    console.log('Delete response data:', response.data);
+    
     return extractData(response);
   } catch (error) {
+    console.error('=== DELETE SLOT ERROR ===');
+    console.error('Error details:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('Axios error response:', error.response);
+      console.error('Axios error status:', error.response?.status);
+      console.error('Axios error data:', error.response?.data);
+      console.error('Axios error message:', error.message);
+    }
     throw new Error(extractErrorMessage(error));
   }
 }
@@ -437,12 +520,19 @@ export async function createEntryPoint(
   }
 ): Promise<EntryPoint> {
   try {
+    console.log('=== CREATE ENTRY POINT FRONTEND ===');
+    console.log('entryPointData:', entryPointData);
+    console.log('Request payload:', { entry_point: entryPointData });
+
     const response = await api.post<ApiResponse<EntryPoint>>(
       '/entry_points',
-      entryPointData
+      { entry_point: entryPointData }
     );
+
+    console.log('Response:', response.data);
     return extractData(response);
   } catch (error) {
+    console.error('Error in createEntryPoint:', error);
     throw new Error(extractErrorMessage(error));
   }
 }
@@ -465,7 +555,7 @@ export async function updateEntryPoint(
   try {
     const response = await api.put<ApiResponse<EntryPoint>>(
       `/entry_points/${id}`,
-      entryPointData
+      { entry_point: entryPointData }
     );
     return extractData(response);
   } catch (error) {
@@ -486,6 +576,539 @@ export async function deleteEntryPoint(id: string): Promise<{ message: string }>
       `/entry_points/${id}`
     );
     return extractData(response);
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+// ============================================================================
+// VEHICLES API
+// ============================================================================
+
+/**
+ * Vehicle interface
+ */
+export interface Vehicle {
+  id: string;
+  license_plate: string;
+  vehicle_type: 'S' | 'M' | 'L';
+  color?: string;
+  brand?: string;
+  model?: string;
+  year?: number;
+  metadata?: Record<string, unknown>;
+  first_seen_at: string;
+  last_seen_at?: string;
+  total_sessions: number;
+  total_spent: number;
+  total_hours_parked: number;
+  is_frequent: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * List all vehicles with pagination
+ * 
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20)
+ * @returns Promise resolving to paginated vehicles list
+ * @throws Error if retrieval fails
+ */
+export async function listVehicles(
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ vehicles: Vehicle[]; total: number }> {
+  try {
+    const response = await api.get<ApiResponse<Vehicle[]>>(
+      '/vehicles',
+      {
+        params: {
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      vehicles: extractData(response),
+      total,
+    };
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Get details of a specific vehicle
+ * 
+ * @param id - Vehicle ID to retrieve
+ * @returns Promise resolving to vehicle details
+ * @throws Error if vehicle not found (404)
+ */
+export async function getVehicle(id: string): Promise<Vehicle> {
+  try {
+    const response = await api.get<ApiResponse<Vehicle>>(
+      `/vehicles/${id}`
+    );
+    return extractData(response);
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Create a new vehicle
+ * 
+ * @param licensePlate - Vehicle license plate
+ * @param vehicleType - Type of vehicle ('S', 'M', or 'L')
+ * @param color - Optional vehicle color
+ * @param brand - Optional vehicle brand
+ * @param model - Optional vehicle model
+ * @param year - Optional vehicle year
+ * @param metadata - Optional additional metadata
+ * @returns Promise resolving to created vehicle
+ * @throws Error if creation fails
+ */
+export async function createVehicle(
+  licensePlate: string,
+  vehicleType: 'S' | 'M' | 'L',
+  color?: string,
+  brand?: string,
+  model?: string,
+  year?: number,
+  metadata?: Record<string, unknown>
+): Promise<Vehicle> {
+  try {
+    const requestBody: any = {
+      license_plate: licensePlate,
+      vehicle_type: vehicleType,
+    };
+    
+    if (color !== undefined) {
+      requestBody.color = color;
+    }
+    
+    if (brand !== undefined) {
+      requestBody.brand = brand;
+    }
+    
+    if (model !== undefined) {
+      requestBody.model = model;
+    }
+    
+    if (year !== undefined) {
+      requestBody.year = year;
+    }
+    
+    if (metadata !== undefined) {
+      requestBody.metadata = metadata;
+    }
+    
+    const response = await api.post<ApiResponse<Vehicle>>(
+      '/vehicles',
+      requestBody
+    );
+    return extractData(response);
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Update an existing vehicle
+ * 
+ * @param id - Vehicle ID to update
+ * @param licensePlate - Optional new license plate
+ * @param vehicleType - Optional new vehicle type
+ * @param color - Optional new color
+ * @param brand - Optional new brand
+ * @param model - Optional new model
+ * @param year - Optional new year
+ * @param metadata - Optional new metadata
+ * @returns Promise resolving to updated vehicle
+ * @throws Error if update fails
+ */
+export async function updateVehicle(
+  id: string,
+  licensePlate?: string,
+  vehicleType?: 'S' | 'M' | 'L',
+  color?: string,
+  brand?: string,
+  model?: string,
+  year?: number,
+  metadata?: Record<string, unknown>
+): Promise<Vehicle> {
+  try {
+    const requestBody: any = {};
+    
+    if (licensePlate !== undefined) {
+      requestBody.license_plate = licensePlate;
+    }
+    
+    if (vehicleType !== undefined) {
+      requestBody.vehicle_type = vehicleType;
+    }
+    
+    if (color !== undefined) {
+      requestBody.color = color;
+    }
+    
+    if (brand !== undefined) {
+      requestBody.brand = brand;
+    }
+    
+    if (model !== undefined) {
+      requestBody.model = model;
+    }
+    
+    if (year !== undefined) {
+      requestBody.year = year;
+    }
+    
+    if (metadata !== undefined) {
+      requestBody.metadata = metadata;
+    }
+    
+    const response = await api.put<ApiResponse<Vehicle>>(
+      `/vehicles/${id}`,
+      requestBody
+    );
+    return extractData(response);
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Delete a vehicle
+ * 
+ * @param id - Vehicle ID to delete
+ * @returns Promise resolving to deletion result
+ * @throws Error if deletion fails
+ */
+export async function deleteVehicle(id: string): Promise<{ message: string }> {
+  try {
+    const response = await api.delete<ApiResponse<{ message: string }>>(
+      `/vehicles/${id}`
+    );
+    return extractData(response);
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+// ============================================================================
+// BILLING AUDIT LOGS API
+// ============================================================================
+
+/**
+ * Billing audit log interface
+ */
+export interface BillingAuditLog {
+  id: number;
+  parking_session_id: number;
+  vehicle_type: string;
+  slot_label: string;
+  slot_type: string;
+  entry_point: string;
+  parked_at: string;
+  exited_at: string;
+  total_fee: number;
+  base_fee: number;
+  exceeding_fee: number;
+  exceeding_hours: number;
+  long_term_days: number;
+  long_term_fee: number;
+  duration_hours: number;
+  is_continuous: boolean;
+  base_start_time?: string;
+  fee_breakdown: {
+    base_fee: number;
+    exceeding_fee: number;
+    long_term_fee: number;
+    total_fee: number;
+    duration_hours: number;
+  };
+  correlation_id?: string;
+  idempotency_key?: string;
+  billing_version: string;
+  calculated_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * List all billing audit logs with pagination
+ * 
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20)
+ * @returns Promise resolving to paginated billing audit logs list
+ * @throws Error if retrieval fails
+ */
+export async function listBillingAuditLogs(
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ logs: BillingAuditLog[]; total: number }> {
+  try {
+    const response = await api.get<ApiResponse<BillingAuditLog[]>>(
+      '/billing_audit_logs',
+      {
+        params: {
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      logs: extractData(response),
+      total,
+    };
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Get details of a specific billing audit log
+ * 
+ * @param id - Billing audit log ID to retrieve
+ * @returns Promise resolving to billing audit log details
+ * @throws Error if audit log not found (404)
+ */
+export async function getBillingAuditLog(id: string): Promise<BillingAuditLog> {
+  try {
+    const response = await api.get<ApiResponse<BillingAuditLog>>(
+      `/billing_audit_logs/${id}`
+    );
+    return extractData(response);
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Get billing audit logs by parking session ID
+ * 
+ * @param sessionId - Parking session ID to filter by
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20)
+ * @returns Promise resolving to paginated billing audit logs list
+ * @throws Error if retrieval fails
+ */
+export async function getBillingAuditLogsBySession(
+  sessionId: string,
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ logs: BillingAuditLog[]; total: number }> {
+  try {
+    const response = await api.get<ApiResponse<BillingAuditLog[]>>(
+      '/billing_audit_logs',
+      {
+        params: {
+          session_id: sessionId,
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      logs: extractData(response),
+      total,
+    };
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+// ============================================================================
+// KAFKA EVENTS API
+// ============================================================================
+
+/**
+ * Kafka event interface
+ */
+export interface KafkaEvent {
+  id: string;
+  event_type: string;
+  topic: string;
+  partition: number;
+  offset?: number;
+  event_key?: string;
+  event_payload: Record<string, unknown>;
+  correlation_id?: string;
+  causation_id?: string;
+  idempotency_key?: string;
+  event_id: string;
+  occurred_at: string;
+  published_at?: string;
+  status: 'pending' | 'published' | 'failed' | 'retrying';
+  retry_count: number;
+  error_message?: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * List all Kafka events with pagination
+ * 
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20)
+ * @returns Promise resolving to paginated Kafka events list
+ * @throws Error if retrieval fails
+ */
+export async function listKafkaEvents(
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ events: KafkaEvent[]; total: number }> {
+  try {
+    const response = await api.get<ApiResponse<KafkaEvent[]>>(
+      '/kafka_events',
+      {
+        params: {
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      events: extractData(response),
+      total,
+    };
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Get details of a specific Kafka event
+ * 
+ * @param id - Kafka event ID to retrieve
+ * @returns Promise resolving to Kafka event details
+ * @throws Error if event not found (404)
+ */
+export async function getKafkaEvent(id: string): Promise<KafkaEvent> {
+  try {
+    const response = await api.get<ApiResponse<KafkaEvent>>(
+      `/kafka_events/${id}`
+    );
+    return extractData(response);
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Get Kafka events by status
+ * 
+ * @param status - Event status to filter by ('pending', 'published', 'failed', or 'retrying')
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20)
+ * @returns Promise resolving to paginated Kafka events list
+ * @throws Error if retrieval fails
+ */
+export async function getKafkaEventsByStatus(
+  status: 'pending' | 'published' | 'failed' | 'retrying',
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ events: KafkaEvent[]; total: number }> {
+  try {
+    const response = await api.get<ApiResponse<KafkaEvent[]>>(
+      '/kafka_events',
+      {
+        params: {
+          status,
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      events: extractData(response),
+      total,
+    };
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+}
+
+/**
+ * Get Kafka events by event type
+ * 
+ * @param eventType - Event type to filter by (e.g., 'vehicle.parked', 'vehicle.unparked')
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20)
+ * @returns Promise resolving to paginated Kafka events list
+ * @throws Error if retrieval fails
+ */
+export async function getKafkaEventsByType(
+  eventType: string,
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ events: KafkaEvent[]; total: number }> {
+  try {
+    const response = await api.get<ApiResponse<KafkaEvent[]>>(
+      '/kafka_events',
+      {
+        params: {
+          event_type: eventType,
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      events: extractData(response),
+      total,
+    };
   } catch (error) {
     throw new Error(extractErrorMessage(error));
   }

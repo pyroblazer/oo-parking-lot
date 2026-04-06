@@ -45,6 +45,9 @@ WORKDIR /app
 # Copy binaries from builder
 COPY --from=builder --chown=app:app /app/main ./main
 
+# Copy scripts directory from builder
+COPY --from=builder --chown=app:app /app/scripts ./scripts
+
 # Switch to non-root user
 USER app
 

@@ -22,9 +22,8 @@ afterAll(() => {
 });
 
 // Cleanup after each test
-afterEach(() => {
-  jest.clearAllMocks();
-});
+// Note: jest.clearAllMocks() is NOT called here to preserve test mocks
+// Tests are responsible for clearing their own mocks in beforeEach
 
 // Mock pulseAnimation to prevent "pulseAnimation.start is not a function" errors
 global.pulseAnimation = {

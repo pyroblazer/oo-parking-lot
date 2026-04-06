@@ -90,7 +90,19 @@ func (h *ParkingHandler) ParkVehicle(w http.ResponseWriter, r *http.Request) {
 		// If invalid time format, use nil (current time will be used)
 	}
 
-	session, err := h.parkingService.ParkVehicle(req.VehicleType, req.EntryPointID, parkedAt)
+	// Parse license plate from request
+	licensePlate := req.LicensePlate
+	if licensePlate == "" {
+		licensePlate = r.FormValue("license_plate")
+	}
+
+	// Parse previous session ID from request
+	previousSessionID := req.PreviousSessionID
+	if previousSessionID == "" {
+		previousSessionID = r.FormValue("previous_session_id")
+	}
+
+	session, err := h.parkingService.ParkVehicle(req.VehicleType, req.EntryPointID, previousSessionID, licensePlate, parkedAt)
 	if err != nil {
 		// Log the actual error for debugging
 		fmt.Printf("ParkVehicle error: %v\n", err)
@@ -117,24 +129,11 @@ func (h *ParkingHandler) ParkVehicle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for continuous parking
-	fmt.Printf("DEBUG: ParkVehicle - Checking for continuous parking: vehicleType=%s, parkedAt=%s\n",
-		req.VehicleType, session.ParkedAt.Format(time.RFC3339))
 	previousSessions, err := h.parkingService.GetPreviousSessions(req.VehicleType, session.ParkedAt)
 	if err != nil {
-		// Log error but default to false
-		fmt.Printf("DEBUG: ParkVehicle - Error getting previous sessions: %v\n", err)
 		previousSessions = []*models.ParkingSession{}
 	}
-	fmt.Printf("DEBUG: ParkVehicle - Found %d previous sessions\n", len(previousSessions))
-	for i, prev := range previousSessions {
-		if prev.ExitedAt != nil {
-			timeSinceExit := session.ParkedAt.Sub(*prev.ExitedAt)
-			fmt.Printf("DEBUG: ParkVehicle - Previous session %d: ID=%d, exitedAt=%s, timeSinceExit=%.2f minutes\n",
-				i, prev.ID, prev.ExitedAt.Format(time.RFC3339), timeSinceExit.Minutes())
-		}
-	}
 	isContinuous := session.IsContinuous(previousSessions)
-	fmt.Printf("DEBUG: ParkVehicle - isContinuous=%v\n", isContinuous)
 
 	response := dtos.ParkVehicleResponse{
 		SessionID:   fmt.Sprintf("%d", session.ID),
@@ -168,41 +167,25 @@ func (h *ParkingHandler) UnparkVehicle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse optional exited_at query parameter for testing purposes
-	// If not provided, use parked_at + expected duration for testing
+	// If not provided, use current time (or test durations if explicitly enabled)
 	exitedAt := time.Now().UTC()
-	fmt.Printf("DEBUG: UnparkVehicle - sessionID=%s\n", sessionIDStr)
+
 	if exitedAtStr := r.URL.Query().Get("exited_at"); exitedAtStr != "" {
-		fmt.Printf("DEBUG: UnparkVehicle - exited_at provided: %s\n", exitedAtStr)
 		if parsedTime, err := time.Parse(time.RFC3339, exitedAtStr); err == nil {
-			// Convert to UTC to ensure consistent time comparison
 			exitedAt = parsedTime.UTC()
-			fmt.Printf("DEBUG: UnparkVehicle - parsed exitedAt: %s\n", exitedAt.Format(time.RFC3339))
 		}
-		// If invalid time format, use current time (already set above)
-	} else {
-		fmt.Printf("DEBUG: UnparkVehicle - exited_at NOT provided, using test counter\n")
-		// Always advance the test counter first so it stays in sync regardless of DB state
+	} else if r.URL.Query().Get("use_test_durations") == "true" {
 		testCounterMutex.Lock()
 		expectedDuration := testDurations[testCounter%len(testDurations)]
-		fmt.Printf("DEBUG: UnparkVehicle - testCounter=%d, expectedDuration=%.1f\n", testCounter, expectedDuration)
 		testCounter++
 		testCounterMutex.Unlock()
-		// Get parking session to get parked_at time for accurate simulation
+
 		sessionID, err := parseSessionID(sessionIDStr)
 		if err == nil {
 			session, getSessionErr := h.parkingService.GetSession(sessionID)
 			if getSessionErr == nil {
-				// Base exitedAt on parked_at + expected duration for deterministic results
-				exitedAt = session.ParkedAt.Add(time.Duration(float64(time.Hour) * expectedDuration))
-				fmt.Printf("DEBUG: UnparkVehicle - parkedAt=%s, calculated exitedAt=%s\n",
-					session.ParkedAt.Format(time.RFC3339), exitedAt.Format(time.RFC3339))
-			} else {
-				// Fallback: session not found (e.g. cross-package DB interference in tests).
-				// Use time.Now() — the service will still find the session via its own lookup.
-				fmt.Printf("DEBUG: UnparkVehicle - failed to get session for exitedAt calc: %v\n", getSessionErr)
+				exitedAt = session.ParkedAt.Add(time.Duration(int(expectedDuration) * int(time.Hour)))
 			}
-		} else {
-			fmt.Printf("DEBUG: UnparkVehicle - failed to parse session ID: %v\n", err)
 		}
 	}
 
@@ -212,11 +195,8 @@ func (h *ParkingHandler) UnparkVehicle(w http.ResponseWriter, r *http.Request) {
 		session, getSessionErr := h.parkingService.GetSession(sessionID)
 		if getSessionErr == nil {
 			if !exitedAt.After(session.ParkedAt) {
-				fmt.Printf("DEBUG: UnparkVehicle - exitedAt (%s) is not after parkedAt (%s), adjusting\n",
-					exitedAt.Format(time.RFC3339), session.ParkedAt.Format(time.RFC3339))
 				// Ensure at least 1 minute difference
 				exitedAt = session.ParkedAt.Add(1 * time.Minute)
-				fmt.Printf("DEBUG: UnparkVehicle - adjusted exitedAt to: %s\n", exitedAt.Format(time.RFC3339))
 			}
 		}
 	}
@@ -320,7 +300,7 @@ func (h *ParkingHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sessions, err := h.parkingService.ListSessionsPaginated(page, perPage)
+	sessions, totalCount, err := h.parkingService.ListSessionsPaginated(page, perPage)
 	if err != nil {
 		h.writeError(w, http.StatusInternalServerError, "Failed to list sessions")
 		return
@@ -342,7 +322,7 @@ func (h *ParkingHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		}
 		isContinuous := session.IsContinuous(previousSessions)
 
-	responses = append(responses, dtos.GetSessionResponse{
+		responses = append(responses, dtos.GetSessionResponse{
 			SessionID:   fmt.Sprintf("%d", session.ID),
 			VehicleType: session.VehicleType,
 			ParkingSlot: dtos.SlotInfo{
@@ -364,11 +344,24 @@ func (h *ParkingHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 			DurationHours: session.DurationHours(),
 			TotalFee:      session.TotalFee,
 		})
-		fmt.Printf("DEBUG: ListSessions - Session ID %d, EntryPoint ID: %d, Identifier: %s, Name: %s\n",
-			session.ID, session.EntryPoint.ID, session.EntryPoint.Identifier, session.EntryPoint.Name)
 	}
-
-	h.writeSuccess(w, responses)
+	
+	// Calculate pagination metadata
+	totalPages := (totalCount + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	
+	h.writePaginated(w, dtos.PaginatedResponse{
+		Success:   true,
+		Data:      responses,
+		Pagination: dtos.PaginationMetadata{
+			CurrentPage: page,
+			PerPage:     perPage,
+			TotalPages:  totalPages,
+			TotalCount:  totalCount,
+		},
+	})
 }
 
 // AvailableSlots handles GET /api/v1/parking/slots/available
@@ -402,6 +395,8 @@ func (h *ParkingHandler) AvailableSlots(w http.ResponseWriter, r *http.Request) 
 			SlotType:  string(slot.SlotType),
 			Distances: slot.Distances,
 			Available: true, // AvailableSlots only returns available slots
+			CreatedAt: slot.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt: slot.UpdatedAt.UTC().Format(time.RFC3339),
 		})
 	}
 
@@ -434,6 +429,8 @@ func (h *ParkingHandler) ListSlots(w http.ResponseWriter, _ *http.Request) {
 			SlotType:  string(slot.SlotType),
 			Distances: slot.Distances,
 			Available: slot.Available,
+			CreatedAt: slot.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt: slot.UpdatedAt.UTC().Format(time.RFC3339),
 		})
 	}
 
@@ -465,16 +462,47 @@ func (h *ParkingHandler) ListEntryPoints(w http.ResponseWriter, _ *http.Request)
 
 // CreateSlot handles POST /api/v1/slots
 func (h *ParkingHandler) CreateSlot(w http.ResponseWriter, r *http.Request) {
+	// Read request body once
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, "Failed to read request body")
+		return
+	}
+
 	var req dtos.CreateSlotRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+
+	// Try wrapped format first (Postman format)
+	var wrappedReq dtos.CreateSlotRequestWrapped
+	if err := json.Unmarshal(bodyBytes, &wrappedReq); err == nil && wrappedReq.Slot.SlotLabel != "" {
+		req = wrappedReq.Slot
+	} else if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		// Try unwrapped format
 		h.writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	// Validate distances array has exactly 3 values
-	if req.Distances == nil || len(req.Distances) != 3 {
-		h.writeError(w, http.StatusBadRequest, "Distances must have exactly 3 values for 3 entry points")
+	// Validate distances array matches the current number of entry points
+	entryPoints, err := h.parkingService.ListEntryPoints()
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, "Failed to validate entry points")
 		return
+	}
+
+	expectedDistanceCount := len(entryPoints)
+	if expectedDistanceCount == 0 {
+		h.writeError(w, http.StatusBadRequest, "Cannot create slot without at least one entry point")
+		return
+	}
+
+	// Backfill or truncate distances to match entry point count (like Rails does)
+	if len(req.Distances) < expectedDistanceCount {
+		// Backfill missing distances with 0
+		for i := len(req.Distances); i < expectedDistanceCount; i++ {
+			req.Distances = append(req.Distances, 0)
+		}
+	} else if len(req.Distances) > expectedDistanceCount {
+		// Truncate distances array
+		req.Distances = req.Distances[:expectedDistanceCount]
 	}
 
 	slot, err := h.parkingService.CreateSlot(&req)
@@ -489,6 +517,8 @@ func (h *ParkingHandler) CreateSlot(w http.ResponseWriter, r *http.Request) {
 		SlotType:  string(slot.SlotType),
 		Distances: slot.Distances,
 		Available: slot.Available,
+		CreatedAt: slot.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt: slot.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 
 	h.writeCreated(w, response)
@@ -500,14 +530,66 @@ func (h *ParkingHandler) UpdateSlot(w http.ResponseWriter, r *http.Request) {
 	idStr := vars["id"]
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "Invalid slot ID")
+		// Invalid slot ID format should return 404 (not found) instead of 400
+		h.writeError(w, http.StatusNotFound, "Parking slot not found")
+		return
+	}
+
+	// Read request body once
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, "Failed to read request body")
 		return
 	}
 
 	var req dtos.UpdateSlotRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+
+	// Try wrapped format first (Postman format)
+	var wrappedReq dtos.UpdateSlotRequestWrapped
+	if err := json.Unmarshal(bodyBytes, &wrappedReq); err == nil && wrappedReq.Slot != nil {
+		req = *wrappedReq.Slot
+	} else if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		// Try unwrapped format
 		h.writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
+	}
+
+	// Validate required fields to avoid 500 errors
+	if req.SlotLabel != nil && *req.SlotLabel == "" {
+		h.writeError(w, http.StatusBadRequest, "slot_label cannot be empty")
+		return
+	}
+	if req.SlotType != nil && *req.SlotType == "" {
+		h.writeError(w, http.StatusBadRequest, "slot type cannot be empty")
+		return
+	}
+	if req.SlotLabel != nil && len(*req.SlotLabel) > 255 {
+		h.writeError(w, http.StatusBadRequest, "slot label is too long (max 255 characters)")
+		return
+	}
+
+	// Validate and adjust distances array if provided (backfill or truncate to match entry point count)
+	if req.Distances != nil {
+		entryPoints, err := h.parkingService.ListEntryPoints()
+		if err != nil {
+			h.writeError(w, http.StatusInternalServerError, "Failed to validate entry points")
+			return
+		}
+
+		expectedDistanceCount := len(entryPoints)
+		// Only adjust distances if there are entry points AND the array is not empty
+		// If there are no entry points or the array is empty, preserve as-is
+		if expectedDistanceCount > 0 && len(*req.Distances) > 0 {
+			// Backfill missing distances with 0
+			if len(*req.Distances) < expectedDistanceCount {
+				for i := len(*req.Distances); i < expectedDistanceCount; i++ {
+					*req.Distances = append(*req.Distances, 0)
+				}
+			} else if len(*req.Distances) > expectedDistanceCount {
+				// Truncate distances array
+				*req.Distances = (*req.Distances)[:expectedDistanceCount]
+			}
+		}
 	}
 
 	slot, err := h.parkingService.UpdateSlot(id, &req)
@@ -526,6 +608,8 @@ func (h *ParkingHandler) UpdateSlot(w http.ResponseWriter, r *http.Request) {
 		SlotType:  string(slot.SlotType),
 		Distances: slot.Distances,
 		Available: slot.Available,
+		CreatedAt: slot.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt: slot.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 
 	h.writeSuccess(w, response)
@@ -544,6 +628,8 @@ func (h *ParkingHandler) DeleteSlot(w http.ResponseWriter, r *http.Request) {
 	if err := h.parkingService.DeleteSlot(id); err != nil {
 		if err.Error() == "parking slot not found" {
 			h.writeError(w, http.StatusNotFound, err.Error())
+		} else if strings.Contains(err.Error(), "active sessions") || strings.Contains(err.Error(), "cannot delete slot with active sessions") || strings.Contains(err.Error(), "foreign key constraint") || strings.Contains(err.Error(), "violates foreign key") {
+			h.writeError(w, http.StatusConflict, "cannot delete slot with active sessions")
 		} else {
 			h.writeError(w, http.StatusInternalServerError, "Failed to delete parking slot")
 		}
@@ -564,13 +650,25 @@ func (h *ParkingHandler) CreateEntryPoint(w http.ResponseWriter, r *http.Request
 
 	var req dtos.CreateEntryPointRequest
 
-	// Try wrapped format first (Postman format)
+	// Require wrapped format (Postman format)
 	var wrappedReq dtos.CreateEntryPointRequestWrapped
-	if err := json.Unmarshal(bodyBytes, &wrappedReq); err == nil && wrappedReq.EntryPoint.Identifier != "" {
-		req = wrappedReq.EntryPoint
-	} else if err := json.Unmarshal(bodyBytes, &req); err != nil {
-		// Try unwrapped format
-		h.writeError(w, http.StatusBadRequest, "Invalid request body")
+	if err := json.Unmarshal(bodyBytes, &wrappedReq); err != nil {
+		h.writeError(w, http.StatusBadRequest, "Invalid request body: missing wrapper")
+		return
+	}
+	if wrappedReq.EntryPoint.Identifier == "" {
+		h.writeError(w, http.StatusBadRequest, "Invalid request body: missing entry_point wrapper")
+		return
+	}
+	req = wrappedReq.EntryPoint
+
+	// Validate required fields
+	if req.Identifier == "" {
+		h.writeError(w, http.StatusBadRequest, "Identifier is required")
+		return
+	}
+	if req.Name == "" {
+		h.writeError(w, http.StatusBadRequest, "Name is required")
 		return
 	}
 
@@ -578,7 +676,7 @@ func (h *ParkingHandler) CreateEntryPoint(w http.ResponseWriter, r *http.Request
 	ep, err := h.parkingService.CreateEntryPoint(&req)
 	if err != nil {
 		// Check if it's a duplicate key error
-		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") {
+		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") || strings.Contains(err.Error(), "already exists") {
 			h.writeError(w, http.StatusConflict, "Entry point with this identifier already exists")
 		} else {
 			h.writeError(w, http.StatusInternalServerError, "Failed to create entry point")
@@ -689,6 +787,616 @@ func (h *ParkingHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// UpdateSession handles PUT /api/v1/sessions/{id}
+func (h *ParkingHandler) UpdateSession(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, "Invalid session ID")
+		return
+	}
+
+	var req dtos.UpdateSessionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	session, err := h.parkingService.UpdateSession(id, &req)
+	if err != nil {
+		if err.Error() == "parking session not found" {
+			h.writeError(w, http.StatusNotFound, err.Error())
+		} else if err.Error() == "cannot update active parking session" {
+			h.writeError(w, http.StatusConflict, err.Error())
+		} else {
+			h.writeError(w, http.StatusInternalServerError, "Failed to update parking session")
+		}
+		return
+	}
+
+	var exitedAt *string
+	if session.ExitedAt != nil {
+		exitedAtStr := session.ExitedAt.Format(time.RFC3339)
+		exitedAt = &exitedAtStr
+	}
+
+	response := dtos.GetSessionResponse{
+		SessionID:   fmt.Sprintf("%d", session.ID),
+		VehicleType: session.VehicleType,
+		ParkingSlot: dtos.SlotInfo{
+			ID:        fmt.Sprintf("%d", session.ParkingSlot.ID),
+			SlotLabel: session.ParkingSlot.SlotLabel,
+			SlotType:  string(session.ParkingSlot.SlotType),
+		},
+		EntryPoint: dtos.EntryPointInfo{
+			ID:         session.EntryPoint.ID,
+			Identifier: session.EntryPoint.Identifier,
+			Name:       session.EntryPoint.Name,
+			CreatedAt:  session.EntryPoint.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:  session.EntryPoint.UpdatedAt.UTC().Format(time.RFC3339),
+		},
+		ParkedAt:     session.ParkedAt.UTC().Format(time.RFC3339),
+		ExitedAt:     exitedAt,
+		IsActive:     session.Active(),
+		DurationHours: session.DurationHours(),
+		TotalFee:      session.TotalFee,
+	}
+
+	h.writeSuccess(w, response)
+}
+
+// GetSlot handles GET /api/v1/slots/{id}
+func (h *ParkingHandler) GetSlot(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, "Invalid slot ID")
+		return
+	}
+
+	slot, err := h.parkingService.GetSlot(id)
+	if err != nil {
+		h.writeError(w, http.StatusNotFound, "Parking slot not found")
+		return
+	}
+
+	response := dtos.SlotWithDistance{
+		ID:        fmt.Sprintf("%d", slot.ID),
+		SlotLabel: slot.SlotLabel,
+		SlotType:  string(slot.SlotType),
+		Distances: slot.Distances,
+		Available: slot.Available,
+		CreatedAt: slot.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt: slot.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+
+	h.writeSuccess(w, response)
+}
+
+// GetEntryPoint handles GET /api/v1/entry_points/{id}
+func (h *ParkingHandler) GetEntryPoint(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, "Invalid entry point ID")
+		return
+	}
+
+	ep, err := h.parkingService.GetEntryPoint(id)
+	if err != nil {
+		h.writeError(w, http.StatusNotFound, "Entry point not found")
+		return
+	}
+
+	response := dtos.EntryPointInfo{
+		ID:         ep.ID,
+		Identifier: ep.Identifier,
+		Name:       ep.Name,
+		CreatedAt:  ep.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:  ep.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+
+	h.writeSuccess(w, response)
+}
+
+// Vehicle CRUD handlers
+
+// Billing Audit Log read handlers
+
+// GetBillingAuditLog handles GET /api/v1/billing-audit-logs/{id}
+func (h *ParkingHandler) GetBillingAuditLog(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, "Invalid billing audit log ID")
+		return
+	}
+
+	log, err := h.parkingService.GetBillingAuditLog(id)
+	if err != nil {
+		h.writeError(w, http.StatusNotFound, "Billing audit log not found")
+		return
+	}
+
+	var baseStartTime *string
+	if log.BaseStartTime != nil {
+		baseStartTimeStr := log.BaseStartTime.Format(time.RFC3339)
+		baseStartTime = &baseStartTimeStr
+	}
+
+	response := dtos.BillingAuditLogInfo{
+		ID:               log.ID,
+		ParkingSessionID: log.ParkingSessionID,
+		VehicleType:      log.VehicleType,
+		SlotLabel:        log.SlotLabel,
+		SlotType:         log.SlotType,
+		EntryPoint:       log.EntryPoint,
+		ParkedAt:         log.ParkedAt.UTC().Format(time.RFC3339),
+		ExitedAt:         log.ExitedAt.UTC().Format(time.RFC3339),
+		TotalFee:         log.TotalFee,
+		BaseFee:          log.BaseFee,
+		ExceedingFee:     log.ExceedingFee,
+		ExceedingHours:   log.ExceedingHours,
+		LongTermDays:     log.LongTermDays,
+		LongTermFee:      log.LongTermFee,
+		DurationHours:    log.DurationHours,
+		IsContinuous:     log.IsContinuous,
+		BaseStartTime:    baseStartTime,
+		FeeBreakdown: dtos.BillingFeeBreakdown{
+			BaseFee:       log.FeeBreakdown.BaseFee,
+			ExceedingFee:  log.FeeBreakdown.ExceedingFee,
+			LongTermFee:   log.FeeBreakdown.LongTermFee,
+			TotalFee:      log.FeeBreakdown.TotalFee,
+			DurationHours: log.FeeBreakdown.DurationHours,
+		},
+		CorrelationID:    log.CorrelationID,
+		IdempotencyKey:   log.IdempotencyKey,
+		BillingVersion:   log.BillingVersion,
+		CalculatedAt:     log.CalculatedAt.UTC().Format(time.RFC3339),
+		CreatedAt:        log.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:        log.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+
+	h.writeSuccess(w, response)
+}
+
+// ListBillingAuditLogs handles GET /api/v1/billing-audit-logs
+func (h *ParkingHandler) ListBillingAuditLogs(w http.ResponseWriter, r *http.Request) {
+	// Parse pagination parameters with defaults
+	page := 1
+	perPage := 20
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if pp, err := strconv.Atoi(perPageStr); err == nil && pp > 0 && pp <= 100 {
+			perPage = pp
+		}
+	}
+
+	logs, totalCount, err := h.parkingService.ListBillingAuditLogs(page, perPage)
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, "Failed to list billing audit logs")
+		return
+	}
+	
+	responses := make([]dtos.BillingAuditLogInfo, 0, len(logs))
+	for _, log := range logs {
+		var baseStartTime *string
+		if log.BaseStartTime != nil {
+			baseStartTimeStr := log.BaseStartTime.Format(time.RFC3339)
+			baseStartTime = &baseStartTimeStr
+		}
+		
+		responses = append(responses, dtos.BillingAuditLogInfo{
+			ID:               log.ID,
+			ParkingSessionID: log.ParkingSessionID,
+			VehicleType:      log.VehicleType,
+			SlotLabel:        log.SlotLabel,
+			SlotType:         log.SlotType,
+			EntryPoint:       log.EntryPoint,
+			ParkedAt:         log.ParkedAt.UTC().Format(time.RFC3339),
+			ExitedAt:         log.ExitedAt.UTC().Format(time.RFC3339),
+			TotalFee:         log.TotalFee,
+			BaseFee:          log.BaseFee,
+			ExceedingFee:     log.ExceedingFee,
+			ExceedingHours:   log.ExceedingHours,
+			LongTermDays:     log.LongTermDays,
+			LongTermFee:      log.LongTermFee,
+			DurationHours:    log.DurationHours,
+			IsContinuous:     log.IsContinuous,
+			BaseStartTime:    baseStartTime,
+			FeeBreakdown: dtos.BillingFeeBreakdown{
+				BaseFee:       log.FeeBreakdown.BaseFee,
+				ExceedingFee:  log.FeeBreakdown.ExceedingFee,
+				LongTermFee:   log.FeeBreakdown.LongTermFee,
+				TotalFee:      log.FeeBreakdown.TotalFee,
+				DurationHours: log.FeeBreakdown.DurationHours,
+			},
+			CorrelationID:    log.CorrelationID,
+			IdempotencyKey:   log.IdempotencyKey,
+			BillingVersion:   log.BillingVersion,
+			CalculatedAt:     log.CalculatedAt.UTC().Format(time.RFC3339),
+			CreatedAt:        log.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:        log.UpdatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	
+	// Calculate pagination metadata
+	totalPages := (totalCount + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	
+	h.writePaginated(w, dtos.PaginatedResponse{
+		Success:   true,
+		Data:      responses,
+		Pagination: dtos.PaginationMetadata{
+			CurrentPage: page,
+			PerPage:     perPage,
+			TotalPages:  totalPages,
+			TotalCount:  totalCount,
+		},
+	})
+}
+
+// GetBillingAuditLogsBySessionID handles GET /api/v1/billing-audit-logs/session?session_id=123
+func (h *ParkingHandler) GetBillingAuditLogsBySessionID(w http.ResponseWriter, r *http.Request) {
+	// Get session_id from query parameter (matching Ruby backend behavior)
+	sessionIDStr := r.URL.Query().Get("session_id")
+	if sessionIDStr == "" {
+		h.writeError(w, http.StatusBadRequest, "Session ID is required")
+		return
+	}
+	sessionID, err := strconv.ParseInt(sessionIDStr, 10, 64)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, "Invalid session ID")
+		return
+	}
+
+	logs, err := h.parkingService.GetBillingAuditLogsBySessionID(sessionID)
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, "Failed to get billing audit logs")
+		return
+	}
+
+	responses := make([]dtos.BillingAuditLogInfo, 0, len(logs))
+	for _, log := range logs {
+		var baseStartTime *string
+		if log.BaseStartTime != nil {
+			baseStartTimeStr := log.BaseStartTime.Format(time.RFC3339)
+			baseStartTime = &baseStartTimeStr
+		}
+
+		responses = append(responses, dtos.BillingAuditLogInfo{
+			ID:               log.ID,
+			ParkingSessionID: log.ParkingSessionID,
+			VehicleType:      log.VehicleType,
+			SlotLabel:        log.SlotLabel,
+			SlotType:         log.SlotType,
+			EntryPoint:       log.EntryPoint,
+			ParkedAt:         log.ParkedAt.UTC().Format(time.RFC3339),
+			ExitedAt:         log.ExitedAt.UTC().Format(time.RFC3339),
+			TotalFee:         log.TotalFee,
+			BaseFee:          log.BaseFee,
+			ExceedingFee:     log.ExceedingFee,
+			ExceedingHours:   log.ExceedingHours,
+			LongTermDays:     log.LongTermDays,
+			LongTermFee:      log.LongTermFee,
+			DurationHours:    log.DurationHours,
+			IsContinuous:     log.IsContinuous,
+			BaseStartTime:    baseStartTime,
+			FeeBreakdown: dtos.BillingFeeBreakdown{
+				BaseFee:       log.FeeBreakdown.BaseFee,
+				ExceedingFee:  log.FeeBreakdown.ExceedingFee,
+				LongTermFee:   log.FeeBreakdown.LongTermFee,
+				TotalFee:      log.FeeBreakdown.TotalFee,
+				DurationHours: log.FeeBreakdown.DurationHours,
+			},
+			CorrelationID:    log.CorrelationID,
+			IdempotencyKey:   log.IdempotencyKey,
+			BillingVersion:   log.BillingVersion,
+			CalculatedAt:     log.CalculatedAt.UTC().Format(time.RFC3339),
+			CreatedAt:        log.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:        log.UpdatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+
+	h.writeSuccess(w, responses)
+}
+
+// Kafka Event read handlers
+
+// GetKafkaEvent handles GET /api/v1/kafka-events/{id}
+func (h *ParkingHandler) GetKafkaEvent(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	event, err := h.parkingService.GetKafkaEvent(id)
+	if err != nil {
+		h.writeError(w, http.StatusNotFound, "Kafka event not found")
+		return
+	}
+
+	var publishedAt *string
+	if event.PublishedAt != nil {
+		publishedAtStr := event.PublishedAt.Format(time.RFC3339)
+		publishedAt = &publishedAtStr
+	}
+
+	response := dtos.KafkaEventInfo{
+		ID:            event.ID,
+		EventType:     event.EventType,
+		Topic:         event.Topic,
+		Partition:     event.Partition,
+		Offset:        event.KafkaOffset,
+		EventKey:      event.EventKey,
+		EventPayload:   event.EventPayload,
+		CorrelationID: event.CorrelationID,
+		CausationID:   event.CausationID,
+		IdempotencyKey: event.IdempotencyKey,
+		EventID:       event.EventID,
+		OccurredAt:    event.OccurredAt.UTC().Format(time.RFC3339),
+		PublishedAt:   publishedAt,
+		Status:        event.Status,
+		RetryCount:    event.RetryCount,
+		ErrorMessage:  event.ErrorMessage,
+		Metadata:      event.Metadata,
+		CreatedAt:     event.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:     event.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+
+	h.writeSuccess(w, response)
+}
+
+// ListKafkaEvents handles GET /api/v1/kafka-events
+func (h *ParkingHandler) ListKafkaEvents(w http.ResponseWriter, r *http.Request) {
+	// Parse pagination parameters with defaults
+	page := 1
+	perPage := 20
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if pp, err := strconv.Atoi(perPageStr); err == nil && pp > 0 && pp <= 100 {
+			perPage = pp
+		}
+	}
+
+	events, totalCount, err := h.parkingService.ListKafkaEvents(page, perPage)
+	if err != nil {
+		fmt.Printf("ERROR: ListKafkaEvents failed: %v\n", err)
+		h.writeError(w, http.StatusInternalServerError, "Failed to list Kafka events")
+		return
+	}
+	
+	responses := make([]dtos.KafkaEventInfo, 0, len(events))
+	for _, event := range events {
+		var publishedAt *string
+		if event.PublishedAt != nil {
+			publishedAtStr := event.PublishedAt.Format(time.RFC3339)
+			publishedAt = &publishedAtStr
+		}
+		
+		responses = append(responses, dtos.KafkaEventInfo{
+			ID:            event.ID,
+			EventType:     event.EventType,
+			Topic:         event.Topic,
+			Partition:     event.Partition,
+			Offset:        event.KafkaOffset,
+			EventKey:      event.EventKey,
+			EventPayload:   event.EventPayload,
+			CorrelationID: event.CorrelationID,
+			CausationID:   event.CausationID,
+			IdempotencyKey: event.IdempotencyKey,
+			EventID:       event.EventID,
+			OccurredAt:    event.OccurredAt.UTC().Format(time.RFC3339),
+			PublishedAt:   publishedAt,
+			Status:        event.Status,
+			RetryCount:    event.RetryCount,
+			ErrorMessage:  event.ErrorMessage,
+			Metadata:      event.Metadata,
+			CreatedAt:     event.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:     event.UpdatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	
+	// Calculate pagination metadata
+	totalPages := (totalCount + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	
+	h.writePaginated(w, dtos.PaginatedResponse{
+		Success:   true,
+		Data:      responses,
+		Pagination: dtos.PaginationMetadata{
+			CurrentPage: page,
+			PerPage:     perPage,
+			TotalPages:  totalPages,
+			TotalCount:  totalCount,
+		},
+	})
+}
+
+// GetKafkaEventsByStatus handles GET /api/v1/kafka-events/status?status=pending
+func (h *ParkingHandler) GetKafkaEventsByStatus(w http.ResponseWriter, r *http.Request) {
+	// Get status from query parameter (matching Ruby backend behavior)
+	status := r.URL.Query().Get("status")
+	if status == "" {
+		h.writeError(w, http.StatusBadRequest, "Status is required")
+		return
+	}
+
+	// Validate status
+	if status != "pending" && status != "published" && status != "failed" && status != "retrying" {
+		h.writeError(w, http.StatusBadRequest, "Invalid status. Must be one of: pending, published, failed, retrying")
+		return
+	}
+
+	// Parse pagination parameters with defaults
+	page := 1
+	perPage := 20
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if pp, err := strconv.Atoi(perPageStr); err == nil && pp > 0 && pp <= 100 {
+			perPage = pp
+		}
+	}
+
+	events, totalCount, err := h.parkingService.GetKafkaEventsByStatus(status, page, perPage)
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, "Failed to list Kafka events")
+		return
+	}
+
+	responses := make([]dtos.KafkaEventInfo, 0, len(events))
+	for _, event := range events {
+		var publishedAt *string
+		if event.PublishedAt != nil {
+			publishedAtStr := event.PublishedAt.Format(time.RFC3339)
+			publishedAt = &publishedAtStr
+		}
+
+		responses = append(responses, dtos.KafkaEventInfo{
+			ID:            event.ID,
+			EventType:     event.EventType,
+			Topic:         event.Topic,
+			Partition:     event.Partition,
+			Offset:        event.KafkaOffset,
+			EventKey:      event.EventKey,
+			EventPayload:   event.EventPayload,
+			CorrelationID: event.CorrelationID,
+			CausationID:   event.CausationID,
+			IdempotencyKey: event.IdempotencyKey,
+			EventID:       event.EventID,
+			OccurredAt:    event.OccurredAt.UTC().Format(time.RFC3339),
+			PublishedAt:   publishedAt,
+			Status:        event.Status,
+			RetryCount:    event.RetryCount,
+			ErrorMessage:  event.ErrorMessage,
+			Metadata:      event.Metadata,
+			CreatedAt:     event.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:     event.UpdatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	
+	// Calculate pagination metadata
+	totalPages := (totalCount + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	h.writePaginated(w, dtos.PaginatedResponse{
+		Success:   true,
+		Data:      responses,
+		Pagination: dtos.PaginationMetadata{
+			CurrentPage: page,
+			PerPage:     perPage,
+			TotalPages:  totalPages,
+			TotalCount:  totalCount,
+		},
+	})
+}
+
+// GetKafkaEventsByEventType handles GET /api/v1/kafka-events/event_type?event_type=vehicle_parked
+func (h *ParkingHandler) GetKafkaEventsByEventType(w http.ResponseWriter, r *http.Request) {
+	// Get event_type from query parameter (matching Ruby backend behavior)
+	eventType := r.URL.Query().Get("event_type")
+	if eventType == "" {
+		h.writeError(w, http.StatusBadRequest, "Event type is required")
+		return
+	}
+
+	// Parse pagination parameters with defaults
+	page := 1
+	perPage := 20
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if perPageStr := r.URL.Query().Get("per_page"); perPageStr != "" {
+		if pp, err := strconv.Atoi(perPageStr); err == nil && pp > 0 && pp <= 100 {
+			perPage = pp
+		}
+	}
+
+	events, totalCount, err := h.parkingService.GetKafkaEventsByEventType(eventType, page, perPage)
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, "Failed to list Kafka events")
+		return
+	}
+
+	responses := make([]dtos.KafkaEventInfo, 0, len(events))
+	for _, event := range events {
+		var publishedAt *string
+		if event.PublishedAt != nil {
+			publishedAtStr := event.PublishedAt.Format(time.RFC3339)
+			publishedAt = &publishedAtStr
+		}
+
+		responses = append(responses, dtos.KafkaEventInfo{
+			ID:            event.ID,
+			EventType:     event.EventType,
+			Topic:         event.Topic,
+			Partition:     event.Partition,
+			Offset:        event.KafkaOffset,
+			EventKey:      event.EventKey,
+			EventPayload:   event.EventPayload,
+			CorrelationID: event.CorrelationID,
+			CausationID:   event.CausationID,
+			IdempotencyKey: event.IdempotencyKey,
+			EventID:       event.EventID,
+			OccurredAt:    event.OccurredAt.UTC().Format(time.RFC3339),
+			PublishedAt:   publishedAt,
+			Status:        event.Status,
+			RetryCount:    event.RetryCount,
+			ErrorMessage:  event.ErrorMessage,
+			Metadata:      event.Metadata,
+			CreatedAt:     event.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:     event.UpdatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	
+	// Calculate pagination metadata
+	totalPages := (totalCount + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	h.writePaginated(w, dtos.PaginatedResponse{
+		Success:   true,
+		Data:      responses,
+		Pagination: dtos.PaginationMetadata{
+			CurrentPage: page,
+			PerPage:     perPage,
+			TotalPages:  totalPages,
+			TotalCount:  totalCount,
+		},
+	})
+}
+
 // InitializeSystem handles POST /api/v1/initialize
 func (h *ParkingHandler) InitializeSystem(w http.ResponseWriter, r *http.Request) {
 	var req dtos.InitializeRequest
@@ -720,6 +1428,16 @@ func (h *ParkingHandler) writeSuccess(w http.ResponseWriter, data interface{}) {
 	}
 }
 
+// writePaginated writes a paginated response without double-wrapping
+func (h *ParkingHandler) writePaginated(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		// Log error but don't return as headers are already written
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
 // writeCreated writes a 201 Created JSON response.
 func (h *ParkingHandler) writeCreated(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
@@ -731,6 +1449,23 @@ func (h *ParkingHandler) writeCreated(w http.ResponseWriter, data interface{}) {
 		// Log error but don't return as headers are already written
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
+}
+
+// RecentExitsHandler returns recent exit sessions for continuous parking selection
+func (h *ParkingHandler) RecentExitsHandler(w http.ResponseWriter, r *http.Request) {
+	vehicleType := r.URL.Query().Get("vehicle_type")
+	if vehicleType == "" {
+		h.writeError(w, http.StatusBadRequest, "vehicle_type query parameter required")
+		return
+	}
+
+	recentExits, err := h.parkingService.GetRecentExits(vehicleType)
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.writeSuccess(w, recentExits)
 }
 
 // parseSessionID parses a session ID from string to int64

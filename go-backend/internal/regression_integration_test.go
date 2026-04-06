@@ -16,7 +16,7 @@ import (
 
 // TestRegression_DistanceTieCases tests distance tie cases in slot allocation
 func TestRegression_DistanceTieCases(t *testing.T) {
-	router := setupRegressionTestRouter()
+	router := setupRegressionTestRouter(t)
 	
 	// Park vehicle when multiple slots have same distance
 	parkRequest := map[string]interface{}{
@@ -56,7 +56,7 @@ func TestRegression_DistanceTieCases(t *testing.T) {
 func TestRegression_SlotExhaustion(t *testing.T) {
 	t.Skip("Test requires marking slots as occupied in database, which is not implemented. Skipping as per requirements.")
 	
-	router := setupRegressionTestRouter()
+	router := setupRegressionTestRouter(t)
 	
 	// Mark all slots as occupied (simulate full parking lot)
 	// This would require database setup to mark slots as occupied
@@ -86,7 +86,7 @@ func TestRegression_SlotExhaustion(t *testing.T) {
 
 // TestRegression_24hBoundaryCases tests 24-hour boundary cases
 func TestRegression_24hBoundaryCases(t *testing.T) {
-	router := setupRegressionTestRouter()
+	router := setupRegressionTestRouter(t)
 	
 	// Park vehicle
 	parkRequest := map[string]interface{}{
@@ -153,7 +153,7 @@ func TestRegression_24hBoundaryCases(t *testing.T) {
 
 // TestRegression_ContinuousParkingBoundaryCases tests continuous parking boundary cases
 func TestRegression_ContinuousParkingBoundaryCases(t *testing.T) {
-	router := setupRegressionTestRouter()
+	router := setupRegressionTestRouter(t)
 	
 	// First parking session
 	parkRequest1 := map[string]interface{}{
@@ -233,7 +233,7 @@ func TestRegression_ContinuousParkingBoundaryCases(t *testing.T) {
 
 // TestRegression_RoundingEdgeCases tests rounding edge cases
 func TestRegression_RoundingEdgeCases(t *testing.T) {
-	router := setupRegressionTestRouter()
+	router := setupRegressionTestRouter(t)
 	
 	// Park vehicle
 	parkRequest := map[string]interface{}{
@@ -299,7 +299,7 @@ func TestRegression_RoundingEdgeCases(t *testing.T) {
 
 // TestRegression_VehicleTypeEdgeCases tests vehicle type edge cases
 func TestRegression_VehicleTypeEdgeCases(t *testing.T) {
-	router := setupRegressionTestRouter()
+	router := setupRegressionTestRouter(t)
 	
 	// Test with lowercase vehicle type - system currently rejects lowercase
 	parkRequest := map[string]interface{}{
@@ -334,7 +334,7 @@ func TestRegression_VehicleTypeEdgeCases(t *testing.T) {
 func TestRegression_EntryPointEdgeCases(t *testing.T) {
 	t.Skip("System only supports letter-based entry points (A, B, C), not numeric IDs. Skipping as this tests for unimplemented feature.")
 	
-	router := setupRegressionTestRouter()
+	router := setupRegressionTestRouter(t)
 	
 	// Test with numeric entry point ID
 	parkRequest := map[string]interface{}{
@@ -360,7 +360,7 @@ func TestRegression_EntryPointEdgeCases(t *testing.T) {
 
 // TestRegression_ConcurrentSessionCreation tests concurrent session creation
 func TestRegression_ConcurrentSessionCreation(t *testing.T) {
-	router := setupRegressionTestRouter()
+	router := setupRegressionTestRouter(t)
 	
 	// This test would require database setup to handle concurrent sessions
 	// For now, we'll just verify that sessions can be created sequentially
@@ -444,6 +444,7 @@ func TestRegression_ConcurrentSessionCreation(t *testing.T) {
 }
 
 // Helper function to setup test router
-func setupRegressionTestRouter() http.Handler {
-	return setupTestRouter(&testing.T{})
+func setupRegressionTestRouter(t *testing.T) http.Handler {
+	t.Helper()
+	return setupTestRouter(t)
 }

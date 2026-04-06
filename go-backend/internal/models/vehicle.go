@@ -42,7 +42,7 @@ type Vehicle struct {
 	LastSeenAt      *time.Time       `json:"last_seen_at" db:"last_seen_at"`
 	TotalSessions   int              `json:"total_sessions" db:"total_sessions"`
 	TotalSpent      float64          `json:"total_spent" db:"total_spent"`
-	TotalHoursParked int             `json:"total_hours_parked" db:"total_hours_parked"`
+	TotalHoursParked float64         `json:"total_hours_parked" db:"total_hours_parked"`
 	IsFrequent      bool             `json:"is_frequent" db:"is_frequent"`
 	CreatedAt       time.Time        `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time        `json:"updated_at" db:"updated_at"`
@@ -85,7 +85,7 @@ func (v *Vehicle) AddSpending(amount float64) {
 }
 
 // AddHours adds to the total hours parked
-func (v *Vehicle) AddHours(hours int) {
+func (v *Vehicle) AddHours(hours float64) {
 	v.TotalHoursParked += hours
 }
 

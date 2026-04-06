@@ -5,7 +5,7 @@
  * All specific page objects should extend this class.
  */
 
-import { Element, by, waitFor, device } from 'detox';
+import { Element, by, waitFor, device, element } from 'detox';
 
 /**
  * Base Page Object
@@ -62,11 +62,11 @@ export class BasePage {
    * @returns The element when visible
    */
   async waitForElement(selector: string, timeout: number = 5000): Promise<Element> {
-    const element = by.id(selector);
-    await waitFor(element)
+    const el = element(by.id(selector));
+    await waitFor(el)
       .toBeVisible()
       .withTimeout(timeout);
-    return element;
+    return el;
   }
 
   /**
@@ -76,11 +76,11 @@ export class BasePage {
    * @returns The element when attached
    */
   async waitForAttached(selector: string, timeout: number = 5000): Promise<Element> {
-    const element = by.id(selector);
-    await waitFor(element)
+    const el = element(by.id(selector));
+    await waitFor(el)
       .toExist()
       .withTimeout(timeout);
-    return element;
+    return el;
   }
 
   /**
@@ -89,8 +89,8 @@ export class BasePage {
    * @param timeout - Maximum time to wait in milliseconds (default: 5000)
    */
   async waitForHidden(selector: string, timeout: number = 5000): Promise<void> {
-    const element = by.id(selector);
-    await waitFor(element)
+    const el = element(by.id(selector));
+    await waitFor(el)
       .not.toBeVisible()
       .withTimeout(timeout);
   }
@@ -323,11 +323,11 @@ export class BasePage {
    * @param selector - The scrollable element selector (ID or text)
    */
   async scrollToBottom(selector: string = 'scroll-view'): Promise<void> {
-    const element = by.id(selector);
-    await waitFor(element)
+    const el = element(by.id(selector));
+    await waitFor(el)
       .toBeVisible()
       .withTimeout(5000);
-    await element.scrollTo('bottom');
+    await el.scrollTo('bottom');
   }
 
   /**
@@ -335,11 +335,11 @@ export class BasePage {
    * @param selector - The scrollable element selector (ID or text)
    */
   async scrollToTop(selector: string = 'scroll-view'): Promise<void> {
-    const element = by.id(selector);
-    await waitFor(element)
+    const el = element(by.id(selector));
+    await waitFor(el)
       .toBeVisible()
       .withTimeout(5000);
-    await element.scrollTo('top');
+    await el.scrollTo('top');
   }
 
   /**
@@ -403,8 +403,8 @@ export class BasePage {
    * @param timeout - Maximum time to wait in milliseconds (default: 5000)
    */
   async waitForText(text: string, timeout: number = 5000): Promise<void> {
-    const element = by.text(text);
-    await waitFor(element)
+    const el = element(by.text(text));
+    await waitFor(el)
       .toBeVisible()
       .withTimeout(timeout);
   }

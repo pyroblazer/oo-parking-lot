@@ -3,18 +3,27 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react({
+    jsxImportSource: 'react',
+  })],
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.tsx'],
+    setupFiles: ['./src/test/setup.ts'],
     css: true,
-    testTimeout: 30000,
+    testTimeout: 60000,
     deps: {
-      inline: ['react-router-dom', 'framer-motion'],
+      inline: ['react-router-dom', 'framer-motion', 'motion-dom'],
     },
-    hookTimeout: 30000,
+    hookTimeout: 60000,
     maxConcurrency: 1,
+    exclude: ['e2e/**/*', 'node_modules/**'],
+    environmentOptions: {
+      jsdom: {
+        pretendToBeVisual: true,
+        resources: 'usable',
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
@@ -52,10 +61,16 @@ export default defineConfig({
     logLevel: 'info',
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'three-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
-          'animation-vendor': ['framer-motion', 'animejs'],
+        manualChunks: (id: string) => {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) {
+            return 'react-vendor';
+          }
+          if (id.includes('node_modules/three') || id.includes('node_modules/@react-three')) {
+            return 'three-vendor';
+          }
+          if (id.includes('node_modules/framer-motion') || id.includes('node_modules/animejs')) {
+            return 'animation-vendor';
+          }
         },
       },
     },

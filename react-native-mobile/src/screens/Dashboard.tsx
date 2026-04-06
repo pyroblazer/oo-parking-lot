@@ -210,7 +210,12 @@ const getEntryPointVehicleCount = (
   entryPointId: string,
   sessions: parkingApi.Session[]
 ): number => {
-  return sessions.filter(session => session.entry_point === entryPointId).length;
+  return sessions.filter(session => {
+    const ep = typeof session.entry_point === 'string'
+      ? session.entry_point
+      : session.entry_point.identifier;
+    return ep === entryPointId;
+  }).length;
 };
 
 // ============================================================================
@@ -347,7 +352,7 @@ const ActivityFeedItem: React.FC<{ session: parkingApi.Session }> = ({ session }
             {getVehicleTypeLabel(session.vehicle_type)} • {session.parking_slot.slot_label}
           </Text>
           <Text style={styles.activityDetail}>
-            Entry: {session.entry_point}
+            Entry: {typeof session.entry_point === 'string' ? session.entry_point : session.entry_point.identifier ?? ''}
           </Text>
           <Text style={styles.activityDetail}>
             {formatDate(session.parked_at)}
@@ -487,7 +492,7 @@ const Dashboard: React.FC = () => {
    * Navigate to Park screen
    */
   const navigateToPark = useCallback(() => {
-    navigation.navigate('ParkVehicle' as never);
+    navigation.navigate('Park' as never);
   }, [navigation]);
 
   /**

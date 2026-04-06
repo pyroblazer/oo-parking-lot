@@ -10,13 +10,15 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { getAllSlots, createSlot, updateSlot, deleteSlot } from '../api';
-import type { ParkingSlot, CreateParkingSlotRequest, UpdateParkingSlotRequest } from '../types';
+import { getAllSlots, createSlot, updateSlot, deleteSlot, getEntryPoints } from '../api';
+import type { ParkingSlot, CreateParkingSlotRequest, UpdateParkingSlotRequest, EntryPoint } from '../types';
 
 export default function SlotsManagement(): JSX.Element {
   const [slots, setSlots] = useState<ParkingSlot[]>([]);
+  const [entryPoints, setEntryPoints] = useState<EntryPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -24,12 +26,24 @@ export default function SlotsManagement(): JSX.Element {
   const [formData, setFormData] = useState<CreateParkingSlotRequest>({
     slot_label: '',
     slot_type: 'SP',
-    distances: [0, 0, 0],
+    distances: [],
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    loadEntryPoints();
     loadSlots();
   }, []);
+
+  const loadEntryPoints = async () => {
+    try {
+      const data = await getEntryPoints();
+      setEntryPoints(data);
+    } catch (err) {
+      console.error('Failed to load entry points:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load entry points');
+    }
+  };
 
   const loadSlots = async () => {
     try {
@@ -46,21 +60,36 @@ export default function SlotsManagement(): JSX.Element {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submitting
+    if (!validateForm(formData)) {
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
       await createSlot(formData);
       setShowCreateModal(false);
-      setFormData({ slot_label: '', slot_type: 'SP', distances: [0, 0, 0] });
+      setFormData({ slot_label: '', slot_type: 'SP', distances: Array(entryPoints.length).fill(0) });
+      setFormErrors({});
+      setSuccess(`Slot "${formData.slot_label}" created successfully`);
       await loadSlots();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create slot');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSlot) return;
+
+    // Validate form before submitting
+    if (!validateForm(formData)) {
+      return;
+    }
 
     try {
       setLoading(true);
@@ -73,9 +102,13 @@ export default function SlotsManagement(): JSX.Element {
       await updateSlot(selectedSlot.id, updateData);
       setShowEditModal(false);
       setSelectedSlot(null);
+      setFormErrors({});
+      setSuccess(`Slot "${selectedSlot.slot_label}" updated successfully`);
       await loadSlots();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update slot');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -83,25 +116,80 @@ export default function SlotsManagement(): JSX.Element {
     if (!selectedSlot) return;
 
     try {
+      console.log('=== HANDLE DELETE CLICKED ===');
+      console.log('Selected slot:', selectedSlot);
+      console.log('Slot ID:', selectedSlot.id);
+      console.log('Slot ID type:', typeof selectedSlot.id);
+      console.log('Slot label:', selectedSlot.slot_label);
+      console.log('Slot available:', selectedSlot.available);
+      
       setLoading(true);
       setError(null);
+      
       await deleteSlot(selectedSlot.id);
+      
+      console.log('Delete successful, closing dialog');
       setShowDeleteDialog(false);
       setSelectedSlot(null);
+      setSuccess(`Slot "${selectedSlot.slot_label}" deleted successfully`);
       await loadSlots();
     } catch (err) {
+      console.error('=== HANDLE DELETE ERROR ===');
+      console.error('Error:', err);
+      console.error('Error message:', err instanceof Error ? err.message : 'Unknown error');
       setError(err instanceof Error ? err.message : 'Failed to delete slot');
+    } finally {
+      setLoading(false);
     }
   };
 
   const openEditModal = (slot: ParkingSlot) => {
     setSelectedSlot(slot);
+    setFormErrors({});
+    // Ensure distances array matches current number of entry points
+    const distances = [...slot.distances];
+    while (distances.length < entryPoints.length) {
+      distances.push(0);
+    }
+    distances.length = entryPoints.length;
     setFormData({
       slot_label: slot.slot_label,
       slot_type: slot.slot_type,
-      distances: slot.distances,
+      distances,
     });
     setShowEditModal(true);
+  };
+
+  const validateForm = (data: CreateParkingSlotRequest): boolean => {
+    const errors: Record<string, string> = {};
+    
+    // Validate slot label
+    if (!data.slot_label.trim()) {
+      errors['slot_label'] = 'Slot label is required';
+    }
+    
+    // Validate distances - must be at least 0 (allow 0 for distances)
+    data.distances.forEach((distance, index) => {
+      if (distance < 0) {
+        errors[`distance_${index}`] = `Distance to entry point ${index + 1} must be at least 0`;
+      }
+    });
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Helper function to format distances for display
+  const formatDistances = (slot: ParkingSlot): string => {
+    // If distances_map is available, use it for key-value format display
+    if (slot.distances_map && Object.keys(slot.distances_map).length > 0) {
+      const entries = Object.entries(slot.distances_map)
+        .map(([key, value]) => `${key}: ${value}m`)
+        .join(', ');
+      return entries;
+    }
+    // Fallback to array format if distances_map is not available
+    return slot.distances.map(d => `${d}m`).join(', ');
   };
 
   return (
@@ -161,11 +249,11 @@ export default function SlotsManagement(): JSX.Element {
           transform: translateY(-1px);
         }
         .btn-secondary {
-          background: #64748b;
-          color: #ffffff;
+          background: #f1f5f9;
+          color: #475569;
         }
         .btn-secondary:hover:not(:disabled) {
-          background: #475569;
+          background: #e2e8f0;
           transform: translateY(-1px);
         }
         .btn-outline {
@@ -188,6 +276,8 @@ export default function SlotsManagement(): JSX.Element {
           justify-content: space-between;
           align-items: flex-start;
           animation: slideIn 0.3s ease;
+          position: relative;
+          z-index: 100;
         }
         @keyframes slideIn {
           from { opacity: 0; transform: translateY(-10px); }
@@ -217,6 +307,11 @@ export default function SlotsManagement(): JSX.Element {
         }
         .alert-dismiss:hover {
           color: #b91c1c;
+        }
+        .alert-success {
+          background: #f0fdf4;
+          border-color: #bbf7d0;
+          border-left-color: #16a34a;
         }
         .loading {
           display: flex;
@@ -461,6 +556,19 @@ export default function SlotsManagement(): JSX.Element {
           color: #64748b;
           margin-top: 0.25rem;
         }
+        .form-error {
+          font-size: 0.75rem;
+          color: #dc2626;
+          margin-top: 0.25rem;
+          animation: slideIn 0.2s ease;
+        }
+        .form-input-error {
+          border-color: #dc2626 !important;
+        }
+        .form-input-error:focus {
+          border-color: #dc2626 !important;
+          box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+        }
         @media (max-width: 640px) {
           .slots-management {
             padding: 1rem 0.5rem;
@@ -485,7 +593,10 @@ export default function SlotsManagement(): JSX.Element {
           <h1 className="page-title">Parking Slots Management</h1>
           <button
             className="btn btn-primary"
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              setFormErrors({});
+              setShowCreateModal(true);
+            }}
           >
             + Create Slot
           </button>
@@ -542,6 +653,19 @@ export default function SlotsManagement(): JSX.Element {
           </div>
         )}
 
+        {/* Success Alert */}
+        {success && (
+          <div className="alert alert-success">
+            <div className="alert-content">
+              <div className="alert-title" style={{ color: '#16a34a' }}>Success</div>
+              <div className="alert-message" style={{ color: '#166534' }}>{success}</div>
+            </div>
+            <button className="alert-dismiss" onClick={() => setSuccess(null)} style={{ color: '#16a34a' }}>
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Loading Spinner */}
         {loading && (
           <div className="loading">
@@ -570,7 +694,7 @@ export default function SlotsManagement(): JSX.Element {
                   <div className="slot-info-row">
                     <span className="slot-info-label">Distances:</span>
                     <span className="slot-info-value">
-                      [{slot.distances.join(', ')}]
+                      {formatDistances(slot)}
                     </span>
                   </div>
                 </div>
@@ -599,11 +723,17 @@ export default function SlotsManagement(): JSX.Element {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+        <div className="modal-overlay" onClick={() => {
+          setShowCreateModal(false);
+          setFormErrors({});
+        }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">Create New Parking Slot</h3>
-              <button className="modal-close" onClick={() => setShowCreateModal(false)}>
+              <button className="modal-close" onClick={() => {
+                setShowCreateModal(false);
+                setFormErrors({});
+              }}>
                 ×
               </button>
             </div>
@@ -638,68 +768,46 @@ export default function SlotsManagement(): JSX.Element {
                   <option value="LP">Large Parking (LP)</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label htmlFor="distance_1" className="form-label">
-                  Distance to Entry Point 1
-                </label>
-                <input
-                  id="distance_1"
-                  type="number"
-                  className="form-input"
-                  value={formData.distances[0]}
-                  onChange={(e) => {
-                    const newDistances = [...formData.distances];
-                    newDistances[0] = parseInt(e.target.value) || 0;
-                    setFormData({ ...formData, distances: newDistances });
-                  }}
-                  required
-                  min="0"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="distance_2" className="form-label">
-                  Distance to Entry Point 2
-                </label>
-                <input
-                  id="distance_2"
-                  type="number"
-                  className="form-input"
-                  value={formData.distances[1]}
-                  onChange={(e) => {
-                    const newDistances = [...formData.distances];
-                    newDistances[1] = parseInt(e.target.value) || 0;
-                    setFormData({ ...formData, distances: newDistances });
-                  }}
-                  required
-                  min="0"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="distance_3" className="form-label">
-                  Distance to Entry Point 3
-                </label>
-                <input
-                  id="distance_3"
-                  type="number"
-                  className="form-input"
-                  value={formData.distances[2]}
-                  onChange={(e) => {
-                    const newDistances = [...formData.distances];
-                    newDistances[2] = parseInt(e.target.value) || 0;
-                    setFormData({ ...formData, distances: newDistances });
-                  }}
-                  required
-                  min="0"
-                  placeholder="0"
-                />
-              </div>
+              {entryPoints.map((entryPoint, index) => (
+                <div key={entryPoint.id} className="form-group">
+                  <label htmlFor={`distance_${index}`} className="form-label">
+                    Distance to Entry Point {entryPoint.identifier}
+                  </label>
+                  <input
+                    id={`distance_${index}`}
+                    type="number"
+                    className={`form-input ${formErrors[`distance_${index}`] ? 'form-input-error' : ''}`}
+                    value={formData.distances[index] || 0}
+                    onChange={(e) => {
+                      const newDistances = [...formData.distances];
+                      newDistances[index] = parseInt(e.target.value) || 0;
+                      setFormData({ ...formData, distances: newDistances });
+                      // Clear error for this field when user starts typing
+                      if (formErrors[`distance_${index}`]) {
+                        setFormErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors[`distance_${index}`];
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    required
+                    min="0"
+                    placeholder="0"
+                  />
+                  {formErrors[`distance_${index}`] && (
+                    <div className="form-error">{formErrors[`distance_${index}`]}</div>
+                  )}
+                </div>
+              ))}
               <div className="modal-footer">
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setFormErrors({});
+                  }}
                 >
                   Cancel
                 </button>
@@ -718,11 +826,17 @@ export default function SlotsManagement(): JSX.Element {
 
       {/* Edit Modal */}
       {showEditModal && selectedSlot && (
-        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+        <div className="modal-overlay" onClick={() => {
+          setShowEditModal(false);
+          setFormErrors({});
+        }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">Edit Parking Slot #{selectedSlot.id}</h3>
-              <button className="modal-close" onClick={() => setShowEditModal(false)}>
+              <button className="modal-close" onClick={() => {
+                setShowEditModal(false);
+                setFormErrors({});
+              }}>
                 ×
               </button>
             </div>
@@ -756,65 +870,45 @@ export default function SlotsManagement(): JSX.Element {
                   <option value="LP">Large Parking (LP)</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label htmlFor="edit_distance_1" className="form-label">
-                  Distance to Entry Point 1
-                </label>
-                <input
-                  id="edit_distance_1"
-                  type="number"
-                  className="form-input"
-                  value={formData.distances[0]}
-                  onChange={(e) => {
-                    const newDistances = [...formData.distances];
-                    newDistances[0] = parseInt(e.target.value) || 0;
-                    setFormData({ ...formData, distances: newDistances });
-                  }}
-                  required
-                  min="0"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit_distance_2" className="form-label">
-                  Distance to Entry Point 2
-                </label>
-                <input
-                  id="edit_distance_2"
-                  type="number"
-                  className="form-input"
-                  value={formData.distances[1]}
-                  onChange={(e) => {
-                    const newDistances = [...formData.distances];
-                    newDistances[1] = parseInt(e.target.value) || 0;
-                    setFormData({ ...formData, distances: newDistances });
-                  }}
-                  required
-                  min="0"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit_distance_3" className="form-label">
-                  Distance to Entry Point 3
-                </label>
-                <input
-                  id="edit_distance_3"
-                  type="number"
-                  className="form-input"
-                  value={formData.distances[2]}
-                  onChange={(e) => {
-                    const newDistances = [...formData.distances];
-                    newDistances[2] = parseInt(e.target.value) || 0;
-                    setFormData({ ...formData, distances: newDistances });
-                  }}
-                  required
-                  min="0"
-                />
-              </div>
+               {entryPoints.map((entryPoint, index) => (
+                <div key={entryPoint.id} className="form-group">
+                  <label htmlFor={`edit_distance_${index}`} className="form-label">
+                    Distance to Entry Point {entryPoint.identifier}
+                  </label>
+                  <input
+                    id={`edit_distance_${index}`}
+                    type="number"
+                    className={`form-input ${formErrors[`distance_${index}`] ? 'form-input-error' : ''}`}
+                    value={formData.distances[index] || 0}
+                    onChange={(e) => {
+                      const newDistances = [...formData.distances];
+                      newDistances[index] = parseInt(e.target.value) || 0;
+                      setFormData({ ...formData, distances: newDistances });
+                      // Clear error for this field when user starts typing
+                      if (formErrors[`distance_${index}`]) {
+                        setFormErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors[`distance_${index}`];
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    required
+                    min="0"
+                  />
+                  {formErrors[`distance_${index}`] && (
+                    <div className="form-error">{formErrors[`distance_${index}`]}</div>
+                  )}
+                </div>
+              ))}
               <div className="modal-footer">
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => setShowEditModal(false)}
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setFormErrors({});
+                  }}
                 >
                   Cancel
                 </button>

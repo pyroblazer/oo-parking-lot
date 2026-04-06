@@ -1,15 +1,15 @@
 /**
  * Configuration Page
- * 
+ *
  * A comprehensive configuration page for the OO Parking Lot System with three sub-tabs:
  * - Entry Points: Manage entry points with CRUD operations
  * - Parking Slots: View and manage parking slots
  * - System: Initialize/reset system and view health status
- * 
+ *
  * @module Configuration
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import * as parkingApi from '../api/parkingApi';
 import { useParking } from '../context/ParkingContext';
 
@@ -28,14 +28,6 @@ type TabType = 'entryPoints' | 'parkingSlots' | 'system';
 interface EditEntryPointModal {
   isOpen: boolean;
   entryPoint: parkingApi.EntryPoint | null;
-}
-
-/**
- * Edit slot modal state
- */
-interface EditSlotModal {
-  isOpen: boolean;
-  slot: parkingApi.ParkingSlot | null;
 }
 
 /**
@@ -163,7 +155,7 @@ const styles = {
     color: COLORS.text,
   },
   button: {
-    padding: '8px 16px',
+    padding: '10px 20px',
     fontSize: '14px',
     fontWeight: '600',
     borderRadius: '8px',
@@ -174,40 +166,51 @@ const styles = {
   buttonPrimary: {
     backgroundColor: COLORS.primary,
     color: 'white',
+    boxShadow: '0 2px 8px rgba(30, 64, 175, 0.3)',
   },
   buttonSuccess: {
     backgroundColor: COLORS.success,
     color: 'white',
+    boxShadow: '0 2px 8px rgba(22, 163, 74, 0.3)',
   },
   buttonDanger: {
     backgroundColor: COLORS.danger,
     color: 'white',
+    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.3)',
   },
   buttonSecondary: {
-    backgroundColor: COLORS.border,
-    color: COLORS.text,
+    backgroundColor: '#e2e8f0',
+    color: '#475569',
+    border: '1px solid #cbd5e1',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
   },
   input: {
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontSize: '14px',
-    borderRadius: '8px',
-    border: '1px solid COLORS.border',
+    borderRadius: '10px',
+    border: '1.5px solid #e5e7eb',
     backgroundColor: COLORS.surface,
     color: COLORS.text,
-    transition: 'border-color 0.2s ease',
+    transition: 'all 0.2s ease',
+    width: '100%',
   },
   inputFocus: {
     outline: 'none',
     borderColor: COLORS.primary,
+    boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
   },
   select: {
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontSize: '14px',
-    borderRadius: '8px',
-    border: '1px solid COLORS.border',
+    borderRadius: '10px',
+    border: '1.5px solid #e5e7eb',
     backgroundColor: COLORS.surface,
     color: COLORS.text,
     cursor: 'pointer',
+    width: '100%',
   },
   label: {
     display: 'block',
@@ -270,34 +273,71 @@ const styles = {
     left: '0',
     right: '0',
     bottom: '0',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    backdropFilter: 'blur(4px)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backdropFilter: 'blur(8px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: '1000',
+    padding: '16px',
   },
   modalContent: {
     backgroundColor: COLORS.surface,
-    borderRadius: '12px',
-    padding: '32px',
-    maxWidth: '500px',
-    width: '90%',
+    borderRadius: '16px',
+    maxWidth: '540px',
+    width: '100%',
     maxHeight: '90vh',
-    overflowY: 'auto' as const,
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    overflow: 'hidden',
   },
   modalHeader: {
-    fontSize: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '24px 28px',
+    borderBottom: '1px solid #e5e7eb',
+    backgroundColor: COLORS.background,
+  },
+  modalTitle: {
+    fontSize: '22px',
     fontWeight: '700',
     color: COLORS.text,
-    marginBottom: '24px',
+    letterSpacing: '0.3px',
+    margin: '0',
+  },
+  modalCloseButton: {
+    width: '36px',
+    height: '36px',
+    borderRadius: '10px',
+    backgroundColor: '#f3f4f6',
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    fontSize: '18px',
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  modalCloseButtonHover: {
+    backgroundColor: '#e5e7eb',
+    color: '#374151',
+  },
+  modalBody: {
+    padding: '28px',
+    overflowY: 'auto' as const,
+    maxHeight: 'calc(90vh - 180px)',
   },
   modalFooter: {
     display: 'flex',
     justifyContent: 'flex-end',
     gap: '12px',
-    marginTop: '24px',
+    padding: '20px 28px',
+    borderTop: '1px solid #e5e7eb',
+    backgroundColor: '#fafafa',
   },
   error: {
     backgroundColor: '#fef2f2',
@@ -706,25 +746,47 @@ function EntryPointsTab({
       {editModal.isOpen && editModal.entryPoint && (
         <div style={styles.modal}>
           <div style={styles.modalContent}>
-            <h2 style={styles.modalHeader}>Edit Entry Point</h2>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Entry Point ID</label>
-              <input
-                type="text"
-                value={editModal.entryPoint.id}
-                disabled
-                style={{ ...styles.input, backgroundColor: COLORS.background }}
-              />
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>Edit Entry Point</h2>
+              <button
+                style={styles.modalCloseButton}
+                onClick={() => setEditModal({ isOpen: false, entryPoint: null })}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+              >
+                ✕
+              </button>
             </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Name</label>
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="Entry Point A"
-                style={styles.input}
-              />
+            <div style={styles.modalBody}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Entry Point ID</label>
+                <input
+                  type="text"
+                  value={editModal.entryPoint.id}
+                  disabled
+                  style={{ ...styles.input, backgroundColor: COLORS.background, cursor: 'not-allowed' }}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Identifier</label>
+                <input
+                  type="text"
+                  value={editModal.entryPoint.identifier}
+                  disabled
+                  style={{ ...styles.input, backgroundColor: COLORS.background, cursor: 'not-allowed' }}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Entry Point A"
+                  style={styles.input}
+                  autoFocus
+                />
+              </div>
             </div>
             <div style={styles.modalFooter}>
               <button
@@ -738,7 +800,7 @@ function EntryPointsTab({
                 onClick={handleEditEntryPoint}
                 disabled={loading}
               >
-                {loading ? 'Saving...' : 'Save'}
+                {loading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
@@ -749,11 +811,40 @@ function EntryPointsTab({
       {deleteConfirmation.isOpen && deleteConfirmation.entryPoint && (
         <div style={styles.modal}>
           <div style={styles.modalContent}>
-            <h2 style={styles.modalHeader}>Confirm Delete</h2>
-            <p style={{ fontSize: '14px', color: COLORS.text, marginBottom: '24px' }}>
-              Are you sure you want to delete entry point{' '}
-              <strong>{deleteConfirmation.entryPoint.identifier}</strong>?
-            </p>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>Confirm Delete</h2>
+              <button
+                style={styles.modalCloseButton}
+                onClick={() => setDeleteConfirmation({ isOpen: false, entryPoint: null })}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={styles.modalBody}>
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: '#fef3c7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 20px',
+                }}>
+                  <span style={{ fontSize: '32px' }}>⚠️</span>
+                </div>
+                <p style={{ fontSize: '15px', color: COLORS.text, marginBottom: '8px', fontWeight: '600' }}>
+                  Are you sure you want to delete entry point{' '}
+                  <strong style={{ color: COLORS.primary }}>{deleteConfirmation.entryPoint.identifier}</strong>?
+                </p>
+                <p style={{ fontSize: '13px', color: COLORS.danger, marginTop: '16px' }}>
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
             <div style={styles.modalFooter}>
               <button
                 style={{ ...styles.button, ...styles.buttonSecondary }}
@@ -790,17 +881,18 @@ function ParkingSlotsTab({
   slots: parkingApi.ParkingSlot[];
   entryPoints: parkingApi.EntryPoint[];
 }): JSX.Element {
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success] = useState<string | null>(null);
-  
+  const [success, setSuccess] = useState<string | null>(null);
+
   // Add form state
   const [slotLabel, setSlotLabel] = useState('');
   const [slotType, setSlotType] = useState<'SP' | 'MP' | 'LP'>('SP');
   const [distances, setDistances] = useState<number[]>([]);
-  
+
   // Edit modal state
-  const [editModal, setEditModal] = useState<EditSlotModal>({ isOpen: false, slot: null });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [editSlotLabel, setEditSlotLabel] = useState('');
   const [editSlotType, setEditSlotType] = useState<'SP' | 'MP' | 'LP'>('SP');
   const [editDistances, setEditDistances] = useState<number[]>([]);
@@ -825,38 +917,90 @@ function ParkingSlotsTab({
   };
 
   /**
-   * Handle add slot (stub - no API endpoint available)
+   * Handle add slot
    */
   const handleAddSlot = useCallback(async () => {
-    setError('Slot creation is not available through the API. Please use system initialization.');
-    setTimeout(() => setError(null), 5000);
-  }, []);
+    if (!slotLabel.trim()) {
+      setError('Slot label is required');
+      return;
+    }
+    try {
+      setLoading(true);
+      await parkingApi.createSlot(slotLabel, slotType, distances);
+      setSuccess('Slot created successfully');
+      setSlotLabel('');
+      setSlotType('SP');
+      setDistances(new Array(entryPoints.length).fill(0));
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof parkingApi.ApiError ? err.message : 'Failed to create slot');
+    } finally {
+      setLoading(false);
+    }
+  }, [slotLabel, slotType, distances, entryPoints.length]);
 
   /**
-   * Handle edit slot (stub - no API endpoint available)
+   * Handle edit slot
    */
   const handleEditSlot = useCallback(async () => {
-    setError('Slot editing is not available through the API. Please use system initialization.');
-    setTimeout(() => setError(null), 5000);
-    setEditModal({ isOpen: false, slot: null });
-  }, []);
+    if (!editingSlotId || !editSlotLabel.trim()) {
+      setError('Slot label is required');
+      return;
+    }
+    try {
+      setLoading(true);
+      await parkingApi.updateSlot(editingSlotId, editSlotLabel, editSlotType, editDistances);
+      setSuccess('Slot updated successfully');
+      setShowEditModal(false);
+      setEditingSlotId(null);
+      setTimeout(() => setSuccess(null), 3000);
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof parkingApi.ApiError ? err.message : 'Failed to update slot');
+    } finally {
+      setLoading(false);
+    }
+  }, [editingSlotId, editSlotLabel, editSlotType, editDistances]);
 
   /**
-   * Handle delete slot (stub - no API endpoint available)
+   * Handle delete slot
    */
-  const handleDeleteSlot = useCallback(async (_slotId: string) => {
-    setError('Slot deletion is not available through the API. Please use system initialization.');
-    setTimeout(() => setError(null), 5000);
+  const handleDeleteSlot = useCallback(async (slotId: string) => {
+    if (!confirm('Are you sure you want to delete this slot?')) return;
+
+    try {
+      setLoading(true);
+      await parkingApi.deleteSlot(slotId);
+      setSuccess('Slot deleted successfully');
+      setTimeout(() => setSuccess(null), 3000);
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof parkingApi.ApiError ? err.message : 'Failed to delete slot');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   /**
    * Open edit modal
    */
   const openEditModal = useCallback((slot: parkingApi.ParkingSlot) => {
-    setEditModal({ isOpen: true, slot });
+    setEditingSlotId(slot.id);
     setEditSlotLabel(slot.slot_label);
     setEditSlotType(slot.slot_type);
     setEditDistances([...slot.distances]);
+    setShowEditModal(true);
+  }, []);
+
+  /**
+   * Close edit modal
+   */
+  const closeEditModal = useCallback(() => {
+    setShowEditModal(false);
+    setEditingSlotId(null);
+    setEditSlotLabel('');
+    setEditSlotType('SP');
+    setEditDistances([]);
   }, []);
 
   return (
@@ -995,79 +1139,305 @@ function ParkingSlotsTab({
       </div>
 
       {/* Edit Slot Modal */}
-      {editModal.isOpen && editModal.slot && (
-        <div style={styles.modal}>
-          <div style={styles.modalContent}>
-            <h2 style={styles.modalHeader}>Edit Parking Slot</h2>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Slot ID</label>
-              <input
-                type="text"
-                value={editModal.slot.id}
-                disabled
-                style={{ ...styles.input, backgroundColor: COLORS.background }}
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Slot Label</label>
-              <input
-                type="text"
-                value={editSlotLabel}
-                onChange={(e) => setEditSlotLabel(e.target.value)}
-                placeholder="SP-1"
-                style={styles.input}
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Slot Type</label>
-              <select
-                value={editSlotType}
-                onChange={(e) => setEditSlotType(e.target.value as 'SP' | 'MP' | 'LP')}
-                style={styles.select}
+      {showEditModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px',
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            maxWidth: '600px',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            overflow: 'hidden',
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '24px 28px',
+              borderBottom: '1px solid #e5e7eb',
+              backgroundColor: '#f8fafc',
+              flexShrink: 0,
+            }}>
+              <h2 style={{
+                fontSize: '22px',
+                fontWeight: '700',
+                color: '#1e293b',
+                letterSpacing: '0.3px',
+                margin: '0',
+              }}>
+                Edit Parking Slot
+              </h2>
+              <button
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  backgroundColor: '#f3f4f6',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  color: '#6b7280',
+                  fontWeight: '600',
+                }}
+                onClick={closeEditModal}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
               >
-                <option value="SP">SP (Small)</option>
-                <option value="MP">MP (Medium)</option>
-                <option value="LP">LP (Large)</option>
-              </select>
-            </div>
-            
-            {/* Distance inputs for each entry point */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={styles.label}>Distances from Entry Points</label>
-              {entryPoints.map((ep, index) => (
-                <div key={ep.id} style={{ marginBottom: '8px' }}>
-                  <label style={{ fontSize: '12px', color: COLORS.textSecondary, marginBottom: '4px', display: 'block' }}>
-                    Entry Point {ep.identifier}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editDistances[index] || ''}
-                    onChange={(e) => {
-                      const newDistances = [...editDistances];
-                      newDistances[index] = parseFloat(e.target.value) || 0;
-                      setEditDistances(newDistances);
-                    }}
-                    placeholder="Distance"
-                    style={styles.input}
-                  />
-                </div>
-              ))}
+                ✕
+              </button>
             </div>
 
-            <div style={styles.modalFooter}>
+            {/* Body */}
+            <div style={{
+              padding: '28px',
+              overflowY: 'auto',
+              flex: 1,
+            }}>
+              {/* Slot ID */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  marginBottom: '8px',
+                }}>
+                  Slot ID
+                </label>
+                <input
+                  type="text"
+                  value={editingSlotId || ''}
+                  disabled
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    fontSize: '14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #e5e7eb',
+                    backgroundColor: '#f8fafc',
+                    color: '#1e293b',
+                    cursor: 'not-allowed',
+                    opacity: 0.6,
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Slot Label */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  marginBottom: '8px',
+                }}>
+                  Slot Label
+                </label>
+                <input
+                  type="text"
+                  value={editSlotLabel}
+                  onChange={(e) => setEditSlotLabel(e.target.value)}
+                  placeholder="SP-1"
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    fontSize: '14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #e5e7eb',
+                    backgroundColor: '#ffffff',
+                    color: '#1e293b',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Slot Type */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  marginBottom: '12px',
+                }}>
+                  Slot Type
+                </label>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {(['SP', 'MP', 'LP'] as const).map((type) => {
+                    const isSelected = editSlotType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setEditSlotType(type)}
+                        style={{
+                          flex: 1,
+                          padding: '14px',
+                          borderRadius: '12px',
+                          border: `2px solid ${isSelected ? '#1e40af' : '#e5e7eb'}`,
+                          backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
+                          color: isSelected ? '#1e40af' : '#1e293b',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) {
+                            e.currentTarget.style.backgroundColor = '#f9fafb';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) {
+                            e.currentTarget.style.backgroundColor = '#ffffff';
+                          }
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                          <div style={{ fontSize: '18px', fontWeight: '800', lineHeight: 1 }}>{type}</div>
+                          <div style={{ fontSize: '11px', fontWeight: '500', opacity: 0.85 }}>
+                            {type === 'SP' ? 'Small' : type === 'MP' ? 'Medium' : 'Large'}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Distances */}
+              <div style={{
+                backgroundColor: '#f9fafb',
+                padding: '20px',
+                borderRadius: '12px',
+                border: '1px solid #e5e7eb',
+              }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  marginBottom: '16px',
+                }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '16px' }}>📏</span>
+                    <span>Distances from Entry Points</span>
+                  </span>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                  {entryPoints.map((ep, index) => (
+                    <div key={ep.id} style={{
+                      backgroundColor: '#ffffff',
+                      padding: '16px',
+                      borderRadius: '10px',
+                      border: '1px solid #e5e7eb',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px', gap: '8px' }}>
+                        <span style={{ fontSize: '16px' }}>🚪</span>
+                        <label style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', margin: 0 }}>
+                          Entry Point {ep.identifier}
+                        </label>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={editDistances[index] || ''}
+                          onChange={(e) => {
+                            const newDistances = [...editDistances];
+                            newDistances[index] = parseFloat(e.target.value) || 0;
+                            setEditDistances(newDistances);
+                          }}
+                          placeholder="0"
+                          style={{
+                            flex: 1,
+                            padding: '10px 12px',
+                            fontSize: '14px',
+                            borderRadius: '8px',
+                            border: '1px solid #e5e7eb',
+                            backgroundColor: '#ffffff',
+                            color: '#1e293b',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: '700',
+                          color: '#1e40af',
+                          minWidth: '24px',
+                          textAlign: 'center',
+                        }}>m</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px',
+              padding: '20px 28px',
+              borderTop: '1px solid #e5e7eb',
+              backgroundColor: '#fafafa',
+              flexShrink: 0,
+            }}>
               <button
-                style={{ ...styles.button, ...styles.buttonSecondary }}
-                onClick={() => setEditModal({ isOpen: false, slot: null })}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  cursor: 'pointer',
+                  backgroundColor: '#e2e8f0',
+                  color: '#475569',
+                }}
+                onClick={closeEditModal}
               >
                 Cancel
               </button>
               <button
-                style={{ ...styles.button, ...styles.buttonPrimary }}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: '#1e40af',
+                  color: 'white',
+                  boxShadow: '0 2px 8px rgba(30, 64, 175, 0.3)',
+                }}
                 onClick={handleEditSlot}
                 disabled={loading}
               >
-                {loading ? 'Saving...' : 'Save'}
+                {loading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

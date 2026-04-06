@@ -1,0 +1,16 @@
+{
+  "id": "ci-ruby",
+  "name": "CI Ruby Backend",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "enabled": true
+    },
+    {
+      "key": "active_slot_id",
+      "value": "1",
+      "enabled": true
+    }
+  ]
+}

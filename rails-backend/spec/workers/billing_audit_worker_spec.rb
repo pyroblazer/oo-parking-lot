@@ -1,6 +1,18 @@
 require 'rails_helper'
 
 RSpec.describe BillingAuditWorker, type: :worker do
+  # Ensure Sidekiq is in fake! mode so perform_async does not execute inline.
+  # Other specs (e.g. kafka_event_publishing_spec) may leak Sidekiq::Testing.inline!
+  # into this file via their after(:each) hooks.
+  before do
+    Sidekiq::Testing.fake!
+  end
+
+  after do
+    described_class.jobs.clear
+    KafkaEventWorker.jobs.clear
+  end
+
   let(:entry_point) { create(:entry_point) }
   let(:parking_slot) { create(:parking_slot, entry_point: entry_point) }
   let(:session) do
@@ -30,7 +42,7 @@ RSpec.describe BillingAuditWorker, type: :worker do
     it 'creates a billing audit log' do
       expect do
         described_class.new.perform(session.id, fee, breakdown)
-      end.to change { BillingAuditLog.count }.by(1)
+      end.to change(BillingAuditLog, :count).by(1)
     end
 
     it 'stores session information in audit log' do

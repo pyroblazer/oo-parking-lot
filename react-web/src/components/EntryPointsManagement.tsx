@@ -1,32 +1,29 @@
 /**
  * Entry Points Management Component
- * 
+ *
  * Implements FEAT-011: List Entry Points
  * Implements FEAT-012: Create Entry Point
  * Implements FEAT-013: Update Entry Point
  * Implements FEAT-014: Delete Entry Point with confirmation
- * 
+ *
  * @module EntryPointsManagement
  */
 
 import React, { useState, useEffect } from 'react';
 import { getEntryPoints, createEntryPoint, updateEntryPoint, deleteEntryPoint } from '../api';
-import type { EntryPoint, CreateEntryPointRequest, UpdateEntryPointRequest } from '../types';
+import type { EntryPoint } from '../types';
 
 export default function EntryPointsManagement(): JSX.Element {
   const [entryPoints, setEntryPoints] = useState<EntryPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState<EntryPoint | null>(null);
-  const [formData, setFormData] = useState<CreateEntryPointRequest>({
-    id: '',
+  const [formData, setFormData] = useState<{ identifier: string; name: string }>({
     identifier: '',
-    distance_to_slot_1: 0,
-    distance_to_slot_2: 0,
-    distance_to_slot_3: 0,
     name: ''
   });
 
@@ -52,15 +49,21 @@ export default function EntryPointsManagement(): JSX.Element {
     try {
       setLoading(true);
       setError(null);
-      await createEntryPoint(formData.identifier, formData.name);
-      setShowCreateModal(false);
-      setFormData({
-        id: '', identifier: '', distance_to_slot_1: 0, distance_to_slot_2: 0, distance_to_slot_3: 0,
-        name: ''
-      });
+       console.log('=== HANDLE CREATE ===');
+       console.log('formData:', formData);
+       console.log('Sending: identifier:', formData.identifier, 'name:', formData.name);
+       await createEntryPoint({ identifier: formData.identifier, name: formData.name });
+       setShowCreateModal(false);
+       setFormData({
+         identifier: '', name: ''
+       });
+      setSuccess(`Entry point "${formData.identifier}" created successfully`);
       await loadEntryPoints();
     } catch (err) {
+      console.error('Error in handleCreate:', err);
       setError(err instanceof Error ? err.message : 'Failed to create entry point');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -71,17 +74,15 @@ export default function EntryPointsManagement(): JSX.Element {
     try {
       setLoading(true);
       setError(null);
-      const updateData: UpdateEntryPointRequest = {
-        distance_to_slot_1: formData.distance_to_slot_1,
-        distance_to_slot_2: formData.distance_to_slot_2,
-        distance_to_slot_3: formData.distance_to_slot_3,
-      };
-      await updateEntryPoint(selectedPoint.id, updateData);
+      await updateEntryPoint(String(selectedPoint.id), { name: formData.name });
       setShowEditModal(false);
       setSelectedPoint(null);
+      setSuccess('Entry point updated successfully');
       await loadEntryPoints();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update entry point');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -91,24 +92,23 @@ export default function EntryPointsManagement(): JSX.Element {
     try {
       setLoading(true);
       setError(null);
-      await deleteEntryPoint(selectedPoint.identifier);
+      await deleteEntryPoint(String(selectedPoint.id));
       setShowDeleteDialog(false);
       setSelectedPoint(null);
+      setSuccess('Entry point deleted successfully');
       await loadEntryPoints();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete entry point');
+    } finally {
+      setLoading(false);
     }
   };
 
   const openEditModal = (point: EntryPoint) => {
     setSelectedPoint(point);
     setFormData({
-      id: point.identifier,
       identifier: point.identifier,
-      distance_to_slot_1: 0,
-      distance_to_slot_2: 0,
-      distance_to_slot_3: 0,
-      name: ''
+      name: point.name
     });
     setShowEditModal(true);
   };
@@ -170,11 +170,11 @@ export default function EntryPointsManagement(): JSX.Element {
           transform: translateY(-1px);
         }
         .btn-secondary {
-          background: #64748b;
-          color: #ffffff;
+          background: #f1f5f9;
+          color: #475569;
         }
         .btn-secondary:hover:not(:disabled) {
-          background: #475569;
+          background: #e2e8f0;
           transform: translateY(-1px);
         }
         .btn-outline {
@@ -197,6 +197,8 @@ export default function EntryPointsManagement(): JSX.Element {
           justify-content: space-between;
           align-items: flex-start;
           animation: slideIn 0.3s ease;
+          position: relative;
+          z-index: 100;
         }
         @keyframes slideIn {
           from { opacity: 0; transform: translateY(-10px); }
@@ -226,6 +228,11 @@ export default function EntryPointsManagement(): JSX.Element {
         }
         .alert-dismiss:hover {
           color: #b91c1c;
+        }
+        .alert-success {
+          background: #f0fdf4;
+          border: 2px solid #bbf7d0;
+          border-left: 4px solid #16a34a;
         }
         .loading {
           display: flex;
@@ -513,9 +520,22 @@ export default function EntryPointsManagement(): JSX.Element {
           </div>
         )}
 
+        {/* Success Alert */}
+        {success && (
+          <div className="alert alert-success">
+            <div className="alert-content">
+              <div className="alert-title" style={{ color: '#16a34a' }}>Success</div>
+              <div className="alert-message" style={{ color: '#166534' }}>{success}</div>
+            </div>
+            <button className="alert-dismiss" onClick={() => setSuccess(null)} style={{ color: '#16a34a' }}>
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Loading Spinner */}
         {loading && (
-          <div className="loading">
+          <div className="loading" role="status" aria-label="Loading">
             <div className="spinner"></div>
           </div>
         )}
@@ -569,98 +589,36 @@ export default function EntryPointsManagement(): JSX.Element {
             </div>
             <form onSubmit={handleCreate} className="modal-body">
               <div className="form-group">
-                <label htmlFor="id" className="form-label">
-                  Entry Point ID
-                </label>
-                <input
-                  id="id"
-                  type="text"
-                  className="form-input"
-                  value={formData.id}
-                  onChange={(e) => setFormData({ ...formData, id: e.target.value.toUpperCase() })}
-                  required
-                  maxLength={1}
-                  pattern="[A-Z]"
-                  title="Single letter (A, B, C, etc.)"
-                  placeholder="A"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="identifier" className="form-label">
-                  Entry Point Identifier
-                </label>
-                <input
-                  id="identifier"
-                  type="text"
-                  className="form-input"
-                  value={formData.identifier}
-                  onChange={(e) => setFormData({ ...formData, identifier: e.target.value.toUpperCase() })}
-                  required
-                  maxLength={1}
-                  pattern="[A-Z]"
-                  title="Single letter (A, B, C, etc.)"
-                  placeholder="A"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="name" className="form-label">
-                  Entry Point Name
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  className="form-input"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  placeholder="e.g., Main Entrance"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="distance_to_slot_1" className="form-label">
-                  Distance to Slot 1
-                </label>
-                <input
-                  id="distance_to_slot_1"
-                  type="number"
-                  className="form-input"
-                  value={formData.distance_to_slot_1}
-                  onChange={(e) => setFormData({ ...formData, distance_to_slot_1: parseInt(e.target.value) || 0 })}
-                  required
-                  min="0"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="distance_to_slot_2" className="form-label">
-                  Distance to Slot 2
-                </label>
-                <input
-                  id="distance_to_slot_2"
-                  type="number"
-                  className="form-input"
-                  value={formData.distance_to_slot_2}
-                  onChange={(e) => setFormData({ ...formData, distance_to_slot_2: parseInt(e.target.value) || 0 })}
-                  required
-                  min="0"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="distance_to_slot_3" className="form-label">
-                  Distance to Slot 3
-                </label>
-                <input
-                  id="distance_to_slot_3"
-                  type="number"
-                  className="form-input"
-                  value={formData.distance_to_slot_3}
-                  onChange={(e) => setFormData({ ...formData, distance_to_slot_3: parseInt(e.target.value) || 0 })}
-                  required
-                  min="0"
-                  placeholder="0"
-                />
-              </div>
+                 <label htmlFor="identifier" className="form-label">
+                   Entry Point Identifier
+                 </label>
+                 <input
+                   id="identifier"
+                   type="text"
+                   className="form-input"
+                   value={formData.identifier}
+                   onChange={(e) => setFormData({ ...formData, identifier: e.target.value.toUpperCase() })}
+                   required
+                   maxLength={1}
+                   pattern="[A-Z]"
+                   title="Single letter (A, B, C, etc.)"
+                   placeholder="A"
+                 />
+               </div>
+               <div className="form-group">
+                 <label htmlFor="name" className="form-label">
+                   Entry Point Name
+                 </label>
+                 <input
+                   id="name"
+                   type="text"
+                   className="form-input"
+                   value={formData.name}
+                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                   required
+                   placeholder="e.g., Main Entrance"
+                 />
+               </div>
               <div className="modal-footer">
                 <button
                   type="button"
@@ -693,61 +651,19 @@ export default function EntryPointsManagement(): JSX.Element {
               </button>
             </div>
             <form onSubmit={handleUpdate} className="modal-body">
-              <div className="form-group">
-                <label htmlFor="edit_name" className="form-label">
-                  Entry Point Name
-                </label>
-                <input
-                  id="edit_name"
-                  type="text"
-                  className="form-input"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit_distance_to_slot_1" className="form-label">
-                  Distance to Slot 1
-                </label>
-                <input
-                  id="edit_distance_to_slot_1"
-                  type="number"
-                  className="form-input"
-                  value={formData.distance_to_slot_1}
-                  onChange={(e) => setFormData({ ...formData, distance_to_slot_1: parseInt(e.target.value) || 0 })}
-                  required
-                  min="0"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit_distance_to_slot_2" className="form-label">
-                  Distance to Slot 2
-                </label>
-                <input
-                  id="edit_distance_to_slot_2"
-                  type="number"
-                  className="form-input"
-                  value={formData.distance_to_slot_2}
-                  onChange={(e) => setFormData({ ...formData, distance_to_slot_2: parseInt(e.target.value) || 0 })}
-                  required
-                  min="0"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit_distance_to_slot_3" className="form-label">
-                  Distance to Slot 3
-                </label>
-                <input
-                  id="edit_distance_to_slot_3"
-                  type="number"
-                  className="form-input"
-                  value={formData.distance_to_slot_3}
-                  onChange={(e) => setFormData({ ...formData, distance_to_slot_3: parseInt(e.target.value) || 0 })}
-                  required
-                  min="0"
-                />
-              </div>
+               <div className="form-group">
+                 <label htmlFor="edit_name" className="form-label">
+                   Entry Point Name
+                 </label>
+                 <input
+                   id="edit_name"
+                   type="text"
+                   className="form-input"
+                   value={formData.name}
+                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                   required
+                 />
+               </div>
               <div className="modal-footer">
                 <button
                   type="button"

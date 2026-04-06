@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { parkVehicle, getEntryPoints } from '../api';
-import type { 
-  VehicleType, 
-  EntryPointIdentifier, 
-  EntryPoint, 
-  ParkingSession,
+import { parkVehicle, listEntryPoints as getEntryPoints, fetchRecentExits, type Session, type RecentExit } from '../api/parkingApi';
+import type {
+  VehicleType,
+  EntryPointIdentifier,
+  EntryPoint,
   AsyncStateWithSuccess,
   ScreenProps
 } from '../types';
@@ -48,8 +47,12 @@ interface ParkVehicleProps extends ScreenProps<{}> {}
 function ParkVehicle({ navigation }: ParkVehicleProps): React.JSX.Element {
   const [vehicleType, setVehicleType] = useState<VehicleType | ''>('');
   const [entryPointId, setEntryPointId] = useState<EntryPointIdentifier>('');
+  const [licensePlate, setLicensePlate] = useState<string>('');
+  const [previousSessionId, setPreviousSessionId] = useState<string>('');
   const [entryPoints, setEntryPoints] = useState<EntryPoint[]>([]);
-  const [state, setState] = useState<AsyncStateWithSuccess<ParkingSession, string>>(createAsyncStateWithSuccess<ParkingSession>());
+  const [recentExits, setRecentExits] = useState<RecentExit[]>([]);
+  const [loadingRecentExits, setLoadingRecentExits] = useState<boolean>(false);
+  const [state, setState] = useState<AsyncStateWithSuccess<Session, string>>(createAsyncStateWithSuccess<Session>());
 
   useEffect(() => {
     void loadEntryPoints();
@@ -66,6 +69,32 @@ function ParkVehicle({ navigation }: ParkVehicleProps): React.JSX.Element {
         ...prev,
         error: extractErrorMessage(err),
       }));
+    }
+  };
+
+  const loadRecentExits = async (type: VehicleType): Promise<void> => {
+    setLoadingRecentExits(true);
+    try {
+      const data = await fetchRecentExits(type);
+      const recentExitsData = extractData<RecentExit[]>(data);
+      setRecentExits(recentExitsData);
+      // Reset previous session selection when vehicle type changes
+      setPreviousSessionId('');
+    } catch (err) {
+      setRecentExits([]);
+      setPreviousSessionId('');
+    } finally {
+      setLoadingRecentExits(false);
+    }
+  };
+
+  const handleVehicleTypeChange = async (newType: VehicleType | ''): Promise<void> => {
+    setVehicleType(newType);
+    if (newType) {
+      await loadRecentExits(newType);
+    } else {
+      setRecentExits([]);
+      setPreviousSessionId('');
     }
   };
 
@@ -94,15 +123,21 @@ function ParkVehicle({ navigation }: ParkVehicleProps): React.JSX.Element {
     });
 
     try {
-      const response = await parkVehicle(vehicleType, entryPointId);
-      const responseData = extractData<ParkingSession>(response);
+      const response = await parkVehicle(
+        vehicleType,
+        entryPointId,
+        undefined,
+        licensePlate || undefined,
+        previousSessionId || undefined
+      );
+      const responseData = extractData<Session>(response);
       setState({
         data: responseData,
         loading: false,
         error: null,
         success: true,
       });
-      
+
       // Navigate to session details after successful parking
       setTimeout(() => {
         navigation.navigate('ViewSession', { id: responseData.session_id });
@@ -149,7 +184,7 @@ function ParkVehicle({ navigation }: ParkVehicleProps): React.JSX.Element {
         <View style={styles.pickerContainer}>
           <Picker
             selectedValue={vehicleType as VehicleType | undefined}
-            onValueChange={(itemValue: VehicleType | "") => setVehicleType(itemValue)}
+            onValueChange={(itemValue: VehicleType | "") => void handleVehicleTypeChange(itemValue)}
             style={styles.picker}
           >
             <Picker.Item label="Select vehicle type" value="" />
@@ -158,6 +193,16 @@ function ParkVehicle({ navigation }: ParkVehicleProps): React.JSX.Element {
             <Picker.Item label="Large (L)" value="L" />
           </Picker>
         </View>
+
+        <Text style={styles.label}>License Plate (Optional):</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g., ABC-1234"
+          value={licensePlate}
+          onChangeText={setLicensePlate}
+          editable={!state.loading}
+          placeholderTextColor="#999"
+        />
 
         <Text style={styles.label}>Entry Point:</Text>
         <View style={styles.pickerContainer}>
@@ -172,6 +217,29 @@ function ParkVehicle({ navigation }: ParkVehicleProps): React.JSX.Element {
             ))}
           </Picker>
         </View>
+
+        {vehicleType && recentExits.length > 0 && (
+          <View style={styles.recentExitsContainer}>
+            <Text style={styles.label}>Returning from previous parking? (within 1 hour)</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={previousSessionId}
+                onValueChange={(itemValue: string) => setPreviousSessionId(itemValue)}
+                style={styles.picker}
+              >
+                <Picker.Item label="New Parking" value="" />
+                {recentExits.map((exit) => (
+                  <Picker.Item
+                    key={exit.session_id}
+                    label={`${exit.slot_label} · Entry ${exit.entry_point} · ${exit.minutes_since_exit}m ago${exit.license_plate ? ` · ${exit.license_plate}` : ''}`}
+                    value={exit.session_id}
+                  />
+                ))}
+              </Picker>
+            </View>
+            {loadingRecentExits && <Text style={styles.loadingText}>Loading recent sessions...</Text>}
+          </View>
+        )}
 
         <TouchableOpacity 
           style={[styles.button, state.loading && styles.buttonDisabled]} 
@@ -237,7 +305,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#64748b',
   },
   buttonText: {
     color: 'white',
@@ -296,6 +364,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#555',
     marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 5,
+    padding: 12,
+    marginBottom: 20,
+    fontSize: 16,
+    color: '#333',
+  },
+  recentExitsContainer: {
+    marginBottom: 20,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 10,
   },
 });
 

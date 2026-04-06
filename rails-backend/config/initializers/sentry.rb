@@ -99,7 +99,7 @@ module ErrorReporting
 end
 
 # Include error reporting in controllers
-ActionController::API.include(ErrorReporting)
+ActiveSupport.on_load(:action_controller) { include ErrorReporting }
 
 # Custom exception handler
 class ExceptionHandler

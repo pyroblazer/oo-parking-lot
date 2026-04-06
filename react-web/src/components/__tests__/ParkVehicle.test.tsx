@@ -2,13 +2,25 @@
  * Park Vehicle Component Tests
  */
 
+import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ParkVehicle from '../ParkVehicle';
 import * as api from '../../api';
-import * as reactRouterDom from 'react-router-dom';
 import type { EntryPoint, ParkingSlot, ParkingSession } from '../../types';
+
+// Mock react-router-dom - must be before importing
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: vi.fn(),
+    useParams: vi.fn()
+  };
+});
+
+import * as reactRouterDom from 'react-router-dom';
 
 describe('ParkVehicle Component', () => {
   const mockEntryPoints: EntryPoint[] = [
@@ -34,7 +46,7 @@ describe('ParkVehicle Component', () => {
     vi.clearAllMocks();
     vi.spyOn(api, 'getEntryPoints').mockResolvedValue(mockEntryPoints);
     vi.spyOn(api, 'parkVehicle').mockResolvedValue(undefined as any);
-    vi.spyOn(reactRouterDom, 'useNavigate').mockReturnValue(mockNavigate);
+    vi.mocked(reactRouterDom).useNavigate.mockReturnValue(mockNavigate);
   });
 
   afterEach(() => {
@@ -94,7 +106,7 @@ describe('ParkVehicle Component', () => {
       const submitButton = screen.getByRole('button', { name: /park vehicle/i });
       await userEvent.click(submitButton);
       await waitFor(() => {
-        expect(vi.mocked(api.parkVehicle)).toHaveBeenCalledWith('S', 'A');
+        expect(vi.mocked(api.parkVehicle)).toHaveBeenCalledWith('S', 'A', undefined, undefined);
       });
     });
 

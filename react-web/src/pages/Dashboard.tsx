@@ -1,13 +1,13 @@
 /**
  * Dashboard Page
- * 
+ *
  * Main dashboard for the OO Parking Lot System displaying real-time statistics,
  * slot occupancy grid, entry point status, and recent activity feed.
- * 
+ *
  * @module Dashboard
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParking } from '../context/ParkingContext';
 import * as parkingApi from '../api/parkingApi';
 
@@ -610,8 +610,9 @@ function countVehiclesAtEntryPoints(
   
   // Count active sessions at each entry point
   sessions.forEach(session => {
-    const currentCount = counts.get(session.entry_point) || 0;
-    counts.set(session.entry_point, currentCount + 1);
+    const entryPointId = typeof session.entry_point === 'string' ? session.entry_point : session.entry_point?.identifier || '';
+    const currentCount = counts.get(entryPointId) || 0;
+    counts.set(entryPointId, currentCount + 1);
   });
   
   return counts;
@@ -832,7 +833,7 @@ function ActivityItem({
         {getVehicleTypeName(session.vehicle_type)} • {session.parking_slot.slot_label}
       </div>
       <div style={styles.activityDetails}>
-        Entry: {session.entry_point}
+        Entry: {typeof session.entry_point === 'string' ? session.entry_point : session.entry_point?.identifier || ''}
       </div>
       <div style={styles.activityTime}>
         Parked at {formatDateTime(session.parked_at)}

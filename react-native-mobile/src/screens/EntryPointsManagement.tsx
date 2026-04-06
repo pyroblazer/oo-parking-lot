@@ -192,7 +192,7 @@ function EntryPointsManagement({ navigation: _navigation }: EntryPointsManagemen
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="entry-points-management-page">
       <ScrollView
         style={styles.scrollView}
         refreshControl={
@@ -204,19 +204,19 @@ function EntryPointsManagement({ navigation: _navigation }: EntryPointsManagemen
 
         {/* Error banner */}
         {error && (
-          <View style={styles.errorBox}>
+          <View style={styles.errorBox} testID="error-message">
             <Text style={styles.errorText}>❌ {error}</Text>
           </View>
         )}
 
         {/* Add Entry Point Button */}
-        <TouchableOpacity style={styles.addButton} onPress={openCreateModal}>
+        <TouchableOpacity style={styles.addButton} onPress={openCreateModal} testID="add-entry-point-button">
           <Text style={styles.addButtonText}>+ Add Entry Point</Text>
         </TouchableOpacity>
 
         {/* Minimum 3 entry points warning */}
         {entryPoints.length < 3 && (
-          <View style={styles.warningBanner}>
+          <View style={styles.warningBanner} testID="min-entry-points-warning">
             <Text style={styles.warningText}>
               ⚠️ Minimum 3 entry points required for proper parking system operation
             </Text>
@@ -226,11 +226,11 @@ function EntryPointsManagement({ navigation: _navigation }: EntryPointsManagemen
         {/* Entry Points List */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#667eea" />
+            <ActivityIndicator size="large" color="#667eea" testID="loading-indicator" />
             <Text style={styles.loadingText}>Loading entry points...</Text>
           </View>
         ) : entryPoints.length === 0 ? (
-          <View style={styles.noEntryPoints}>
+          <View style={styles.noEntryPoints} testID="empty-state">
             <Text style={styles.noEntryPointsText}>
               No entry points found. Add your first entry point to get started.
             </Text>
@@ -238,19 +238,20 @@ function EntryPointsManagement({ navigation: _navigation }: EntryPointsManagemen
         ) : (
           <View style={styles.entryPointsList}>
             {entryPoints.map((entryPoint) => (
-              <View key={entryPoint.id} style={styles.entryPointCard}>
+              <View key={entryPoint.id} style={styles.entryPointCard} testID="entry-point-item">
                 <View style={styles.identifierBadge}>
-                  <Text style={styles.identifierText}>{entryPoint.identifier}</Text>
+                  <Text style={styles.identifierText} testID="entry-point-identifier">{entryPoint.identifier}</Text>
                 </View>
                 <View style={styles.entryPointInfo}>
-                  <Text style={styles.entryPointName}>{entryPoint.name}</Text>
-                  <Text style={styles.entryPointId}>ID: {entryPoint.id}</Text>
+                  <Text style={styles.entryPointName} testID="entry-point-name">{entryPoint.name}</Text>
+                  <Text style={styles.entryPointId} testID="entry-point-id">ID: {entryPoint.id}</Text>
                 </View>
                 <View style={styles.actionButtons}>
                   <TouchableOpacity
                     style={styles.editButton}
                     onPress={() => openEditModal(entryPoint)}
                     activeOpacity={0.7}
+                    testID="edit-entry-point-button"
                   >
                     <Text style={styles.buttonText}>Edit</Text>
                   </TouchableOpacity>
@@ -258,6 +259,7 @@ function EntryPointsManagement({ navigation: _navigation }: EntryPointsManagemen
                     style={styles.deleteButton}
                     onPress={() => openDeleteModal(entryPoint)}
                     activeOpacity={0.7}
+                    testID="delete-entry-point-button"
                   >
                     <Text style={styles.buttonText}>Delete</Text>
                   </TouchableOpacity>
@@ -270,35 +272,39 @@ function EntryPointsManagement({ navigation: _navigation }: EntryPointsManagemen
 
       {/* Create/Edit Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
+        <View style={styles.modalBackdrop} testID="entry-point-modal">
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {editingEntryPoint ? 'Edit Entry Point' : 'Add Entry Point'}
-            </Text>
+            <ScrollView scrollEnabled showsVerticalScrollIndicator>
+              <Text style={styles.modalTitle}>
+                {editingEntryPoint ? 'Edit Entry Point' : 'Add Entry Point'}
+              </Text>
 
-            <Text style={styles.label}>Identifier:</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.identifier}
-              onChangeText={(text) =>
-                setFormData({ ...formData, identifier: text.toUpperCase() })
-              }
-              placeholder="A"
-              maxLength={1}
-              autoCapitalize="characters"
-              editable={!editingEntryPoint}
-            />
+              <Text style={styles.label}>Identifier:</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.identifier}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, identifier: text.toUpperCase() })
+                }
+                placeholder="A"
+                maxLength={1}
+                autoCapitalize="characters"
+                editable={!editingEntryPoint}
+                testID="entry-point-identifier-input"
+              />
 
-            <Text style={styles.label}>Name:</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
-              placeholder="Main Entrance"
-            />
+              <Text style={styles.label}>Name:</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.name}
+                onChangeText={(text) => setFormData({ ...formData, name: text })}
+                placeholder="Main Entrance"
+                testID="entry-point-name-input"
+              />
+            </ScrollView>
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={closeModal}>
+              <TouchableOpacity style={styles.cancelButton} onPress={closeModal} testID="cancel-entry-point-button">
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -306,6 +312,7 @@ function EntryPointsManagement({ navigation: _navigation }: EntryPointsManagemen
                 onPress={handleSave}
                 activeOpacity={0.7}
                 disabled={saving}
+                testID="save-entry-point-button"
               >
                 {saving ? (
                   <ActivityIndicator color="#fff" />
@@ -322,7 +329,7 @@ function EntryPointsManagement({ navigation: _navigation }: EntryPointsManagemen
 
       {/* Delete Confirmation Dialog */}
       <Modal visible={deleteModalVisible} animationType="fade" transparent>
-        <View style={styles.modalBackdrop}>
+        <View style={styles.modalBackdrop} testID="delete-confirmation-modal">
           <View style={styles.confirmCard}>
             <Text style={styles.confirmTitle}>
               Delete Entry Point {selectedEntryPoint?.identifier} ({selectedEntryPoint?.name})?
@@ -336,6 +343,7 @@ function EntryPointsManagement({ navigation: _navigation }: EntryPointsManagemen
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={closeDeleteModal}
+                testID="cancel-delete-button"
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -344,6 +352,7 @@ function EntryPointsManagement({ navigation: _navigation }: EntryPointsManagemen
                 onPress={confirmDelete}
                 activeOpacity={0.7}
                 disabled={saving}
+                testID="confirm-delete-button"
               >
                 {saving ? (
                   <ActivityIndicator color="#fff" />
@@ -511,6 +520,8 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '90%',
     maxHeight: '80%',
+    flex: 1,
+    overflow: 'hidden',
   },
   modalTitle: {
     fontSize: 20,
@@ -540,7 +551,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   cancelButton: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#64748b',
     padding: 12,
     borderRadius: 5,
     flex: 1,
@@ -548,7 +559,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#333',
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },

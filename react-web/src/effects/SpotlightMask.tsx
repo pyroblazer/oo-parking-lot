@@ -1,11 +1,11 @@
 /**
  * Spotlight Mask Effect Component
- * 
+ *
  * This component creates a cursor-driven spotlight mask that reveals underlying
  * content or gradients as the user moves their cursor across the screen.
  */
 
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import type { SpotlightMaskConfig, CursorPosition } from '../types';
 

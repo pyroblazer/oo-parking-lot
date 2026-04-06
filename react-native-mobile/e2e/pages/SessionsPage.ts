@@ -72,7 +72,7 @@ export class SessionsPage extends BasePage {
     this.status = element(by.id('status'));
 
     // Pull to refresh
-    this.refreshControl = element(by.id('refresh-control');
+    this.refreshControl = element(by.id('refresh-control'));
   }
 
   /**

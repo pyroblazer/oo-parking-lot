@@ -6,7 +6,7 @@ require 'sidekiq-cron'
 
 # Skip Sidekiq initialization in development and test environments to avoid Redis connection issues
 # In test environment, Sidekiq is configured in rails_helper.rb with inline mode
-return if Rails.env.development? || Rails.env.test?
+return if Rails.env.local?
 
 Sidekiq.configure_server do |config|
   config.redis = {

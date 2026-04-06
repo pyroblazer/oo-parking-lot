@@ -4,7 +4,7 @@ Ruby on Rails API implementation for Object-Oriented Mall parking system.
 
 ## Dependencies
 
-- **Ruby**: 3.4.8
+- **Ruby**: 3.2.0
 - **Rails**: 8.0.1 (API-only)
 - **PostgreSQL**: 15 (via pg 1.5.6)
 - **Puma**: 6.4 (Web server)

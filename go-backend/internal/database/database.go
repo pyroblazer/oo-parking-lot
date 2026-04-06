@@ -1,4 +1,4 @@
-// Package database provides database connection and configuration for the parking lot system.
+// Package database provides database connection and configuration for parking lot system.
 package database
 
 import (
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-
+	"time"
 	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
@@ -15,7 +15,7 @@ type DB struct {
 	*sql.DB
 }
 
-// GetDB returns the underlying *sql.DB
+// GetDB returns => underlying *sql.DB
 func (db *DB) GetDB() *sql.DB {
 	return db.DB
 }
@@ -29,6 +29,21 @@ type Config struct {
 	DBName   string
 }
 
+// GetEnv is a helper function to get environment variables with default values
+// FIX: Move this function definition to the top of the file to avoid forward reference issues
+func GetEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
+// Deprecated: Use GetEnv instead (public version)
+func getEnv(key, defaultValue string) string {
+	return GetEnv(key, defaultValue)
+}
+
 // NewDB creates a new database connection
 func NewDB(config *Config) (*DB, error) {
 	connStr := fmt.Sprintf(
@@ -39,93 +54,61 @@ func NewDB(config *Config) (*DB, error) {
 		config.Password,
 		config.DBName,
 	)
-
+	
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
-
+	
 	// Test connection
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
+
+	// Configure connection pool
+	// 50 open conns gives headroom for parallel test shards (3 shards × ~15 concurrent
+	// requests each) without exhausting PostgreSQL's default 100-connection limit.
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetConnMaxIdleTime(1 * time.Minute)
 
 	log.Println("Successfully connected to database")
 	return &DB{db}, nil
 }
 
 // NewDBFromEnv creates a new database connection from environment variables
-// Supports both DATABASE_URL and individual environment variables
 func NewDBFromEnv() (*DB, error) {
-	// Try DATABASE_URL first (for Docker compatibility)
-	if databaseURL := os.Getenv("DATABASE_URL"); databaseURL != "" {
-		return NewDBFromURL(databaseURL)
-	}
-
 	// Fall back to individual environment variables
 	config := Config{
 		Host:     getEnv("DATABASE_HOST", "localhost"),
 		Port:     getEnv("DATABASE_PORT", "5432"),
 		User:     getEnv("DATABASE_USER", "postgres"),
 		Password: getEnv("DATABASE_PASSWORD", ""),
-		DBName:   getEnv("DATABASE_NAME", "oo_parking_lot"),
+		DBName:   getEnv("DATABASE_NAME", "oo_parking_lot_handlers_test"),
 	}
 
 	return NewDB(&config)
 }
 
-// NewDBFromURL creates a new database connection from a connection URL
-func NewDBFromURL(databaseURL string) (*DB, error) {
-	// Add timezone=UTC to ensure consistent time handling
-	db, err := sql.Open("postgres", databaseURL+"&timezone=UTC")
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+// SetupTestEnvironment ensures test environment variables are set with sensible defaults
+// while respecting any values already set by CI or other test runners
+func SetupTestEnvironment() {
+	if os.Getenv("DATABASE_HOST") == "" {
+		_ = os.Setenv("DATABASE_HOST", "localhost")
 	}
-
-	// Test connection
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+	if os.Getenv("DATABASE_PORT") == "" {
+		_ = os.Setenv("DATABASE_PORT", "5432")
 	}
-
-	log.Println("Successfully connected to database")
-	return &DB{db}, nil
-}
-
-func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
+	if os.Getenv("DATABASE_USER") == "" {
+		_ = os.Setenv("DATABASE_USER", "postgres")
 	}
-	return value
-}
-
-// EnsureAvailableColumn ensures that available column exists in parking_slots table
-func EnsureAvailableColumn(db *sql.DB) error {
-	// Check if available column exists
-	var columnExists bool
-	err := db.QueryRow(`
-		SELECT EXISTS (
-			SELECT 1
-			FROM information_schema.columns
-			WHERE table_name = 'parking_slots'
-			AND column_name = 'available'
-		)
-	`).Scan(&columnExists)
-	if err != nil {
-		return fmt.Errorf("failed to check available column: %w", err)
+	if os.Getenv("DATABASE_PASSWORD") == "" {
+		// Default to empty password for local development
+		// CI will set this to the actual password
+		_ = os.Setenv("DATABASE_PASSWORD", "")
 	}
-
-	if !columnExists {
-		// Add available column
-		_, err := db.Exec(`
-			ALTER TABLE parking_slots
-			ADD COLUMN IF NOT EXISTS available BOOLEAN DEFAULT TRUE
-		`)
-		if err != nil {
-			return fmt.Errorf("failed to add available column: %w", err)
-		}
-		log.Println("Added available column to parking_slots table")
+	if os.Getenv("DATABASE_NAME") == "" {
+		_ = os.Setenv("DATABASE_NAME", "oo_parking_lot_handlers_test")
 	}
-
-	return nil
 }

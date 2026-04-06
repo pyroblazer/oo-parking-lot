@@ -22,7 +22,7 @@ func NewParkingSessionRepository(db *sql.DB) *ParkingSessionRepository {
 // Create creates a new parking session
 func (r *ParkingSessionRepository) Create(session *models.ParkingSession) (*models.ParkingSession, error) {
 	baseStartTime := session.ParkedAt // Create a new time.Time value for BaseStartTime
-
+	
 	newSession := &models.ParkingSession{
 		VehicleType:   session.VehicleType,
 		ParkingSlotID: session.ParkingSlotID,
@@ -155,7 +155,7 @@ func (r *ParkingSessionRepository) Update(session *models.ParkingSession) error 
 func (r *ParkingSessionRepository) GetPreviousSessions(vehicleType string, parkTime time.Time) ([]*models.ParkingSession, error) {
 	since := parkTime.Add(-time.Hour)
 	query := `
-		SELECT id, vehicle_type, parking_slot_id, entry_point_id, parked_at, exited_at, total_fee, created_at, updated_at
+		SELECT id, vehicle_type, parking_slot_id, entry_point_id, parked_at, exited_at, total_fee, license_plate, created_at, updated_at
 		FROM parking_sessions
 		WHERE vehicle_type = $1
 		AND exited_at IS NOT NULL
@@ -167,6 +167,47 @@ func (r *ParkingSessionRepository) GetPreviousSessions(vehicleType string, parkT
 	rows, err := r.db.Query(query, vehicleType, since, parkTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get previous sessions: %w", err)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	var sessions []*models.ParkingSession
+	for rows.Next() {
+		var session models.ParkingSession
+		err := rows.Scan(
+			&session.ID,
+			&session.VehicleType,
+			&session.ParkingSlotID,
+			&session.EntryPointID,
+			&session.ParkedAt,
+			&session.ExitedAt,
+			&session.TotalFee,
+			&session.LicensePlate,
+			&session.CreatedAt,
+			&session.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan parking session: %w", err)
+		}
+		sessions = append(sessions, &session)
+	}
+
+	return sessions, nil
+}
+
+// GetActiveSessionsBySlotID retrieves active sessions for a specific slot
+// Active sessions are those where exited_at is NULL
+func (r *ParkingSessionRepository) GetActiveSessionsBySlotID(slotID int64) ([]*models.ParkingSession, error) {
+	query := `
+		SELECT id, vehicle_type, parking_slot_id, entry_point_id, parked_at, exited_at, total_fee, created_at, updated_at
+		FROM parking_sessions
+		WHERE parking_slot_id = $1 AND exited_at IS NULL
+	`
+
+	rows, err := r.db.Query(query, slotID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get active sessions for slot: %w", err)
 	}
 	defer func() {
 		_ = rows.Close()
@@ -297,14 +338,98 @@ func (r *ParkingSessionRepository) Delete(id int64) error {
 	return nil
 }
 
+// AtomicUnpark atomically marks a session as exited and releases its slot.
+// Uses a conditional UPDATE (WHERE exited_at IS NULL) to prevent double-unpark races.
+// Returns (true, nil) on success, (false, nil) if session was already unparked.
+func (r *ParkingSessionRepository) AtomicUnpark(sessionID int64, exitedAt time.Time, totalFee float64, slotID int64) (bool, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return false, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Conditionally update session: only if still active (exited_at IS NULL)
+	updateQuery := `
+		UPDATE parking_sessions
+		SET exited_at = $1, total_fee = $2, updated_at = $3
+		WHERE id = $4 AND exited_at IS NULL
+	`
+	result, err := tx.Exec(updateQuery, exitedAt, totalFee, time.Now(), sessionID)
+	if err != nil {
+		return false, fmt.Errorf("failed to atomic unpark session: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to check rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		// Session was already unparked by another request
+		_ = tx.Rollback()
+		return false, nil
+	}
+
+	// Release the parking slot
+	slotQuery := `
+		UPDATE parking_slots
+		SET available = TRUE, updated_at = $1
+		WHERE id = $2
+	`
+	_, err = tx.Exec(slotQuery, time.Now(), slotID)
+	if err != nil {
+		return false, fmt.Errorf("failed to release parking slot: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return false, fmt.Errorf("failed to commit atomic unpark: %w", err)
+	}
+
+	return true, nil
+}
+
+// DB returns the underlying database connection
+func (r *ParkingSessionRepository) DB() *sql.DB {
+	return r.db
+}
+
 // DeleteActiveSessions deletes all active parking sessions (where exited_at is NULL)
 func (r *ParkingSessionRepository) DeleteActiveSessions() error {
 	query := `DELETE FROM parking_sessions WHERE exited_at IS NULL`
-
+	
 	_, err := r.db.Exec(query)
 	if err != nil {
 		return fmt.Errorf("failed to delete active parking sessions: %w", err)
 	}
+	
+	return nil
+}
 
+// Count returns the total count of parking sessions
+func (r *ParkingSessionRepository) Count() (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM parking_sessions`
+	
+	err := r.db.QueryRow(query).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count parking sessions: %w", err)
+	}
+	
+	return count, nil
+}
+
+// DeleteAllSessions deletes all parking sessions (both active and completed)
+func (r *ParkingSessionRepository) DeleteAllSessions() error {
+	query := `DELETE FROM parking_sessions`
+	
+	_, err := r.db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("failed to delete all parking sessions: %w", err)
+	}
+	
 	return nil
 }

@@ -1,4 +1,4 @@
 {
-  "ruby_base_url": "http://localhost:3000",
-  "go_base_url": "http://localhost:8080"
+  "ruby_base_url": "http://localhost:3000/api/v1",
+  "go_base_url": "http://localhost:8080/api/v1"
 }

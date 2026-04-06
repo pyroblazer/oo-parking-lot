@@ -52,11 +52,6 @@ oo-parking-lot/
 │   │   ├── effects/          # Visual effects (spotlight, particle background)
 │   │   └── api.js          # API client
 │   └── Dockerfile
-├── react-native-mobile/         # React Native Mobile Application
-│   ├── src/
-│   │   ├── screens/          # Mobile screens
-│   │   └── api.js          # API client
-│   └── Dockerfile
 ├── docker-compose.yml           # Complete system orchestration
 ├── .github/workflows/          # CI/CD pipelines
 └── docs/
@@ -137,7 +132,7 @@ oo-parking-lot/
   - SimpleCov 0.22 (Code coverage)
 
 #### Go/Golang (Data Plane)
-- **Go**: 1.24.0
+- **Go**: 1.26
 - **PostgreSQL**: 15 (via lib/pq 1.11.2)
 - **Redis**: 7 (via go-redis 9.17.3)
 - **Asynq**: 0.26.0 (Background job processing)
@@ -174,28 +169,6 @@ oo-parking-lot/
   - Sentry React 7.110.0 (error tracking)
   - OpenTelemetry JS 1.8.0 (distributed tracing)
 
-#### React Native Mobile
-- **React Native**: 0.73.0
-- **React**: 18.2.0
-- **TypeScript**: 5.3.0
-- **React Navigation**: 6.x
-  - @react-navigation/native 6.1.9
-  - @react-navigation/native-stack 6.9.17
-- **React Native Screens**: 3.27.0
-- **React Native Safe Area Context**: 4.8.2
-- **@react-native-picker/picker**: 2.4.10
-- **Axios**: 1.6.0 (HTTP client)
-- **@react-native-async-storage/async-storage**: 1.21.0 (Secure storage)
-- **React Native Keychain**: 8.1.3 (Secure credential storage)
-- **Testing**:
-  - Jest 29.7.0
-  - @testing-library/react-native 12.4.0
-  - @testing-library/jest-native 5.4.3
-- **Code Quality**:
-  - ESLint 8.56.0
-  - TypeScript ESLint 6.21.0
-  - Prettier 3.1.0
-
 ### Database
 
 - **PostgreSQL**: 15
@@ -218,7 +191,6 @@ oo-parking-lot/
 - **Kafka UI (AKHQ)**: 0.24.0 (Kafka management UI)
 - **Prometheus**: 2.47.0 (metrics collection)
 - **Grafana**: 10.2.0 (metrics visualization)
-- **Jaeger**: 1.50 (distributed tracing)
 - **CI/CD**: GitHub Actions
 
 **Multi-Architecture Support:**
@@ -438,75 +410,6 @@ This section provides detailed reasoning for the major libraries and components 
   - **Why chosen**: Vendor-neutral distributed tracing standard with JavaScript-specific instrumentation.
   - **Key benefits**: Vendor neutrality, extensive instrumentation, and Jaeger integration.
   - **Alternatives considered**: Datadog RUM (proprietary).
-
-### React Native Mobile App (react-native-mobile/)
-
-#### Core Framework & Language
-- **React Native 0.73.0 + React 18.2.0 + TypeScript 5.3.0**
-  - **Why chosen**: React Native enables cross-platform mobile development with a single codebase while maintaining native performance.
-  - **Key benefits**: Cross-platform, native performance, single codebase, and React ecosystem.
-  - **Alternatives considered**: Flutter (Dart, different paradigm), Ionic (web-based, less performant), Native development (separate codebases).
-
-#### Navigation
-- **React Navigation 6.x**
-  - **Why chosen**: Industry-standard navigation library for React Native with excellent TypeScript support and extensive features.
-  - **Key benefits**: Stack navigation, tab navigation, drawer navigation, and deep linking.
-  - **Alternatives considered**: React Native Navigation (native, more complex), Wix Navigation (deprecated).
-
-- **React Native Screens 3.27.0**
-  - **Why chosen**: Provides native screen optimization for better performance and memory usage.
-  - **Key benefits**: Native optimization, better performance, and reduced memory usage.
-  - **Alternatives considered**: None (essential for performance).
-
-- **React Native Safe Area Context 4.8.2**
-  - **Why chosen**: Provides safe area insets for notched devices and proper layout.
-  - **Key benefits**: Safe area handling, notched device support, and proper layout.
-  - **Alternatives considered**: react-native-safe-area-view (deprecated).
-
-#### UI Components
-- **@react-native-picker/picker 2.4.10**
-  - **Why chosen**: Provides native picker component for iOS and Android with excellent performance.
-  - **Key benefits**: Native performance, platform-specific look and feel, and excellent TypeScript support.
-  - **Alternatives considered**: Custom picker (more complex), Modal-based picker (less native).
-
-#### HTTP Client
-- **Axios 1.6.0**
-  - **Why chosen**: Same as React Web for consistency and excellent TypeScript support.
-  - **Key benefits**: Promise-based, interceptors, automatic JSON transformation, and excellent TypeScript support.
-  - **Alternatives considered**: Fetch API (less feature-rich).
-
-#### Storage
-- **@react-native-async-storage/async-storage 1.21.0**
-  - **Why chosen**: Provides asynchronous, unencrypted, persistent, key-value storage for React Native.
-  - **Key benefits**: Asynchronous, persistent, simple API, and excellent performance.
-  - **Alternatives considered**: Realm (more complex, heavier), SQLite (more complex).
-
-- **React Native Keychain 8.1.3**
-  - **Why chosen**: Provides secure credential storage for sensitive data like tokens and passwords.
-  - **Key benefits**: Secure storage, biometric support, and excellent TypeScript support.
-  - **Alternatives considered**: AsyncStorage (not secure), EncryptedStorage (less mature).
-
-#### Testing
-- **Jest 29.7.0**
-  - **Why chosen**: Industry-standard testing framework for JavaScript/TypeScript with excellent React Native support.
-  - **Key benefits**: Snapshot testing, mocking, and excellent React Native integration.
-  - **Alternatives considered**: Mocha (less opinionated), Jasmine (less popular).
-
-- **@testing-library/react-native 12.4.0**
-  - **Why chosen**: Provides utilities for testing React Native components in a user-centric way.
-  - **Key benefits**: User-centric testing, accessibility support, and excellent documentation.
-  - **Alternatives considered**: Enzyme (deprecated), Detox (E2E, different use case).
-
-#### Code Quality
-- **ESLint 8.56.0 + TypeScript ESLint 6.21.0**
-  - **Why chosen**: Provides linting for JavaScript and TypeScript to catch errors and enforce code style.
-  - **Key benefits**: Error detection, code style enforcement, and excellent TypeScript support.
-  - **Alternatives considered**: TSLint (deprecated), Prettier (formatting only).
-
-- **Prettier 3.1.0**
-  - **Why chosen**: Provides code formatting to ensure consistent code style across the project.
-  - **Key benefits**: Consistent formatting, automatic formatting, and excellent integration.
-  - **Alternatives considered**: ESLint auto-fix (less comprehensive).
 
 ---
 
@@ -769,8 +672,7 @@ The fastest way to run the entire application is using Docker Compose:
 - React Web: http://localhost:3001
 - Kafka UI: http://localhost:8085
 - Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000 (admin/admin)
-- Jaeger: http://localhost:16686
+- Grafana: http://localhost:3002 (admin/admin)
 
 ### Running the Backend
 
@@ -840,26 +742,6 @@ bun run build
 
 # Preview production build
 bun run preview
-```
-
-#### React Native Mobile Application
-
-```bash
-cd react-native-mobile
-
-# Install dependencies
-npm install
-
-# Set up environment
-cp .env.example .env
-# Edit .env with your API endpoint
-
-# For iOS
-cd ios && pod install && cd ..
-npx react-native run-ios
-
-# For Android
-npx react-native run-android
 ```
 
 ### Running Selenium Tests
@@ -940,19 +822,19 @@ HEADLESS=true bun test
 #### Test Coverage
 
 The Selenium test suite covers:
-- ✅ Park Vehicle (FEAT-001)
-- ✅ Unpark Vehicle (FEAT-002)
-- ✅ Fee Calculation and Display (FEAT-003)
-- ✅ View Session Details (FEAT-004)
-- ✅ List Sessions (FEAT-005)
-- ✅ List All Slots (FEAT-006)
-- ✅ Get Available Slots (FEAT-007)
-- ✅ Slot Management (FEAT-008, FEAT-009, FEAT-010)
-- ✅ Entry Point Management (FEAT-011, FEAT-012, FEAT-013, FEAT-014)
-- ✅ Check System Health (FEAT-016)
+- Park Vehicle (FEAT-001)
+- Unpark Vehicle (FEAT-002)
+- Fee Calculation and Display (FEAT-003)
+- View Session Details (FEAT-004)
+- List Sessions (FEAT-005)
+- List All Slots (FEAT-006)
+- Get Available Slots (FEAT-007)
+- Slot Management (FEAT-008, FEAT-009, FEAT-010)
+- Entry Point Management (FEAT-011, FEAT-012, FEAT-013, FEAT-014)
+- Check System Health (FEAT-016)
 
 The Selenium test suite doesn't cover:
-- ✅ Initialize System (FEAT-015) (as it is done through backend)
+- Initialize System (FEAT-015) (as it is done through backend)
 
 For detailed Selenium testing information, see [`react-web/selenium-tests/README.md`](react-web/selenium-tests/README.md).
 
@@ -964,8 +846,8 @@ For comprehensive testing across all components, see [`TESTING.md`](TESTING.md).
 # Rails backend tests
 cd rails-backend && bundle exec rspec
 
-# Go backend tests
-cd go-backend && go test ./...
+# Go backend tests (with race detector)
+cd go-backend && go test -race -count=1 ./...
 
 # React web unit tests
 cd react-web && bun test
@@ -973,8 +855,6 @@ cd react-web && bun test
 # Selenium E2E tests
 cd react-web/selenium-tests && bun test
 
-# React Native mobile tests
-cd react-native-mobile && npm test
 ```
 
 ---
@@ -988,8 +868,6 @@ cd react-native-mobile && npm test
 - PostgreSQL 15+
 - Redis 7+
 - Docker & Docker Compose
-- React Native CLI (for mobile)
-
 ### Quick Start with Docker Compose
 
 The project includes automatic OS/architecture detection scripts that eliminate the need to manually set environment variables.
@@ -1058,8 +936,7 @@ Docker Platform: linux/arm64
 - React Web: http://localhost:3001
 - Kafka UI: http://localhost:8085
 - Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000 (admin/admin)
-- Jaeger: http://localhost:16686
+- Grafana: http://localhost:3002 (admin/admin)
 
 ### Rails Backend Setup (Manual)
 
@@ -1096,22 +973,6 @@ bun run dev
 # App runs on http://localhost:3001
 ```
 
-### React Native Mobile Setup (Manual)
-
-```bash
-cd react-native-mobile
-npm install
-cp .env.example .env
-# Edit .env with your API endpoint
-
-# iOS
-cd ios && pod install && cd ..
-npx react-native run-ios
-
-# Android
-npx react-native run-android
-```
-
 ---
 
 ## Testing
@@ -1125,7 +986,15 @@ bundle exec rspec
 ### Go Backend
 ```bash
 cd go-backend
+
+# Run all tests
 go test ./...
+
+# Run with race detector (recommended for concurrency tests)
+go test -race -count=1 ./...
+
+# Run only concurrency tests (requires running PostgreSQL)
+go test -race -count=1 -run TestConcurrent ./internal/...
 ```
 
 ### React Web
@@ -1170,25 +1039,28 @@ newman run "Parking Lot API.postman_collection.json" \
 
 ### Metrics (Prometheus + Grafana)
 
-**Access Grafana**: http://localhost:3000 (admin/admin)
+**Access Prometheus**: http://localhost:9090
 
-**Available Dashboards**:
-- Slot Utilization by Type
-- Revenue Over Time
-- Allocation Latency
-- Error Rates
-- Kafka Consumer Lag
-- Active Sessions
+**Access Grafana**: http://localhost:3002 (admin/admin)
 
-### Tracing (Jaeger)
+**Provisioned Dashboard**: Parking Lot Overview (auto-loaded on first start)
 
-**Access Jaeger**: http://localhost:16686
+The Grafana instance comes pre-configured with:
+- Prometheus datasource (auto-connected)
+- Parking Lot Overview dashboard with the following panels:
+  - Slot Utilization by Type (%) - gauge with green/yellow/red thresholds
+  - Active Parking Sessions - timeseries by entry point
+  - Revenue Over Time - 1h and 24h revenue tracking
+  - Slot Allocation Latency - p95 and p99 percentile latencies
+  - Error Rates (5xx) - real-time error gauge
+  - Kafka Consumer Lag - consumer group monitoring
+  - Parking Sessions Created (per hour) - stacked bar chart by vehicle type and entry point
+  - HTTP Request Rate - request throughput timeseries
 
-**Trace Requests**:
-- Search by trace ID
-- Search by correlation ID
-- Filter by service (rails-backend, go-backend)
-- View span details (HTTP, DB, Kafka)
+**Prometheus Scrape Targets**:
+- `prometheus` (self-monitoring, 15s interval)
+- `rails-backend` at `rails-backend:9394/metrics` (10s interval)
+- `go-backend` at `go-backend:8082/metrics` (10s interval)
 
 ### Logs
 
@@ -1214,6 +1086,93 @@ docker-compose logs -f sidekiq
 - Email notifications on new errors
 - Slack integration (optional)
 - PagerDuty integration (optional)
+
+---
+
+## Race Condition Prevention
+
+Both backends implement atomic operations to prevent race conditions in the park/unpark flows:
+
+### Park (Slot Allocation)
+
+- **Go**: Uses `UPDATE parking_slots SET available = FALSE WHERE id = $1 AND available = TRUE RETURNING ...` within a transaction (`FindAndLockAvailableSlot`). This is an atomic compare-and-swap that prevents two goroutines from booking the same slot.
+- **Rails**: Uses `ParkingSlot.transaction` with `slot.lock!` (SELECT FOR UPDATE) to acquire a row-level lock before updating, preventing concurrent bookings.
+
+### Unpark (Double-Unpark Prevention)
+
+- **Go**: `AtomicUnpark` uses a conditional UPDATE within a single transaction:
+  ```sql
+  UPDATE parking_sessions SET exited_at = $1, total_fee = $2 WHERE id = $3 AND exited_at IS NULL
+  ```
+  If `rows_affected == 0`, the session was already unparked by another request. The slot availability is restored in the same transaction, ensuring atomicity.
+
+- **Rails**: Uses `ParkingSession.lock.find(session_id)` (SELECT FOR UPDATE) inside the unpark transaction, so only one thread can hold the row lock at a time. The `active?` check happens after acquiring the lock, preventing TOCTOU races.
+
+### Connection Pooling (Go)
+
+The Go backend configures connection pool limits to prevent exhaustion under load:
+```go
+db.SetMaxOpenConns(25)
+db.SetMaxIdleConns(10)
+db.SetConnMaxLifetime(5 * time.Minute)
+db.SetConnMaxIdleTime(1 * time.Minute)
+```
+
+### Concurrency Tests
+
+Both backends include dedicated concurrency tests that verify these guarantees:
+
+- **Go**: `go test -race -count=1 -run TestConcurrent ./internal/...` — Tests concurrent park (no double-booking), concurrent unpark (only one succeeds), and interleaved operations. The `-race` flag enables Go's built-in race detector.
+- **Rails**: `bundle exec rspec spec/integration/concurrency_spec.rb` — Thread-based tests for concurrent unpark (only one succeeds) and concurrent park (no over-allocation).
+
+---
+
+## Monitoring Without Docker
+
+If you're running the backends without Docker Compose, you can still use Prometheus and Grafana:
+
+### Standalone Prometheus
+
+1. Install Prometheus (`brew install prometheus` on macOS, or download from [prometheus.io](https://prometheus.io))
+2. Create a `prometheus.yml` scrape config:
+   ```yaml
+   global:
+     scrape_interval: 15s
+
+   scrape_configs:
+     - job_name: 'go-backend'
+       static_configs:
+         - targets: ['localhost:8082']
+       metrics_path: /metrics
+
+     - job_name: 'rails-backend'
+       static_configs:
+         - targets: ['localhost:3000']
+       metrics_path: /metrics
+   ```
+3. Run: `prometheus --config.file=prometheus.yml`
+4. Access: http://localhost:9090
+
+### Standalone Grafana
+
+1. Install Grafana (`brew install grafana` on macOS, or download from [grafana.com](https://grafana.com))
+2. Start: `grafana-server` (or `brew services start grafana`)
+3. Access: http://localhost:3000 (admin/admin)
+4. Add Prometheus as a data source (URL: `http://localhost:9090`)
+
+### Available Metrics
+
+**Go Backend** (`/metrics` on port 8082):
+- `http_request_duration_seconds` — HTTP request latency histogram
+- `parking_operations_total` — Parking operation counter (park/unpark by result)
+- `parking_slot_allocation_duration_seconds` — Slot allocation latency by type
+
+**Rails Backend** (`/metrics` on port 3000):
+- `parking_slot_allocation_duration_seconds` — Slot allocation latency
+- `parking_billing_calculation_duration_seconds` — Fee calculation latency
+- `parking_active_sessions` — Active session gauge
+- `parking_total_revenue` — Revenue counter
+- `parking_kafka_events_published` — Kafka event publishing counter
 
 ---
 
@@ -1367,7 +1326,7 @@ curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/insta
 #### Frontend Security
 
 - **NPM Audit**: Scans for vulnerable dependencies
-- Runs automatically in CI/CD for both React Web and React Native
+- Runs automatically in CI/CD for React Web
 
 #### CI/CD Integration
 

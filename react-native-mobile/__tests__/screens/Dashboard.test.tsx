@@ -3,14 +3,34 @@
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen } from '@testing-library/react-native';
 import Dashboard from '../../src/screens/Dashboard';
 import * as parkingApi from '../../src/api/parkingApi';
 import type { NavigationProp } from '@react-navigation/native';
 
+// Set timeout for async tests
+jest.setTimeout(30000);
+
+// Mock navigation object
+const mockNavigation: NavigationProp<any> = {
+  navigate: jest.fn(),
+  goBack: jest.fn(),
+  reset: jest.fn(),
+  setParams: jest.fn(),
+  setOptions: jest.fn(),
+  dispatch: jest.fn(),
+  isFocused: jest.fn(),
+  canGoBack: jest.fn(),
+  getId: jest.fn(),
+  getParent: jest.fn(),
+  getState: jest.fn(),
+  addListener: jest.fn(),
+  removeListener: jest.fn(),
+};
+
 // Mock navigation
 jest.mock('@react-navigation/native', () => ({
-  useNavigation: jest.fn(),
+  useNavigation: jest.fn(() => mockNavigation),
 }));
 
 // Mock API functions
@@ -27,30 +47,13 @@ jest.mock('../../src/api/parkingApi', () => ({
   },
 }));
 
-const mockNavigation: NavigationProp<any> = {
-  navigate: jest.fn(),
-  goBack: jest.fn(),
-  reset: jest.fn(),
-  setParams: jest.fn(),
-  dispatch: jest.fn(),
-  isFocused: jest.fn(),
-  canGoBack: jest.fn(),
-  getId: jest.fn(),
-  getParent: jest.fn(),
-  getState: jest.fn(),
-  addListener: jest.fn(),
-  removeListener: jest.fn(),
-};
-
 describe('Dashboard Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    jest.clearAllTimers();
   });
 
   describe('Component Rendering', () => {
@@ -365,7 +368,7 @@ describe('Dashboard Screen', () => {
 
       render(<Dashboard />);
 
-      await screen.findByText(/no entry points/i);
+      await screen.findByText(/no entry points configured yet/i);
     });
   });
 
@@ -410,6 +413,57 @@ describe('Dashboard Screen', () => {
       render(<Dashboard />);
 
       await screen.findByText(/no recent activity/i);
+    });
+  });
+
+  describe('Configuration Navigation', () => {
+    it('renders the Configuration button', async () => {
+      const mockSlots = [
+        { id: '1', slot_label: 'SP-1', slot_type: 'SP', available: true },
+      ];
+
+      (parkingApi.listSlots as jest.Mock).mockResolvedValue(mockSlots);
+      (parkingApi.listEntryPoints as jest.Mock).mockResolvedValue([]);
+      (parkingApi.listSessions as jest.Mock).mockResolvedValue({ sessions: [], total: 0 });
+      (parkingApi.checkHealth as jest.Mock).mockResolvedValue({ status: 'ok' });
+
+      render(<Dashboard />);
+
+      const configButton = await screen.findByLabelText(/go to configuration/i);
+      expect(configButton).toBeTruthy();
+    });
+
+    it('renders Configuration button with gear icon text', async () => {
+      const mockSlots = [
+        { id: '1', slot_label: 'SP-1', slot_type: 'SP', available: true },
+      ];
+
+      (parkingApi.listSlots as jest.Mock).mockResolvedValue(mockSlots);
+      (parkingApi.listEntryPoints as jest.Mock).mockResolvedValue([]);
+      (parkingApi.listSessions as jest.Mock).mockResolvedValue({ sessions: [], total: 0 });
+      (parkingApi.checkHealth as jest.Mock).mockResolvedValue({ status: 'ok' });
+
+      render(<Dashboard />);
+
+      await screen.findByText(/configuration/i);
+    });
+
+    it('navigates to Configuration screen when Configuration button is pressed', async () => {
+      const mockSlots = [
+        { id: '1', slot_label: 'SP-1', slot_type: 'SP', available: true },
+      ];
+
+      (parkingApi.listSlots as jest.Mock).mockResolvedValue(mockSlots);
+      (parkingApi.listEntryPoints as jest.Mock).mockResolvedValue([]);
+      (parkingApi.listSessions as jest.Mock).mockResolvedValue({ sessions: [], total: 0 });
+      (parkingApi.checkHealth as jest.Mock).mockResolvedValue({ status: 'ok' });
+
+      render(<Dashboard />);
+
+      const configButton = await screen.findByLabelText(/go to configuration/i);
+      fireEvent.press(configButton);
+
+      expect(mockNavigation.navigate).toHaveBeenCalledWith('Configuration');
     });
   });
 });

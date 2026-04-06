@@ -18,7 +18,7 @@ Sidekiq::Testing.fake!
 
 # Requires supporting ruby files with custom matchers and macros, etc, in
 # spec/support/ and its subdirectories.
-Dir[Rails.root.join('spec', 'support', '**', '*.rb')].sort.each { |f| require f }
+Rails.root.glob('spec/support/**/*.rb').sort.each { |f| require f }
 
 # Checks for pending migrations and applies them before tests are run.
 # If you are not using ActiveRecord, you can remove these lines.
@@ -30,7 +30,7 @@ end
 
 RSpec.configure do |config|
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
-  config.fixture_paths = ["#{::Rails.root}/spec/fixtures"]
+  config.fixture_paths = [Rails.root.join('spec/fixtures').to_s]
 
   # If you're not using ActiveRecord, or you'd prefer not to run each of your
   # examples within a transaction, remove the following line or assign false
@@ -47,16 +47,16 @@ RSpec.configure do |config|
     DatabaseCleaner.strategy = :truncation
   end
 
-  config.before(:each) do
+  config.before do
     DatabaseCleaner.start
   end
 
-  config.append_after(:each) do
+  config.append_after do
     DatabaseCleaner.clean
   end
 
   # Ensure Timecop is always reset after each test to prevent time leakage
-  config.after(:each) do
+  config.after do
     Timecop.return if defined?(Timecop)
   end
 
@@ -115,7 +115,7 @@ RSpec.configure do |config|
     end
   end
 
-  config.after(:each) do
+  config.after do
     # Clear Sidekiq queues after each test to ensure isolation
     begin
       Sidekiq::QueueSet.new.each(&:clear)

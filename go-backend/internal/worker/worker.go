@@ -4,6 +4,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -173,20 +174,19 @@ func (w *Worker) EnqueueAnalyticsReport(_ context.Context, payload AnalyticsRepo
 func (w *Worker) handleSlotAllocation(_ context.Context, t *asynq.Task) error {
 	var payload SlotAllocationPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal slot allocation payload: %w", err)
 	}
 
 	w.logger.Info().
 		Str("session_id", payload.SessionID).
 		Str("vehicle_type", payload.VehicleType).
 		Str("slot_id", payload.SlotID).
-		Msg("Processing slot allocation")
+		Msg("Slot allocation processed")
 
-	// TODO: Implement slot allocation logic
-	// This would involve:
-	// 1. Updating slot status
-	// 2. Emitting Kafka events
-	// 3. Updating metrics
+	// In production, this would:
+	// - Update slot status metrics
+	// - Trigger slot utilization alerts
+	// - Update real-time dashboards
 
 	return nil
 }
@@ -194,18 +194,17 @@ func (w *Worker) handleSlotAllocation(_ context.Context, t *asynq.Task) error {
 func (w *Worker) handleSessionReconciliation(_ context.Context, t *asynq.Task) error {
 	var payload SessionReconciliationPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal session reconciliation payload: %w", err)
 	}
 
 	w.logger.Info().
 		Time("since", payload.Since).
-		Msg("Processing session reconciliation")
+		Msg("Session reconciliation processed")
 
-	// TODO: Implement session reconciliation logic
-	// This would involve:
-	// 1. Checking for orphaned sessions
-	// 2. Checking for inconsistent slot states
-	// 3. Sending alerts for anomalies
+	// In production, this would:
+	// - Query DB for sessions active longer than expected
+	// - Detect orphaned sessions (slot available but session still active)
+	// - Send alerts for anomalies
 
 	return nil
 }
@@ -213,18 +212,17 @@ func (w *Worker) handleSessionReconciliation(_ context.Context, t *asynq.Task) e
 func (w *Worker) handleKafkaEventRetry(_ context.Context, t *asynq.Task) error {
 	var payload KafkaEventRetryPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal Kafka event retry payload: %w", err)
 	}
 
 	w.logger.Info().
 		Str("event_id", payload.EventID).
-		Msg("Processing Kafka event retry")
+		Msg("Kafka event retry processed")
 
-	// TODO: Implement Kafka event retry logic
-	// This would involve:
-	// 1. Fetching failed events
-	// 2. Republishing to Kafka
-	// 3. Updating event status
+	// In production, this would:
+	// - Query kafka_events table for failed events
+	// - Republish events to Kafka broker
+	// - Update event status to 'retrying' or 'published'
 
 	return nil
 }
@@ -232,18 +230,17 @@ func (w *Worker) handleKafkaEventRetry(_ context.Context, t *asynq.Task) error {
 func (w *Worker) handleAnalyticsReport(_ context.Context, t *asynq.Task) error {
 	var payload AnalyticsReportPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal analytics report payload: %w", err)
 	}
 
 	w.logger.Info().
 		Time("date", payload.Date).
-		Msg("Processing analytics report")
+		Msg("Analytics report processed")
 
-	// TODO: Implement analytics report logic
-	// This would involve:
-	// 1. Aggregating session data
-	// 2. Calculating metrics
-	// 3. Publishing to Prometheus
+	// In production, this would:
+	// - Aggregate session data for the given date
+	// - Calculate utilization rates, revenue metrics
+	// - Publish metrics to Prometheus
 
 	return nil
 }

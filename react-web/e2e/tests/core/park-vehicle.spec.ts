@@ -28,7 +28,17 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     await page.goto('/park');
     await page.waitForSelector('[data-testid="park-vehicle"]');
     await page.selectOption('[data-testid="vehicle-type-select"]', 'S');
-    await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
     await page.click('[data-testid="park-vehicle-submit"]');
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
   });
@@ -37,6 +47,18 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     await page.goto('/park');
     await page.waitForSelector('[data-testid="park-vehicle"]');
     await page.selectOption('[data-testid="vehicle-type-select"]', 'M');
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
+    // (selectOption already executed above)
     await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
     await page.click('[data-testid="park-vehicle-submit"]');
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
@@ -46,6 +68,18 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     await page.goto('/park');
     await page.waitForSelector('[data-testid="park-vehicle"]');
     await page.selectOption('[data-testid="vehicle-type-select"]', 'L');
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
+    // (selectOption already executed above)
     await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
     await page.click('[data-testid="park-vehicle-submit"]');
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
@@ -55,17 +89,31 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     await page.goto('/park');
     await page.waitForSelector('[data-testid="park-vehicle"]');
     await page.selectOption('[data-testid="vehicle-type-select"]', 'S');
-    
+
+    // Wait for entry points to load
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
+    // (selectOption already executed above)
+
     // Try different entry points if available
     const entryPointSelect = page.locator('[data-testid="entry-point-select"]');
     const optionCount = await entryPointSelect.locator('option').count();
-    
+
     if (optionCount > 1) {
       await page.selectOption('[data-testid="entry-point-select"]', { index: 1 });
     } else {
       await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
     }
-    
+
     await page.click('[data-testid="park-vehicle-submit"]');
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
   });
@@ -74,10 +122,24 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     await page.goto('/park');
     await page.waitForSelector('[data-testid="park-vehicle"]');
     await page.selectOption('[data-testid="vehicle-type-select"]', 'M');
-    
+
+    // Wait for entry points to load
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
+    // (selectOption already executed above)
+
     const entryPointSelect = page.locator('[data-testid="entry-point-select"]');
     const optionCount = await entryPointSelect.locator('option').count();
-    
+
     if (optionCount > 2) {
       await page.selectOption('[data-testid="entry-point-select"]', { index: 2 });
     } else if (optionCount > 1) {
@@ -85,7 +147,7 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     } else {
       await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
     }
-    
+
     await page.click('[data-testid="park-vehicle-submit"]');
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
   });
@@ -94,6 +156,18 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     await page.goto('/park');
     await page.waitForSelector('[data-testid="park-vehicle"]');
     await page.selectOption('[data-testid="vehicle-type-select"]', 'L');
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
+    // (selectOption already executed above)
     await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
     await page.click('[data-testid="park-vehicle-submit"]');
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
@@ -103,7 +177,17 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     await page.goto('/park');
     await page.waitForSelector('[data-testid="park-vehicle"]');
     await page.selectOption('[data-testid="vehicle-type-select"]', 'S');
-    await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
     await page.click('[data-testid="park-vehicle-submit"]');
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
   });
@@ -112,40 +196,72 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     await page.goto('/park');
     await page.waitForSelector('[data-testid="park-vehicle"]');
     await page.selectOption('[data-testid="vehicle-type-select"]', 'S');
-    await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
     await page.click('[data-testid="park-vehicle-submit"]');
-    
+
     // Wait for response
     await page.waitForLoadState('networkidle');
-    
+
     // Check for session ID display or error message
     const sessionIdDisplay = page.locator('[data-testid="session-id"], .session-id');
     const hasSessionId = await sessionIdDisplay.count() > 0;
     const errorMessage = page.locator('.error-message');
     const hasError = await errorMessage.count() > 0;
-    
+
     expect(hasSessionId || hasError).toBeTruthy();
   });
 
   test('should support continuous parking scenarios', async ({ page }) => {
     await page.goto('/park');
     await page.waitForSelector('[data-testid="park-vehicle"]');
-    
+
     // First parking
     await page.selectOption('[data-testid="vehicle-type-select"]', 'S');
-    await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
     await page.click('[data-testid="park-vehicle-submit"]');
     await page.waitForLoadState('networkidle');
-    
+
     // Verify response
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
-    
+
     // Try second parking (may succeed or fail depending on slot availability)
     await page.selectOption('[data-testid="vehicle-type-select"]', 'M');
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
+    // (selectOption already executed above)
     await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
     await page.click('[data-testid="park-vehicle-submit"]');
     await page.waitForLoadState('networkidle');
-    
+
     // Verify second response
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
   });

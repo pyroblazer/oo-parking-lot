@@ -8,7 +8,7 @@ import { test as base, Page, APIRequestContext } from '@playwright/test';
  */
 
 // API Endpoints
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8082';
+const API_BASE_URL = process.env.API_BASE_URL || 'http://127.0.0.1:8082';
 
 export interface ParkingSlot {
   id: string;
@@ -176,7 +176,7 @@ export class ParkingTestFixtures {
    * Get all entry points via API
    */
   async getEntryPoints(): Promise<EntryPoint[]> {
-    const response = await this.request.get(`${API_BASE_URL}/api/v1/entry-points`);
+    const response = await this.request.get(`${API_BASE_URL}/api/v1/entry_points`);
     return await response.json();
   }
 

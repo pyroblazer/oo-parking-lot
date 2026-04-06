@@ -221,7 +221,7 @@ describe('FEAT-016: Check System Health - Health Polling', () => {
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Verify health badge is still visible
-        const healthBadge = element(by.id('health-badge');
+        const healthBadge = element(by.id('health-badge'));
         const hasHealthBadge = await healthBadge.isVisible();
         expect(hasHealthBadge).toBeTruthy();
       }
@@ -600,7 +600,7 @@ describe('FEAT-016: Check System Health - Configuration Screen', () => {
       await configuration.waitForVisible();
       
       // Check for overall health badge
-      const overallHealth = element(by.id('config-overall-health');
+      const overallHealth = element(by.id('config-overall-health'));
       const hasOverallHealth = await overallHealth.isVisible();
       
       // Overall health badge is optional
@@ -624,7 +624,7 @@ describe('FEAT-016: Check System Health - Configuration Screen', () => {
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Verify health status is updated
-        const healthStatus = element(by.id('config-health-status');
+        const healthStatus = element(by.id('config-health-status'));
         const hasHealthStatus = await healthStatus.isVisible();
         expect(hasHealthStatus).toBeTruthy();
       }

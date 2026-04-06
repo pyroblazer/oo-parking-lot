@@ -31,5 +31,5 @@ Rails.application.configure do
   # because the middleware stack is frozen during Rails.application.initialize!
   # Session middleware is added via config.session_store above, which is the
   # correct way to configure sessions in Rails 8.0.
-  puts '[DEBUG] test.rb: Skipping middleware additions (middleware stack is frozen in Rails 8.0 test environment)'
+  # Skipping middleware additions (middleware stack is frozen in Rails 8.0 test environment)
 end

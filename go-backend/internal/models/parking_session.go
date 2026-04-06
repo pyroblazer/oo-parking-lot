@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"math"
 	"time"
 )
@@ -19,6 +18,7 @@ type ParkingSession struct {
 	VehicleType   string       `json:"vehicle_type" db:"vehicle_type"`
 	ParkingSlotID int64        `json:"parking_slot_id" db:"parking_slot_id"`
 	EntryPointID  int64        `json:"entry_point_id" db:"entry_point_id"`
+	LicensePlate  *string      `json:"license_plate" db:"license_plate"`
 	// BaseStartTime is the start time for continuous parking calculation
 	// If this is a continuous session, it uses the previous session's parked_at
 	BaseStartTime *time.Time `json:"base_start_time,omitempty" db:"-"`
@@ -46,45 +46,67 @@ func (ps *ParkingSession) DurationHours() float64 {
 const ContinuousParkingThreshold = 1 * time.Hour
 
 // IsContinuous checks if this is a continuous parking session
-// Matches Ruby backend logic: checks if any previous session of the same vehicle type
-// exited within 1 hour before this session started.
+// Checks if any previous session of the same vehicle type exited within 1 hour before this session started.
+// If previous session has a license_plate, REQUIRES the current session to have a matching one
+// (prevents different vehicles of same type from being incorrectly marked continuous).
 // Does NOT require the same parking slot.
 func (ps *ParkingSession) IsContinuous(previousSessions []*ParkingSession) bool {
 	for _, prev := range previousSessions {
 		if prev.ExitedAt != nil {
 			timeSinceExit := ps.ParkedAt.Sub(*prev.ExitedAt)
-			// Log for debugging
-			fmt.Printf("DEBUG: IsContinuous - Checking session ID=%d: exitedAt=%s, timeSinceExit=%.2f minutes, threshold=%.2f minutes, prev.ID=%d, ps.ID=%d\n",
-				prev.ID, prev.ExitedAt.Format(time.RFC3339), timeSinceExit.Minutes(), ContinuousParkingThreshold.Minutes(), prev.ID, ps.ID)
+
+			// Check if time threshold is met
 			if timeSinceExit < ContinuousParkingThreshold && prev.ID != ps.ID {
-				fmt.Printf("DEBUG: IsContinuous - RETURNING TRUE: session ID=%d is continuous (timeSinceExit=%.2f minutes < threshold=%.2f minutes)\n",
-					ps.ID, timeSinceExit.Minutes(), ContinuousParkingThreshold.Minutes())
-				return true
+				// If previous session has a license_plate, REQUIRE current session's license_plate to match
+				if prev.LicensePlate != nil {
+					if ps.LicensePlate != nil && *prev.LicensePlate == *ps.LicensePlate {
+						return true
+					}
+					// Previous session has a license plate but current doesn't match - not continuous
+				} else {
+					// Previous session has no license plate - allow match (backward compatibility)
+					return true
+				}
 			}
 		}
 	}
-	fmt.Printf("DEBUG: IsContinuous - RETURNING FALSE: session ID=%d is not continuous\n", ps.ID)
 	return false
 }
 
-// CalculateBaseStartTime calculates the base start time for continuous parking
-// Matches Ruby backend logic: recursively finds the first session in a continuous chain
-// Prevents infinite recursion by tracking visited session IDs
+// CalculateBaseStartTime calculates base start time for continuous parking
+// Matches Ruby backend logic: recursively traces back through the continuous parking chain
+// to find the true base start time (the first session in the chain).
 func (ps *ParkingSession) CalculateBaseStartTime(previousSessions []*ParkingSession, visitedIDs []int64) time.Time {
-	// Prevent infinite recursion by tracking visited session IDs
-	for _, id := range visitedIDs {
-		if id == ps.ID {
-			return ps.ParkedAt
-		}
-	}
+	// Add current session ID to visited to prevent infinite loops
+	visitedIDs = append(visitedIDs, ps.ID)
 
 	// Find previous session for continuous parking check
 	// Finds most recent completed session that exited within 1 hour before this session started
+	// If previous session has a license_plate, REQUIRES current session's license_plate to match
 	var previousSession *ParkingSession
 	for _, prev := range previousSessions {
 		if prev.ExitedAt != nil {
 			timeSinceExit := ps.ParkedAt.Sub(*prev.ExitedAt)
 			if timeSinceExit < ContinuousParkingThreshold && timeSinceExit >= 0 && prev.ID != ps.ID {
+				// Check license plate matching: if previous session has a plate, require current to match
+				if prev.LicensePlate != nil {
+					if ps.LicensePlate == nil || *prev.LicensePlate != *ps.LicensePlate {
+						// License plate mismatch - skip this candidate
+						continue
+					}
+				}
+
+				// Check if this previous session has already been visited to prevent infinite loops
+				alreadyVisited := false
+				for _, visitedID := range visitedIDs {
+					if prev.ID == visitedID {
+						alreadyVisited = true
+						break
+					}
+				}
+				if alreadyVisited {
+					continue
+				}
 				// Find the most recent one
 				if previousSession == nil || prev.ExitedAt.After(*previousSession.ExitedAt) {
 					previousSession = prev
@@ -98,7 +120,6 @@ func (ps *ParkingSession) CalculateBaseStartTime(previousSessions []*ParkingSess
 		return ps.ParkedAt
 	}
 
-	// Recursively find the base start time of the previous session
-	// Add this session's ID to visited list to prevent infinite recursion
-	return previousSession.CalculateBaseStartTime(previousSessions, append(visitedIDs, ps.ID))
+	// Recursively trace back to find the true base start time
+	return previousSession.CalculateBaseStartTime(previousSessions, visitedIDs)
 }

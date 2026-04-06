@@ -389,15 +389,6 @@ This will test:
 
 3. Follow the green flow scenarios described above
 
-### Using React Native Mobile Frontend
-
-The React Native mobile app provides the same functionality through mobile-optimized screens:
-
-- [`ParkVehicle`](../react-native-mobile/src/screens/ParkVehicle.tsx)
-- [`UnparkVehicle`](../react-native-mobile/src/screens/UnparkVehicle.tsx)
-- [`ViewSession`](../react-native-mobile/src/screens/ViewSession.tsx)
-- [`AvailableSlots`](../react-native-mobile/src/screens/AvailableSlots.tsx)
-
 ## Troubleshooting
 
 ### Common Issues
@@ -431,7 +422,6 @@ All green flow scenarios from the specification are supported and can be tested 
 - Postman collection (automated tests)
 - RSpec integration tests (backend validation)
 - React web frontend (manual testing)
-- React Native mobile frontend (mobile testing)
 
 For more information, see:
 - [Architecture Documentation](ARCHITECTURE.md)

@@ -6,7 +6,6 @@ import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
 import SlotsManagement from '../../src/screens/SlotsManagement';
 import * as parkingApi from '../../src/api/parkingApi';
-import type { NavigationProp } from '@react-navigation/native';
 
 // Mock navigation
 jest.mock('@react-navigation/native', () => ({
@@ -16,6 +15,7 @@ jest.mock('@react-navigation/native', () => ({
 // Mock API functions
 jest.mock('../../src/api/parkingApi', () => ({
   listSlots: jest.fn(),
+  listEntryPoints: jest.fn(),
   createSlot: jest.fn(),
   updateSlot: jest.fn(),
   deleteSlot: jest.fn(),
@@ -46,12 +46,6 @@ const mockNavigation: any = {
 describe('Slots Management Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
-  });
-
-  afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
   });
 
   describe('Component Rendering', () => {
@@ -77,10 +71,10 @@ describe('Slots Management Screen', () => {
       render(<SlotsManagement navigation={mockNavigation} route={{ key: '', name: '', params: {} }} />);
 
       await screen.findByText(/filter by type/i);
-      await screen.findByText(/all/i);
-      await screen.findByText(/sp/i);
-      await screen.findByText(/mp/i);
-      await screen.findByText(/lp/i);
+      await screen.findByText(/filter by availability/i);
+      expect(screen.getAllByText(/sp/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/mp/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/lp/i).length).toBeGreaterThan(0);
     });
 
     it('renders create button', async () => {
@@ -144,8 +138,8 @@ describe('Slots Management Screen', () => {
 
       render(<SlotsManagement navigation={mockNavigation} route={{ key: '', name: '', params: {} }} />);
 
-      const spButton = await screen.findByText(/sp/i);
-      fireEvent.press(spButton);
+      const spButtons = screen.getAllByText(/sp/i);
+      fireEvent.press(spButtons[0]); // Press the first SP button (filter button)
 
       await screen.findByText(/sp-1/i);
     });
@@ -160,8 +154,8 @@ describe('Slots Management Screen', () => {
 
       render(<SlotsManagement navigation={mockNavigation} route={{ key: '', name: '', params: {} }} />);
 
-      const availabilityToggle = await screen.findByText(/all/i);
-      fireEvent.press(availabilityToggle);
+      const allButtons = screen.getAllByText(/all/i);
+      fireEvent.press(allButtons[1]); // Press the second "All" button (availability toggle)
 
       await screen.findByText(/available only/i);
     });
@@ -213,7 +207,7 @@ describe('Slots Management Screen', () => {
 
       render(<SlotsManagement navigation={mockNavigation} route={{ key: '', name: '', params: {} }} />);
 
-      await screen.findByText(/sp/i);
+      expect(screen.getAllByText(/sp/i).length).toBeGreaterThan(0);
     });
   });
 
@@ -227,10 +221,15 @@ describe('Slots Management Screen', () => {
 
       render(<SlotsManagement navigation={mockNavigation} route={{ key: '', name: '', params: {} }} />);
 
-      const createButton = await screen.findByText(/\+ create new slot/i);
-      fireEvent.press(createButton);
+      const createButtons = screen.getAllByText(/\+ create new slot/i);
+      fireEvent.press(createButtons[0]); // Press the first create button
 
-      await screen.findByText(/create new slot/i);
+      // Wait for modal to appear - look for unique modal elements
+      await waitFor(() => {
+        // Check for unique modal elements that only appear in the modal
+        const slotLabel = screen.queryByText(/slot label:/i);
+        expect(slotLabel).toBeTruthy();
+      }, { timeout: 5000 });
     });
 
     it('creates new slot when form is submitted', async () => {
@@ -249,10 +248,15 @@ describe('Slots Management Screen', () => {
 
       render(<SlotsManagement navigation={mockNavigation} route={{ key: '', name: '', params: {} }} />);
 
-      const createButton = await screen.findByText(/\+ create new slot/i);
-      fireEvent.press(createButton);
+      const createButtons = screen.getAllByText(/\+ create new slot/i);
+      fireEvent.press(createButtons[0]); // Press the first create button
 
-      await screen.findByText(/create new slot/i);
+      // Wait for modal to appear - look for unique modal elements
+      await waitFor(() => {
+        // Check for unique modal elements that only appear in the modal
+        const slotLabel = screen.queryByText(/slot label:/i);
+        expect(slotLabel).toBeTruthy();
+      }, { timeout: 5000 });
     });
   });
 
@@ -311,10 +315,10 @@ describe('Slots Management Screen', () => {
 
       await screen.findByText(/sp-1/i);
 
-      const deleteButton = await screen.findByText(/delete/i);
-      fireEvent.press(deleteButton);
+      const deleteButtons = screen.getAllByText(/delete/i);
+      fireEvent.press(deleteButtons[0]); // Press the first Delete button
 
-      await screen.findByText(/delete slot/i);
+      await screen.findByText(/delete slot sp-1/i);
     });
 
     it('deletes slot when confirmed', async () => {
@@ -329,10 +333,10 @@ describe('Slots Management Screen', () => {
 
       await screen.findByText(/sp-1/i);
 
-      const deleteButton = await screen.findByText(/delete/i);
-      fireEvent.press(deleteButton);
+      const deleteButtons = screen.getAllByText(/delete/i);
+      fireEvent.press(deleteButtons[0]); // Press the first Delete button
 
-      await screen.findByText(/delete slot/i);
+      await screen.findByText(/delete slot sp-1/i);
     });
   });
 

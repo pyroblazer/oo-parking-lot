@@ -9,12 +9,19 @@
  */
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL as ENV_API_BASE_URL } from '@env';
 import * as parkingApi from '../api/parkingApi';
 import type {
   ParkingSlot,
+  Session,
+} from '../api/parkingApi';
+
+/** Build-time default from .env, matching the resolution in parkingApi */
+const DEFAULT_API_URL = ENV_API_BASE_URL || (Platform.OS === 'android' ? 'http://10.0.2.2:8082' : 'http://localhost:8082');
+import type {
   EntryPoint,
-  ParkingSession,
   VehicleType,
 } from '../types';
 
@@ -29,8 +36,8 @@ interface ParkingState {
   // Data
   slots: ParkingSlot[];
   entryPoints: EntryPoint[];
-  activeSessions: ParkingSession[];
-  allSessions: ParkingSession[];
+  activeSessions: Session[];
+  allSessions: Session[];
   
   // System status
   systemHealth: 'online' | 'offline' | 'checking';
@@ -63,8 +70,8 @@ interface ParkingState {
 type ParkingAction =
   | { type: 'SET_SLOTS'; payload: ParkingSlot[] }
   | { type: 'SET_ENTRY_POINTS'; payload: EntryPoint[] }
-  | { type: 'SET_ACTIVE_SESSIONS'; payload: ParkingSession[] }
-  | { type: 'SET_ALL_SESSIONS'; payload: ParkingSession[] }
+  | { type: 'SET_ACTIVE_SESSIONS'; payload: Session[] }
+  | { type: 'SET_ALL_SESSIONS'; payload: Session[] }
   | { type: 'SET_SYSTEM_HEALTH'; payload: 'online' | 'offline' | 'checking' }
   | { type: 'SET_INITIALIZED'; payload: boolean }
   | { type: 'SET_API_BASE_URL'; payload: string }
@@ -100,7 +107,7 @@ interface ParkingContextValue {
   getAvailableSlotsForEntryPoint: (vehicleType: VehicleType, entryPointId: string) => ParkingSlot[];
   getSlotById: (slotId: string) => ParkingSlot | undefined;
   getEntryPointById: (entryPointId: string) => EntryPoint | undefined;
-  getSessionById: (sessionId: string) => ParkingSession | undefined;
+  getSessionById: (sessionId: string) => Session | undefined;
   getActiveSessionsCount: () => number;
   getAvailableSlotsCount: () => number;
   getTotalSlotsCount: () => number;
@@ -124,7 +131,7 @@ const initialState: ParkingState = {
   allSessions: [],
   systemHealth: 'checking',
   isInitialized: false,
-  apiBaseUrl: 'http://localhost:8082',
+  apiBaseUrl: DEFAULT_API_URL,
   testMode: false,
   loading: {
     slots: false,
@@ -431,9 +438,9 @@ export function ParkingProvider({ children }: ParkingProviderProps): JSX.Element
       await AsyncStorage.removeItem('api_base_url');
       await AsyncStorage.removeItem('test_mode');
       // Reset to defaults
-      dispatch({ type: 'SET_API_BASE_URL', payload: 'http://localhost:8082' });
+      dispatch({ type: 'SET_API_BASE_URL', payload: DEFAULT_API_URL });
       dispatch({ type: 'SET_TEST_MODE', payload: false });
-      await parkingApi.setApiBaseUrl('http://localhost:8082');
+      await parkingApi.setApiBaseUrl(DEFAULT_API_URL);
     } catch (error) {
       console.error('Error clearing configuration from AsyncStorage:', error);
       throw error;
@@ -454,7 +461,7 @@ export function ParkingProvider({ children }: ParkingProviderProps): JSX.Element
     return state.slots.filter(slot => {
       // Map vehicle type to slot type
       const slotType = vehicleType === 'S' ? 'SP' : vehicleType === 'M' ? 'MP' : 'LP';
-      return slot.type === slotType && slot.status === 'available';
+      return slot.slot_type === slotType && slot.available;
     });
   }, [state.slots]);
 
@@ -467,16 +474,15 @@ export function ParkingProvider({ children }: ParkingProviderProps): JSX.Element
    */
   const getAvailableSlotsForEntryPoint = useCallback(
     (vehicleType: VehicleType, entryPointId: string): ParkingSlot[] => {
-      const _entryPointIndex = entryPointId.charCodeAt(0) - 'A'.charCodeAt(0);
-      
+      const entryPointIndex = entryPointId.charCodeAt(0) - 'A'.charCodeAt(0);
       return state.slots.filter(slot => {
         const slotType = vehicleType === 'S' ? 'SP' : vehicleType === 'M' ? 'MP' : 'LP';
-        const isAvailable = slot.status === 'available';
-        const hasDistance = slot.distance_from_entry !== undefined;
-        return slot.type === slotType && isAvailable && hasDistance;
+        const isAvailable = slot.available;
+        const hasDistance = slot.distances && slot.distances.length > entryPointIndex;
+        return slot.slot_type === slotType && isAvailable && hasDistance;
       }).sort((a, b) => {
-        const distanceA = a.distance_from_entry || 0;
-        const distanceB = b.distance_from_entry || 0;
+        const distanceA = (a.distances && a.distances[entryPointIndex]) || 0;
+        const distanceB = (b.distances && b.distances[entryPointIndex]) || 0;
         return distanceA - distanceB;
       });
     },
@@ -509,7 +515,7 @@ export function ParkingProvider({ children }: ParkingProviderProps): JSX.Element
    * @param sessionId - Session ID to find
    * @returns Parking session or undefined if not found
    */
-  const getSessionById = useCallback((sessionId: string): ParkingSession | undefined => {
+  const getSessionById = useCallback((sessionId: string): Session | undefined => {
     return state.allSessions.find(session => session.session_id === sessionId);
   }, [state.allSessions]);
 
@@ -528,7 +534,7 @@ export function ParkingProvider({ children }: ParkingProviderProps): JSX.Element
    * @returns Number of available slots
    */
   const getAvailableSlotsCount = useCallback((): number => {
-    return state.slots.filter(slot => slot.status === 'available').length;
+    return state.slots.filter(slot => slot.available).length;
   }, [state.slots]);
 
   /**
@@ -684,5 +690,5 @@ export function useParkingContext(): ParkingContextValue {
 // EXPORTS
 // ============================================================================
 
-export { ParkingContext, ParkingProvider, useParkingContext };
+export { ParkingContext };
 export default ParkingContext;

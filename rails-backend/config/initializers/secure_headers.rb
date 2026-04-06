@@ -7,7 +7,7 @@ SecureHeaders::Configuration.default do |config|
   # Test environment: minimal configuration to prevent NotYetConfiguredError
   # The middleware is still skipped in middleware.rb for test environment
   if Rails.env.test?
-    puts '[DEBUG] secure_headers.rb: Configuring minimal policy for test environment'
+    Rails.logger.debug '[DEBUG] secure_headers.rb: Configuring minimal policy for test environment'
     config.csp = {
       default_src: ["'self'"],
       script_src: ["'self'"]

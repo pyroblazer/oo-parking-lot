@@ -5,13 +5,19 @@
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
 import AvailableSlots from '../../src/screens/AvailableSlots';
-import * as api from '../../src/api';
+import * as api from '../../src/api/parkingApi';
 import type { NavigationProp, RouteProp } from '../../src/types';
 
 // Mock API functions
-jest.mock('../../src/api', () => ({
+jest.mock('../../src/api/parkingApi', () => ({
   getAvailableSlots: jest.fn(),
-  getEntryPoints: jest.fn(),
+  listEntryPoints: jest.fn(),
+  ApiError: class extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'ApiError';
+    }
+  },
 }));
 
 const mockNavigation: NavigationProp = {
@@ -29,7 +35,7 @@ describe('AvailableSlots Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock successful getEntryPoints response
-    (api.getEntryPoints as jest.Mock).mockResolvedValue([
+    (api.listEntryPoints as jest.Mock).mockResolvedValue([
       { id: '1', identifier: 'A', name: 'Main Entrance' },
       { id: '2', identifier: 'B', name: 'Side Entrance' },
     ]);
@@ -121,7 +127,7 @@ describe('AvailableSlots Screen', () => {
   describe('Slot Search', () => {
     beforeEach(() => {
       // Ensure getEntryPoints is mocked with successful response
-      (api.getEntryPoints as jest.Mock).mockResolvedValue([
+      (api.listEntryPoints as jest.Mock).mockResolvedValue([
         { id: '1', identifier: 'A', name: 'Main Entrance' },
         { id: '2', identifier: 'B', name: 'Side Entrance' },
       ]);
@@ -129,15 +135,12 @@ describe('AvailableSlots Screen', () => {
 
     it('calls getAvailableSlots API with correct parameters', async () => {
       const mockSlots = [
-        { id: 'slot-1', label: 'SP-1', type: 'SP' as const, distance_from_entry: 1 },
-        { id: 'slot-2', label: 'SP-2', type: 'SP' as const, distance_from_entry: 2 },
-        { id: 'slot-3', label: 'MP-1', type: 'MP' as const, distance_from_entry: 3 },
+        { id: 'slot-1', slot_label: 'SP-1', slot_type: 'SP' as const, distances: [1], available: true },
+        { id: 'slot-2', slot_label: 'SP-2', slot_type: 'SP' as const, distances: [2], available: true },
+        { id: 'slot-3', slot_label: 'MP-1', slot_type: 'MP' as const, distances: [3], available: true },
       ];
 
-      (api.getAvailableSlots as jest.Mock).mockResolvedValue({
-        available_slots: mockSlots,
-        total_count: 3,
-      });
+      (api.getAvailableSlots as jest.Mock).mockResolvedValue(mockSlots);
 
       render(<AvailableSlots navigation={mockNavigation} route={mockRoute} />);
 
@@ -162,14 +165,11 @@ describe('AvailableSlots Screen', () => {
 
     it('displays available slots on successful search', async () => {
       const mockSlots = [
-        { id: 'slot-1', label: 'SP-1', type: 'SP' as const, distance_from_entry: 1 },
-        { id: 'slot-2', label: 'SP-2', type: 'SP' as const, distance_from_entry: 2 },
+        { id: 'slot-1', slot_label: 'SP-1', slot_type: 'SP' as const, distances: [1], available: true },
+        { id: 'slot-2', slot_label: 'SP-2', slot_type: 'SP' as const, distances: [2], available: true },
       ];
 
-      (api.getAvailableSlots as jest.Mock).mockResolvedValue({
-        available_slots: mockSlots,
-        total_count: 2,
-      });
+      (api.getAvailableSlots as jest.Mock).mockResolvedValue(mockSlots);
 
       render(<AvailableSlots navigation={mockNavigation} route={mockRoute} />);
 
@@ -194,10 +194,7 @@ describe('AvailableSlots Screen', () => {
     });
 
     it('displays no slots message when no slots available', async () => {
-      (api.getAvailableSlots as jest.Mock).mockResolvedValue({
-        available_slots: [],
-        total_count: 0,
-      });
+      (api.getAvailableSlots as jest.Mock).mockResolvedValue([]);
 
       render(<AvailableSlots navigation={mockNavigation} route={mockRoute} />);
 
@@ -262,7 +259,7 @@ describe('AvailableSlots Screen', () => {
 
     it('shows validation error when entry point not selected', async () => {
       // Mock getEntryPoints to return empty array - no entry points available
-      (api.getEntryPoints as jest.Mock).mockResolvedValue([]);
+      (api.listEntryPoints as jest.Mock).mockResolvedValue([]);
 
       render(<AvailableSlots navigation={mockNavigation} route={mockRoute} />);
 
@@ -338,12 +335,12 @@ describe('AvailableSlots Screen', () => {
       render(<AvailableSlots navigation={mockNavigation} route={mockRoute} />);
 
       await waitFor(() => {
-        expect(api.getEntryPoints).toHaveBeenCalled();
+        expect(api.listEntryPoints).toHaveBeenCalled();
       });
     });
 
     it('displays error when entry points fail to load', async () => {
-      (api.getEntryPoints as jest.Mock).mockRejectedValue(new Error('Network error'));
+      (api.listEntryPoints as jest.Mock).mockRejectedValue(new Error('Network error'));
 
       render(<AvailableSlots navigation={mockNavigation} route={mockRoute} />);
 

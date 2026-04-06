@@ -7,12 +7,19 @@ const React = require('react');
 
 // Helper to create a mock component that wraps a div
 const createMockComponent = (name) => {
-  const Component = ({ children, testID, ...props }) => {
+  const Component = ({ children, testID, accessibilityRole, accessibilityLabel, ...props }) => {
     const elementProps = { ...props };
     // Only set testID if explicitly provided
     if (testID) {
       elementProps.testID = testID;
       elementProps['data-testid'] = testID;
+    }
+    // Map React Native accessibility props to HTML attributes
+    if (accessibilityRole) {
+      elementProps.role = accessibilityRole;
+    }
+    if (accessibilityLabel) {
+      elementProps['aria-label'] = accessibilityLabel;
     }
     return React.createElement('div', elementProps, children);
   };
@@ -42,12 +49,21 @@ const RefreshControl = ({ refreshing, onRefresh, ...props }) => {
 RefreshControl.displayName = 'RefreshControl';
 
 // Mock TouchableOpacity component
-const TouchableOpacity = ({ children, testID, disabled = false, onPress, ...props }) => {
+const TouchableOpacity = ({ children, testID, disabled = false, onPress, accessibilityRole, accessibilityLabel, accessible, ...props }) => {
   const elementProps = { ...props };
   if (testID) {
     elementProps.testID = testID;
     elementProps['data-testid'] = testID;
   }
+  if (accessibilityRole) {
+    elementProps.role = accessibilityRole;
+  }
+  if (accessibilityLabel) {
+    elementProps['aria-label'] = accessibilityLabel;
+  }
+  // React Native TouchableOpacity is accessible by default
+  // @testing-library/react-native checks props.accessible for isAccessibilityElement
+  elementProps.accessible = accessible !== undefined ? accessible : true;
   // Only set disabled attribute when it's true (not when false)
   // In HTML, the presence of the disabled attribute makes it disabled, regardless of value
   if (disabled) {
@@ -59,27 +75,42 @@ const TouchableOpacity = ({ children, testID, disabled = false, onPress, ...prop
       onPress(e);
     }
   };
+  // Keep onPress on host element for @testing-library/react-native fireEvent.press
+  if (onPress) {
+    elementProps.onPress = onPress;
+  }
   return React.createElement('button', elementProps, children);
-};
-TouchableOpacity.displayName = 'TouchableOpacity';
+};TouchableOpacity.displayName = 'TouchableOpacity';
 
 // Mock TextInput component
-const TextInput = ({ children, testID, editable = true, ...props }) => {
+const TextInput = ({ children, testID, editable = true, accessibilityRole, accessibilityLabel, ...props }) => {
   const elementProps = { disabled: !editable, ...props };
   if (testID) {
     elementProps.testID = testID;
     elementProps['data-testid'] = testID;
+  }
+  if (accessibilityRole) {
+    elementProps.role = accessibilityRole;
+  }
+  if (accessibilityLabel) {
+    elementProps['aria-label'] = accessibilityLabel;
   }
   return React.createElement('input', elementProps, children);
 };
 TextInput.displayName = 'TextInput';
 
 // Mock Button component
-const Button = ({ title, onPress, testID, disabled = false, ...props }) => {
+const Button = ({ title, onPress, testID, disabled = false, accessibilityRole, accessibilityLabel, ...props }) => {
   const elementProps = { onClick: onPress, disabled, ...props };
   if (testID) {
     elementProps.testID = testID;
     elementProps['data-testid'] = testID;
+  }
+  if (accessibilityRole) {
+    elementProps.role = accessibilityRole;
+  }
+  if (accessibilityLabel) {
+    elementProps['aria-label'] = accessibilityLabel;
   }
   return React.createElement('button', elementProps, title);
 };
@@ -109,20 +140,57 @@ const FlatList = ({ data, renderItem, keyExtractor, testID, ...props }) => {
 };
 FlatList.displayName = 'FlatList';
 
-// Mock Modal component
-const Modal = createMockComponent('Modal');
+// Mock Modal component - respects visible prop for conditional rendering
+const Modal = ({ children, visible, ...props }) => {
+  if (visible === false) return null;
+  const elementProps = { ...props };
+  return React.createElement('div', elementProps, children);
+};
+Modal.displayName = 'Modal';
 
 // Mock Pressable component
-const Pressable = createMockComponent('Pressable');
-
-// Mock TouchableWithoutFeedback component
-const TouchableWithoutFeedback = ({ children, testID, ...props }) => {
+const Pressable = ({ children, testID, onPress, accessibilityRole, accessibilityLabel, accessible, ...props }) => {
   const elementProps = { ...props };
   if (testID) {
     elementProps.testID = testID;
     elementProps['data-testid'] = testID;
   }
-  return React.createElement('div', elementProps, children);
+  if (accessibilityRole) {
+    elementProps.role = accessibilityRole;
+  }
+  if (accessibilityLabel) {
+    elementProps['aria-label'] = accessibilityLabel;
+  }
+  // Pressable is accessible by default in React Native
+  elementProps.accessible = accessible !== undefined ? accessible : true;
+  if (onPress) {
+    elementProps.onClick = onPress;
+    elementProps.onPress = onPress;
+  }
+  return React.createElement('button', elementProps, children);
+};
+Pressable.displayName = 'Pressable';
+
+// Mock TouchableWithoutFeedback component
+const TouchableWithoutFeedback = ({ children, testID, onPress, accessibilityRole, accessibilityLabel, accessible, ...props }) => {
+  const elementProps = { ...props };
+  if (testID) {
+    elementProps.testID = testID;
+    elementProps['data-testid'] = testID;
+  }
+  if (accessibilityRole) {
+    elementProps.role = accessibilityRole;
+  }
+  if (accessibilityLabel) {
+    elementProps['aria-label'] = accessibilityLabel;
+  }
+  // TouchableWithoutFeedback is accessible by default in React Native
+  elementProps.accessible = accessible !== undefined ? accessible : true;
+  if (onPress) {
+    elementProps.onClick = onPress;
+    elementProps.onPress = onPress;
+  }
+  return React.createElement('button', elementProps, children);
 };
 TouchableWithoutFeedback.displayName = 'TouchableWithoutFeedback';
 

@@ -43,11 +43,9 @@ func TestMain(m *testing.M) {
 }
 
 func setupTestDB(t *testing.T) *database.DB {
-	// Use test database from environment or default
-	os.Setenv("DATABASE_HOST", "localhost")
-	os.Setenv("DATABASE_PORT", "5432")
-	os.Setenv("DATABASE_USER", "postgres")
-	os.Setenv("DATABASE_PASSWORD", "")
+	// Setup test environment with sensible defaults
+	database.SetupTestEnvironment()
+	// Ensure we use the handlers test database for unit tests
 	os.Setenv("DATABASE_NAME", "oo_parking_lot_handlers_test")
 
 	db, err := database.NewDBFromEnv()
@@ -83,10 +81,12 @@ func setupTestDB(t *testing.T) *database.DB {
 			parked_at TIMESTAMP NOT NULL,
 			exited_at TIMESTAMP,
 			total_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+			license_plate VARCHAR(20),
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
+	db.GetDB().Exec(`ALTER TABLE parking_sessions ADD COLUMN IF NOT EXISTS license_plate VARCHAR(20);`)
 
 	return db
 }
@@ -129,6 +129,7 @@ func setupTestRouter(t *testing.T) (*mux.Router, *services.ParkingService, *data
 
 	// Entry points routes
 	api.HandleFunc("/entry_points", parkingHandler.ListEntryPoints).Methods("GET")
+	api.HandleFunc("/entry_points", parkingHandler.CreateEntryPoint).Methods("POST")
 
 	// Health check (inline handler for testing)
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -221,6 +222,9 @@ func TestListEntryPoints(t *testing.T) {
 	router, _, db, cleanup := setupTestRouter(t)
 	defer cleanup()
 
+	// Clean up any existing data to ensure test isolation
+	db.GetDB().Exec("DELETE FROM entry_points WHERE identifier IN ('A', 'B', 'C')")
+
 	// Create test entry points using repository
 	createTestEntryPoint(t, db.GetDB(), "A", "Entry Point A")
 	createTestEntryPoint(t, db.GetDB(), "B", "Entry Point B")
@@ -282,9 +286,33 @@ func TestParkVehicle(t *testing.T) {
 	router, _, db, cleanup := setupTestRouter(t)
 	defer cleanup()
 
+	// Clean up database completely before this test to ensure isolation
+	db.GetDB().Exec("DELETE FROM parking_sessions")
+	db.GetDB().Exec("DELETE FROM parking_slots")
+	db.GetDB().Exec("DELETE FROM entry_points")
+
+	// Check existing entry points before creating new ones
+	var existingEPCount int
+	db.GetDB().QueryRow("SELECT COUNT(*) FROM entry_points").Scan(&existingEPCount)
+	t.Logf("DEBUG: Existing entry points before test: %d", existingEPCount)
+
+	var existingSlotCount int
+	db.GetDB().QueryRow("SELECT COUNT(*) FROM parking_slots").Scan(&existingSlotCount)
+	t.Logf("DEBUG: Existing parking slots before test: %d", existingSlotCount)
+
 	// Create test data using repository
+	t.Logf("DEBUG: Creating entry point A and parking slot SP-1")
 	createTestEntryPoint(t, db.GetDB(), "A", "Entry Point A")
 	createTestParkingSlot(t, db.GetDB(), "SP-1", "SP", []int{10, 20, 30}, true)
+
+	// Check entry points and slots after creation
+	var newEPCount int
+	db.GetDB().QueryRow("SELECT COUNT(*) FROM entry_points").Scan(&newEPCount)
+	t.Logf("DEBUG: Entry points after creation: %d", newEPCount)
+
+	var newSlotCount int
+	db.GetDB().QueryRow("SELECT COUNT(*) FROM parking_slots").Scan(&newSlotCount)
+	t.Logf("DEBUG: Parking slots after creation: %d", newSlotCount)
 
 	// Test successful parking
 	formData := url.Values{}
@@ -298,6 +326,8 @@ func TestParkVehicle(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
+	t.Logf("DEBUG: Response status code=%d, body=%s", rr.Code, rr.Body.String())
+
 	// Postman collection tests
 	assert.Equal(t, http.StatusCreated, rr.Code)
 	assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
@@ -306,10 +336,17 @@ func TestParkVehicle(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
 
+	t.Logf("DEBUG: Parsed response: %+v", response)
+
 	// Verify wrapper format
 	assert.Contains(t, response, "success")
 	assert.True(t, response["success"].(bool))
 	assert.Contains(t, response, "data")
+
+	// Check if data is nil before type assertion
+	if response["data"] == nil {
+		t.Fatalf("DEBUG: response['data'] is nil, cannot proceed with test")
+	}
 
 	data := response["data"].(map[string]interface{})
 	assert.Contains(t, data, "session_id")
@@ -352,7 +389,7 @@ func TestParkVehicleNoSlots(t *testing.T) {
 	createTestParkingSlot(t, db.GetDB(), "LP-1", "LP", []int{20, 30, 40}, true)
 
 	// Park a vehicle first to mark the slot as unavailable
-	_, err := parkingService.ParkVehicle("L", "A", nil)
+	_, err := parkingService.ParkVehicle("L", "A", "", "", nil)
 	require.NoError(t, err)
 
 	// Now try to park another vehicle - should fail with no available slots
@@ -383,11 +420,16 @@ func TestGetSession(t *testing.T) {
 	router, parkingService, db, cleanup := setupTestRouter(t)
 	defer cleanup()
 
+	// Clean up database completely before this test to ensure isolation
+	db.GetDB().Exec("DELETE FROM parking_sessions")
+	db.GetDB().Exec("DELETE FROM parking_slots")
+	db.GetDB().Exec("DELETE FROM entry_points")
+
 	// Create test data using repository
 	createTestEntryPoint(t, db.GetDB(), "A", "Entry Point A")
 	slot := createTestParkingSlot(t, db.GetDB(), "SP-1", "SP", []int{10, 20, 30}, true)
 
-	session, err := parkingService.ParkVehicle("S", "A", nil)
+	session, err := parkingService.ParkVehicle("S", "A", "", "", nil)
 	require.NoError(t, err)
 
 	sessionID := session.ID
@@ -465,6 +507,11 @@ func TestListSessions(t *testing.T) {
 	router, _, db, cleanup := setupTestRouter(t)
 	defer cleanup()
 
+	// Clean up database completely before this test to ensure isolation
+	db.GetDB().Exec("DELETE FROM parking_sessions")
+	db.GetDB().Exec("DELETE FROM parking_slots")
+	db.GetDB().Exec("DELETE FROM entry_points")
+
 	// Create test data using repository
 	ep := createTestEntryPoint(t, db.GetDB(), "A", "Entry Point A")
 	slot := createTestParkingSlot(t, db.GetDB(), "SP-1", "SP", []int{10, 20, 30}, true)
@@ -535,6 +582,11 @@ func TestListSessions(t *testing.T) {
 func TestUnparkVehicle(t *testing.T) {
 	router, _, db, cleanup := setupTestRouter(t)
 	defer cleanup()
+
+	// Clean up database completely before this test to ensure isolation
+	db.GetDB().Exec("DELETE FROM parking_sessions")
+	db.GetDB().Exec("DELETE FROM parking_slots")
+	db.GetDB().Exec("DELETE FROM entry_points")
 
 	// Create test data using repository
 	ep := createTestEntryPoint(t, db.GetDB(), "A", "Entry Point A")
@@ -641,6 +693,11 @@ func TestUnparkVehicleNotFound(t *testing.T) {
 func TestListSlots(t *testing.T) {
 	router, _, db, cleanup := setupTestRouter(t)
 	defer cleanup()
+
+	// Clean up database completely before this test to ensure isolation
+	db.GetDB().Exec("DELETE FROM parking_sessions")
+	db.GetDB().Exec("DELETE FROM parking_slots")
+	db.GetDB().Exec("DELETE FROM entry_points")
 
 	// Create test data using repository
 	createTestEntryPoint(t, db.GetDB(), "A", "Entry Point A")
@@ -777,6 +834,143 @@ func TestAvailableSlots(t *testing.T) {
 		slotLabels[i] = slot["slot_label"].(string)
 	}
 	assert.Equal(t, len(slotLabels), len(uniqueStrings(slotLabels)))
+}
+
+// Create Entry Point Tests
+func TestCreateEntryPoint(t *testing.T) {
+	t.Run("successfully creates entry point and backfills distances", func(t *testing.T) {
+		router, parkingService, db, cleanup := setupTestRouter(t)
+		defer cleanup()
+
+		// Create test parking slots with existing distances
+		createTestParkingSlot(t, db.GetDB(), "SP-1", "SP", []int{10, 20, 30}, true)
+		createTestParkingSlot(t, db.GetDB(), "MP-1", "MP", []int{15, 25, 35}, true)
+		createTestParkingSlot(t, db.GetDB(), "LP-1", "LP", []int{20, 30, 40}, true)
+
+		// Create a new entry point
+		requestBody := `{"entry_point": {"identifier": "D", "name": "Entry Point D"}}`
+		req, err := http.NewRequest("POST", "/api/v1/entry_points", strings.NewReader(requestBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		// Verify response
+		assert.Equal(t, http.StatusCreated, rr.Code)
+		assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+
+		var response map[string]interface{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+
+		assert.Contains(t, response, "success")
+		assert.True(t, response["success"].(bool))
+		assert.Contains(t, response, "data")
+
+		data := response["data"].(map[string]interface{})
+		assert.Contains(t, data, "id")
+		assert.Contains(t, data, "identifier")
+		assert.Contains(t, data, "name")
+		assert.Equal(t, "D", data["identifier"])
+		assert.Equal(t, "Entry Point D", data["name"])
+
+		// Verify that parking slots now have 4 distances (3 original + 1 new)
+		slots, err := parkingService.ListSlots()
+		require.NoError(t, err)
+		assert.Len(t, slots, 3)
+
+		for _, slot := range slots {
+			assert.Len(t, slot.Distances, 4, "Slot %s should have 4 distances after creating entry point D", slot.SlotLabel)
+			// The backfilled distance should be 0 (default backfill value)
+			// Check that one of the distances is the inserted 0
+			hasZero := false
+			for _, d := range slot.Distances {
+				if d == 0 {
+					hasZero = true
+					break
+				}
+			}
+			assert.True(t, hasZero, "Slot %s should have a 0 value after backfill for entry point D", slot.SlotLabel)
+		}
+	})
+
+	t.Run("creates entry point with no existing slots", func(t *testing.T) {
+		router, _, _, cleanup := setupTestRouter(t)
+		defer cleanup()
+
+		// Create a new entry point with no parking slots
+		requestBody := `{"entry_point": {"identifier": "D", "name": "Entry Point D"}}`
+		req, err := http.NewRequest("POST", "/api/v1/entry_points", strings.NewReader(requestBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		// Verify response
+		assert.Equal(t, http.StatusCreated, rr.Code)
+		assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+
+		var response map[string]interface{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+
+		assert.Contains(t, response, "success")
+		assert.True(t, response["success"].(bool))
+	})
+
+	t.Run("rejects duplicate identifier", func(t *testing.T) {
+		router, _, db, cleanup := setupTestRouter(t)
+		defer cleanup()
+
+		// Create first entry point
+		createTestEntryPoint(t, db.GetDB(), "D", "Entry Point D")
+
+		// Try to create duplicate entry point
+		requestBody := `{"entry_point": {"identifier": "D", "name": "Entry Point D Duplicate"}}`
+		req, err := http.NewRequest("POST", "/api/v1/entry_points", strings.NewReader(requestBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		// Verify conflict response
+		assert.Equal(t, http.StatusConflict, rr.Code)
+		assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+
+		var response map[string]interface{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+
+		assert.Contains(t, response, "error")
+		assert.Contains(t, response["error"].(string), "already exists")
+	})
+
+	t.Run("rejects missing wrapper", func(t *testing.T) {
+		router, _, _, cleanup := setupTestRouter(t)
+		defer cleanup()
+
+		// Try to create entry point without wrapper
+		requestBody := `{"identifier": "D", "name": "Entry Point D"}`
+		req, err := http.NewRequest("POST", "/api/v1/entry_points", strings.NewReader(requestBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		// Verify bad request response
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+
+		var response map[string]interface{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+
+		assert.Contains(t, response, "error")
+	})
 }
 
 // Helper functions

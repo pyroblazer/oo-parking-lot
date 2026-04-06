@@ -21,6 +21,6 @@
     "isolatedModules": true,
     "allowJs": true
   },
-  "include": ["src/**/*", "__tests__/**/*"],
-  "exclude": ["node_modules", "**/*.test.js", "**/*.spec.js"]
+  "include": ["src/**/*", "__tests__/**/*", "e2e/**/*"],
+  "exclude": ["node_modules", "**/*.test.js", "**/*.spec.js", "e2e/jest.config.js"]
 }

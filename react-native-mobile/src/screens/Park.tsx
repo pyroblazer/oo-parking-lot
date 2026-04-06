@@ -2,7 +2,7 @@
  * Park Screen
  * 
  * A 3-step wizard screen for parking vehicles in the OO Parking Lot System.
- * Features vehicle type selection, entry point selection, test mode with DateTimePicker,
+ * Features vehicle type selection, entry point selection, test mode with date/time pickers,
  * slot preview, and confirmation receipt.
  * 
  * @module Park
@@ -22,9 +22,10 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Animated,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import * as parkingApi from '../api/parkingApi';
 import type { EntryPoint, ParkingSlot, Session } from '../api/parkingApi';
 
@@ -107,6 +108,31 @@ const VEHICLE_TYPE_NAMES: Record<VehicleType, string> = {
   L: 'Large',
 } as const;
 
+/**
+ * Timezone options for override time selection
+ */
+const TIMEZONE_OPTIONS: readonly { readonly label: string; readonly offset: number }[] = [
+  { label: 'UTC (+00:00)', offset: 0 },
+  { label: 'PHT — Philippines (+08:00)', offset: 480 },
+  { label: 'JST — Japan (+09:00)', offset: 540 },
+  { label: 'KST — Korea (+09:00)', offset: 540 },
+  { label: 'CST — China (+08:00)', offset: 480 },
+  { label: 'HKT — Hong Kong (+08:00)', offset: 480 },
+  { label: 'WIB — Indonesia (+07:00)', offset: 420 },
+  { label: 'IST — India (+05:30)', offset: 330 },
+  { label: 'CET — Central Europe (+01:00)', offset: 60 },
+  { label: 'EET — Eastern Europe (+02:00)', offset: 120 },
+  { label: 'BST — UK (+01:00)', offset: 60 },
+  { label: 'EST — US Eastern (-05:00)', offset: -300 },
+  { label: 'CST — US Central (-06:00)', offset: -360 },
+  { label: 'MST — US Mountain (-07:00)', offset: -420 },
+  { label: 'PST — US Pacific (-08:00)', offset: -480 },
+  { label: 'AKST — Alaska (-09:00)', offset: -540 },
+  { label: 'HST — Hawaii (-10:00)', offset: -600 },
+  { label: 'AEST — Australia East (+10:00)', offset: 600 },
+  { label: 'NZST — New Zealand (+12:00)', offset: 720 },
+] as const;
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -115,6 +141,12 @@ const VEHICLE_TYPE_NAMES: Record<VehicleType, string> = {
  * Park Screen Component
  */
 export const Park: React.FC = () => {
+  // ==========================================================================
+  // NAVIGATION
+  // ==========================================================================
+
+  const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
+
   // ==========================================================================
   // STATE
   // ==========================================================================
@@ -125,7 +157,11 @@ export const Park: React.FC = () => {
   const [entryPoints, setEntryPoints] = useState<EntryPoint[]>([]);
   const [testModeEnabled, setTestModeEnabled] = useState(false);
   const [overrideParkTime, setOverrideParkTime] = useState<Date | null>(null);
+
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [selectedTimezone, setSelectedTimezone] = useState(0);
+  const [tempDateTime, setTempDateTime] = useState(new Date());
   const [availableSlot, setAvailableSlot] = useState<AvailableSlotWithDistance | null>(null);
   const [parkingResult, setParkingResult] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
@@ -139,11 +175,12 @@ export const Park: React.FC = () => {
   // ==========================================================================
 
   /**
-   * Load entry points on component mount
+   * Initialize timezone offset to device local timezone
    */
   useEffect(() => {
-    loadEntryPoints();
-  }, [loadEntryPoints]);
+    const offsetMinutes = -new Date().getTimezoneOffset();
+    setSelectedTimezone(offsetMinutes);
+  }, []);
 
   // ==========================================================================
   // API CALLS
@@ -159,8 +196,8 @@ export const Park: React.FC = () => {
       const points = await parkingApi.listEntryPoints();
       setEntryPoints(points);
     } catch (err) {
-      const errorMessage = err instanceof parkingApi.ApiError 
-        ? err.message 
+      const errorMessage = err instanceof parkingApi.ApiError
+        ? err.message
         : 'Failed to load entry points';
       setError(errorMessage);
       Alert.alert('Error', errorMessage);
@@ -168,6 +205,13 @@ export const Park: React.FC = () => {
       setLoadingEntryPoints(false);
     }
   }, []);
+
+  /**
+   * Load entry points on component mount
+   */
+  useEffect(() => {
+    loadEntryPoints();
+  }, [loadEntryPoints]);
 
   /**
    * Find available slot for vehicle type and entry point
@@ -194,9 +238,10 @@ export const Park: React.FC = () => {
 
       // Get the best slot (closest to entry point)
       const bestSlot = slots[0];
+      const distances = Array.isArray(bestSlot.distances) ? bestSlot.distances : [];
       const slotWithDistance: AvailableSlotWithDistance = {
         ...bestSlot,
-        distance: bestSlot.distances[0] || 0,
+        distance: distances[0] || 0,
         entryPoint,
       };
       
@@ -257,13 +302,52 @@ export const Park: React.FC = () => {
   // ==========================================================================
 
   /**
-   * Handle date change from DateTimePicker
+   * Recompute UTC override time from current tempDateTime and timezone
    */
-  const handleDateChange = useCallback((event: DateTimePickerEvent, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setOverrideParkTime(selectedDate);
+  const recomputeUtc = useCallback((date: Date, tzOffsetMinutes: number) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+
+    const utcMs = Date.UTC(year, month, day, hour, minute, 0, 0) - (tzOffsetMinutes * 60 * 1000);
+    const utcDate = new Date(utcMs);
+    if (!isNaN(utcDate.getTime())) {
+      setOverrideParkTime(utcDate);
     }
+  }, []);
+
+  /**
+   * Confirm date picker modal selection
+   */
+  const confirmDateSelection = useCallback(() => {
+    setShowDatePicker(false);
+    recomputeUtc(tempDateTime, selectedTimezone);
+  }, [tempDateTime, selectedTimezone, recomputeUtc]);
+
+  /**
+   * Confirm time picker modal selection
+   */
+  const confirmTimeSelection = useCallback(() => {
+    setShowTimePicker(false);
+    recomputeUtc(tempDateTime, selectedTimezone);
+  }, [tempDateTime, selectedTimezone, recomputeUtc]);
+
+  /**
+   * Handle timezone change
+   */
+  const handleTimezoneChange = useCallback((tzOffset: number) => {
+    setSelectedTimezone(tzOffset);
+    recomputeUtc(tempDateTime, tzOffset);
+  }, [tempDateTime, recomputeUtc]);
+
+  /**
+   * Clear override time
+   */
+  const clearOverrideTime = useCallback(() => {
+    setOverrideParkTime(null);
+    setTempDateTime(new Date());
   }, []);
 
   /**
@@ -280,6 +364,9 @@ export const Park: React.FC = () => {
       setEntryPoint('');
       setOverrideParkTime(null);
       setTestModeEnabled(false);
+      setShowDatePicker(false);
+      setShowTimePicker(false);
+      setTempDateTime(new Date());
       setError(null);
     }
   }, [currentStep]);
@@ -295,8 +382,12 @@ export const Park: React.FC = () => {
     setEntryPoint('');
     setOverrideParkTime(null);
     setTestModeEnabled(false);
+    setShowAdvancedOptions(false);
+    setShowDatePicker(false);
+    setShowTimePicker(false);
+    setTempDateTime(new Date());
     setError(null);
-    
+
     // Reset animation
     successAnimation.setValue(0);
   }, [successAnimation]);
@@ -307,20 +398,6 @@ export const Park: React.FC = () => {
   const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  }, []);
-
-  /**
-   * Format override time for display
-   */
-  const formatOverrideTime = useCallback((date: Date | null) => {
-    if (!date) return 'Not set';
-    return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -415,7 +492,7 @@ export const Park: React.FC = () => {
                   <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={vehicleType}
-                      onValueChange={(value: VehicleType) => setVehicleType(value)}
+                      onValueChange={(value: string) => setVehicleType(value as VehicleType | '')}
                       style={styles.picker}
                       enabled={!loading}
                     >
@@ -511,30 +588,201 @@ export const Park: React.FC = () => {
                       {testModeEnabled && (
                         <View style={styles.dateTimeSection}>
                           <Text style={styles.label}>Override Park Time</Text>
+
+                          {/* Timezone Picker */}
+                          <Text style={styles.subLabel}>Timezone</Text>
+                          <View style={styles.pickerContainer}>
+                            <Picker
+                              selectedValue={selectedTimezone}
+                              onValueChange={(value: number) => handleTimezoneChange(value)}
+                              style={styles.picker}
+                            >
+                              {TIMEZONE_OPTIONS.map((tz) => (
+                                <Picker.Item key={`${tz.label}-${tz.offset}`} label={tz.label} value={tz.offset} />
+                              ))}
+                            </Picker>
+                          </View>
+
+                          {/* Date Picker Button */}
+                          <Text style={styles.subLabel}>Date</Text>
                           <TouchableOpacity
-                            style={styles.dateTimeButton}
+                            style={styles.dateTimePickerButton}
                             onPress={() => setShowDatePicker(true)}
-                            accessibilityLabel="Select override park time"
+                            accessibilityLabel="Select date"
                             accessibilityRole="button"
                           >
-                            <Text style={styles.dateTimeButtonText}>
-                              {formatOverrideTime(overrideParkTime)}
+                            <Text style={styles.dateTimePickerButtonText}>
+                              {tempDateTime.toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })}
                             </Text>
-                            <Text style={styles.dateTimeButtonIcon}>📅</Text>
                           </TouchableOpacity>
-                          <Text style={styles.helperText}>
-                            Leave empty to use server time
-                          </Text>
 
-                          {showDatePicker && (
-                            <DateTimePicker
-                              value={overrideParkTime || new Date()}
-                              mode="datetime"
-                              display="default"
-                              onChange={handleDateChange}
-                              minimumDate={new Date(2020, 0, 1)}
-                              maximumDate={new Date(2030, 11, 31)}
-                            />
+                          {/* Time Picker Button */}
+                          <Text style={styles.subLabel}>Time</Text>
+                          <TouchableOpacity
+                            style={styles.dateTimePickerButton}
+                            onPress={() => setShowTimePicker(true)}
+                            accessibilityLabel="Select time"
+                            accessibilityRole="button"
+                          >
+                            <Text style={styles.dateTimePickerButtonText}>
+                              {tempDateTime.toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true,
+                              })}
+                            </Text>
+                          </TouchableOpacity>
+
+                          {/* Date Picker Modal */}
+                          <Modal
+                            visible={showDatePicker}
+                            transparent
+                            animationType="slide"
+                            onRequestClose={() => setShowDatePicker(false)}
+                          >
+                            <View style={styles.modalOverlay}>
+                              <View style={styles.pickerModal}>
+                                <View style={styles.pickerModalHeader}>
+                                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                    <Text style={styles.pickerModalCancel}>Cancel</Text>
+                                  </TouchableOpacity>
+                                  <Text style={styles.pickerModalTitle}>Select Date</Text>
+                                  <TouchableOpacity onPress={confirmDateSelection}>
+                                    <Text style={styles.pickerModalDone}>Done</Text>
+                                  </TouchableOpacity>
+                                </View>
+                                <View style={styles.pickerRow}>
+                                  <View style={styles.pickerColumn}>
+                                    <Picker
+                                      selectedValue={tempDateTime.getMonth()}
+                                      onValueChange={(v: number) => {
+                                        const d = new Date(tempDateTime);
+                                        d.setMonth(v);
+                                        setTempDateTime(d);
+                                      }}
+                                      style={styles.widePicker}
+                                    >
+                                      {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
+                                        <Picker.Item key={i} label={m} value={i} />
+                                      ))}
+                                    </Picker>
+                                  </View>
+                                  <View style={styles.pickerColumnNarrow}>
+                                    <Picker
+                                      selectedValue={tempDateTime.getDate()}
+                                      onValueChange={(v: number) => {
+                                        const d = new Date(tempDateTime);
+                                        d.setDate(v);
+                                        setTempDateTime(d);
+                                      }}
+                                      style={styles.narrowPicker}
+                                    >
+                                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                                        <Picker.Item key={d} label={String(d)} value={d} />
+                                      ))}
+                                    </Picker>
+                                  </View>
+                                  <View style={styles.pickerColumnNarrow}>
+                                    <Picker
+                                      selectedValue={tempDateTime.getFullYear()}
+                                      onValueChange={(v: number) => {
+                                        const d = new Date(tempDateTime);
+                                        d.setFullYear(v);
+                                        setTempDateTime(d);
+                                      }}
+                                      style={styles.narrowPicker}
+                                    >
+                                      {Array.from({ length: 16 }, (_, i) => 2020 + i).map((y) => (
+                                        <Picker.Item key={y} label={String(y)} value={y} />
+                                      ))}
+                                    </Picker>
+                                  </View>
+                                </View>
+                              </View>
+                            </View>
+                          </Modal>
+
+                          {/* Time Picker Modal */}
+                          <Modal
+                            visible={showTimePicker}
+                            transparent
+                            animationType="slide"
+                            onRequestClose={() => setShowTimePicker(false)}
+                          >
+                            <View style={styles.modalOverlay}>
+                              <View style={styles.pickerModal}>
+                                <View style={styles.pickerModalHeader}>
+                                  <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                                    <Text style={styles.pickerModalCancel}>Cancel</Text>
+                                  </TouchableOpacity>
+                                  <Text style={styles.pickerModalTitle}>Select Time</Text>
+                                  <TouchableOpacity onPress={confirmTimeSelection}>
+                                    <Text style={styles.pickerModalDone}>Done</Text>
+                                  </TouchableOpacity>
+                                </View>
+                                <View style={styles.pickerRow}>
+                                  <View style={styles.pickerColumn}>
+                                    <Picker
+                                      selectedValue={tempDateTime.getHours()}
+                                      onValueChange={(v: number) => {
+                                        const d = new Date(tempDateTime);
+                                        d.setHours(v);
+                                        setTempDateTime(d);
+                                      }}
+                                      style={styles.widePicker}
+                                    >
+                                      {Array.from({ length: 24 }, (_, i) => i).map((h) => (
+                                        <Picker.Item
+                                          key={h}
+                                          label={h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
+                                          value={h}
+                                        />
+                                      ))}
+                                    </Picker>
+                                  </View>
+                                  <View style={styles.pickerColumn}>
+                                    <Picker
+                                      selectedValue={tempDateTime.getMinutes()}
+                                      onValueChange={(v: number) => {
+                                        const d = new Date(tempDateTime);
+                                        d.setMinutes(v);
+                                        setTempDateTime(d);
+                                      }}
+                                      style={styles.widePicker}
+                                    >
+                                      {Array.from({ length: 60 }, (_, i) => i).map((m) => (
+                                        <Picker.Item key={m} label={String(m).padStart(2, '0')} value={m} />
+                                      ))}
+                                    </Picker>
+                                  </View>
+                                </View>
+                              </View>
+                            </View>
+                          </Modal>
+
+                          {/* Preview & Clear */}
+                          {overrideParkTime ? (
+                            <View style={styles.dateTimePreview}>
+                              <Text style={styles.validHint}>
+                                UTC: {overrideParkTime.toISOString()}
+                              </Text>
+                              <TouchableOpacity
+                                onPress={clearOverrideTime}
+                                style={styles.clearTimeButton}
+                                accessibilityLabel="Clear override time"
+                                accessibilityRole="button"
+                              >
+                                <Text style={styles.clearTimeButtonText}>Clear</Text>
+                              </TouchableOpacity>
+                            </View>
+                          ) : (
+                            <Text style={styles.helperText}>
+                              Select date and time to override. Leave unset to use server time.
+                            </Text>
                           )}
                         </View>
                       )}
@@ -574,7 +822,7 @@ export const Park: React.FC = () => {
             {currentStep === 2 && availableSlot && (
               <View style={styles.stepContent}>
                 <Text style={styles.previewTitle}>
-                  Best Available Slot for {VEHICLE_TYPE_NAMES[vehicleType]} from Entry Point {entryPoint}:
+                  Best Available Slot for {vehicleType ? VEHICLE_TYPE_NAMES[vehicleType] : ''} from Entry Point {entryPoint}:
                 </Text>
 
                 {/* Slot Card */}
@@ -682,16 +930,22 @@ export const Park: React.FC = () => {
 
                     <View style={styles.receiptDivider} />
 
+                    {parkingResult.parking_slot && (
                     <View style={styles.receiptRow}>
                       <Text style={styles.receiptLabel}>Slot:</Text>
                       <Text style={styles.receiptValue}>
                         {parkingResult.parking_slot.slot_label} ({SLOT_TYPE_NAMES[parkingResult.parking_slot.slot_type]})
                       </Text>
                     </View>
+                    )}
 
                     <View style={styles.receiptRow}>
                       <Text style={styles.receiptLabel}>Entry Point:</Text>
-                      <Text style={styles.receiptValue}>{parkingResult.entry_point}</Text>
+                      <Text style={styles.receiptValue}>
+                        {typeof parkingResult.entry_point === 'string'
+                          ? parkingResult.entry_point
+                          : parkingResult.entry_point.identifier ?? ''}
+                      </Text>
                     </View>
 
                     <View style={styles.receiptRow}>
@@ -708,7 +962,7 @@ export const Park: React.FC = () => {
                       </Text>
                     </View>
 
-                    {testModeEnabled && overrideParkTime && (
+                    {testModeEnabled && (
                       <View style={styles.receiptRow}>
                         <Text style={styles.receiptLabel}>Test Mode:</Text>
                         <Text style={styles.receiptValueWarning}>Enabled</Text>
@@ -731,9 +985,9 @@ export const Park: React.FC = () => {
                   <TouchableOpacity
                     style={styles.primaryButton}
                     onPress={() => {
-                      // Navigate to Sessions screen
-                      // This would typically use navigation.navigate('Sessions')
-                      Alert.alert('Navigation', 'Navigate to Sessions screen');
+                      if (parkingResult?.session_id) {
+                        navigation.navigate('ViewSession', { id: parkingResult.session_id });
+                      }
                     }}
                     accessibilityLabel="View session"
                     accessibilityRole="button"
@@ -935,22 +1189,53 @@ const styles = StyleSheet.create({
   dateTimeSection: {
     marginTop: 16,
   },
-  dateTimeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
+  subLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+    marginTop: 12,
+  },
+  dateTimePickerButton: {
     backgroundColor: COLORS.surface,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 4,
   },
-  dateTimeButtonText: {
-    fontSize: 14,
+  dateTimePickerButtonText: {
+    fontSize: 15,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  dateTimePreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  clearTimeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: COLORS.border,
+    borderRadius: 6,
+  },
+  clearTimeButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
     color: COLORS.text,
   },
-  dateTimeButtonIcon: {
-    fontSize: 18,
+  validHint: {
+    fontSize: 12,
+    color: COLORS.success,
+    marginTop: 4,
   },
   primaryButton: {
     backgroundColor: COLORS.primary,
@@ -1122,6 +1407,56 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: COLORS.border,
     marginVertical: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  pickerModal: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 20,
+  },
+  pickerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  pickerModalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  pickerModalCancel: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+  },
+  pickerModalDone: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 8,
+  },
+  pickerColumn: {
+    flex: 1,
+  },
+  pickerColumnNarrow: {
+    width: 80,
+  },
+  widePicker: {
+    height: 200,
+  },
+  narrowPicker: {
+    height: 200,
   },
 });
 

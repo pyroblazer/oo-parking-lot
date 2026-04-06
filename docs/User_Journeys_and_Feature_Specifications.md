@@ -1,24 +1,23 @@
 # User Journeys and Feature Specifications
 ## OO Parking Lot System — Frontend Complete Reference
 
-**Document Version:** 2.0  
-**Date:** 2025-03-08  
-**Status:** Authoritative  
-**Audience:** Frontend Developers, QA Engineers, UX Designers, Kilo Code AI
+**Document Version:** 2.0
+**Status:** Authoritative
+**Audience:** Frontend Developers, QA Engineers, UX Designer
 
 ---
 
 ## Table of Contents
 
 1. [User Journey Flows with Mermaid Diagrams](#1-user-journey-flows-with-mermaid-diagrams)
-   - 1.1 [Park Vehicle Flows](#11-park-vehicle-flows)
-   - 1.2 [Unpark Vehicle Flows](#12-unpark-vehicle-flows)
-   - 1.3 [View Session Details Flow](#13-view-session-details-flow)
-   - 1.4 [Manage Parking Slots Flow](#14-manage-parking-slots-flow)
-   - 1.5 [Manage Entry Points Flow](#15-manage-entry-points-flow)
-   - 1.6 [System Initialization Flow](#16-system-initialization-flow)
-   - 1.7 [Continuous Parking Scenarios](#17-continuous-parking-scenarios)
-   - 1.8 [Long-term Parking Scenarios](#18-long-term-parking-scenarios)
+ - 1.1 [Park Vehicle Flows](#11-park-vehicle-flows)
+ - 1.2 [Unpark Vehicle Flows](#12-unpark-vehicle-flows)
+ - 1.3 [View Session Details Flow](#13-view-session-details-flow)
+ - 1.4 [Manage Parking Slots Flow](#14-manage-parking-slots-flow)
+ - 1.5 [Manage Entry Points Flow](#15-manage-entry-points-flow)
+ - 1.6 [System Initialization Flow](#16-system-initialization-flow)
+ - 1.7 [Continuous Parking Scenarios](#17-continuous-parking-scenarios)
+ - 1.8 [Long-term Parking Scenarios](#18-long-term-parking-scenarios)
 2. [Feature Specifications](#2-feature-specifications)
 3. [Screen-by-Screen Specifications](#3-screen-by-screen-specifications)
 4. [Interaction Design Specifications](#4-interaction-design-specifications)
@@ -42,95 +41,95 @@ The standard path: parking attendant arrives at the Park Vehicle screen, fills i
 
 ```mermaid
 flowchart TD
-    A([User navigates to Park Vehicle page]) --> B[Page loads - fetch entry points via GET /api/v1/entry_points]
-    B --> C{Entry points loaded?}
-    C -->|Success| D[Render Vehicle Type dropdown and Entry Point dropdown]
-    C -->|Failure| E[Show error banner: Failed to load entry points]
-    E --> F[Show Retry button]
-    F --> B
-    D --> G[User selects Vehicle Type: S or M or L]
-    G --> H[User selects Entry Point from dropdown]
-    H --> I[Park Vehicle button becomes active]
-    I --> J[User clicks Park Vehicle button]
-    J --> K[Button enters loading state: text changes to Parking...]
-    K --> L[API call: POST /api/v1/sessions with form-urlencoded vehicle_type and entry_point_id]
-    L --> M{HTTP 201 Created?}
-    M -->|Yes| N[Parse session response: session_id, parking_slot, entry_point, parked_at, is_continuous]
-    N --> O[Show animated success banner with green checkmark]
-    O --> P[Display Session ID - copyable to clipboard]
-    P --> Q[Display assigned slot label and type]
-    Q --> R[Display View Session button]
-    R --> S{Is Continuous?}
-    S -->|Yes| T[Show continuous parking notice with base_start_time]
-    S -->|No| U[Show standard success state]
-    T --> V([User can click View Session or park another vehicle])
-    U --> V
+- A([User navigates to Park Vehicle page]) --> B[Page loads - fetch entry points via GET /api/v1/entry_points]
+- B --> C{Entry points loaded?}
+- C -->|Success| D[Render Vehicle Type dropdown and Entry Point dropdown]
+- C -->|Failure| E[Show error banner: Failed to load entry points]
+- E --> F[Show Retry button]
+- F --> B
+- D --> G[User selects Vehicle Type: S or M or L]
+- G --> H[User selects Entry Point from dropdown]
+- H --> I[Park Vehicle button becomes active]
+- I --> J[User clicks Park Vehicle button]
+- J --> K[Button enters loading state: text changes to Parking...]
+- K --> L[API call: POST /api/v1/sessions with form-urlencoded vehicle_type and entry_point_id]
+- L --> M{HTTP 201 Created?}
+- M -->|Yes| N[Parse session response: session_id, parking_slot, entry_point, parked_at, is_continuous]
+- N --> O[Show animated success banner with green checkmark]
+- O --> P[Display Session ID - copyable to clipboard]
+- P --> Q[Display assigned slot label and type]
+- Q --> R[Display View Session button]
+- R --> S{Is Continuous?}
+- S -->|Yes| T[Show continuous parking notice with base_start_time]
+- S -->|No| U[Show standard success state]
+- T --> V([User can click View Session or park another vehicle])
+- U --> V
 ```
 
 #### 1.1.2 Edge Case — No Available Slots
 
 ```mermaid
 flowchart TD
-    A([User submits Park Vehicle form]) --> B[API call: POST /api/v1/sessions]
-    B --> C{HTTP 409 Conflict?}
-    C -->|Yes| D[Extract vehicle_type from request data]
-    D --> E[Construct message: No available X parking slot. All X slots are occupied.]
-    E --> F[Display error banner with red background and X icon]
-    F --> G[Show current slot availability summary by type]
-    G --> H{User action?}
-    H -->|Change vehicle type| I[User selects different vehicle type]
-    H -->|Change entry point| J[User selects different entry point]
-    H -->|Retry same| K[User clicks Park Vehicle again]
-    I --> L[Re-enable Park Vehicle button]
-    J --> L
-    K --> L
-    L --> B
+- A([User submits Park Vehicle form]) --> B[API call: POST /api/v1/sessions]
+- B --> C{HTTP 409 Conflict?}
+- C -->|Yes| D[Extract vehicle_type from request data]
+- D --> E[Construct message: No available X parking slot. All X slots are occupied.]
+- E --> F[Display error banner with red background and X icon]
+- F --> G[Show current slot availability summary by type]
+- G --> H{User action?}
+- H -->|Change vehicle type| I[User selects different vehicle type]
+- H -->|Change entry point| J[User selects different entry point]
+- H -->|Retry same| K[User clicks Park Vehicle again]
+- I --> L[Re-enable Park Vehicle button]
+- J --> L
+- K --> L
+- L --> B
 ```
 
 #### 1.1.3 Edge Case — Network Failure
 
 ```mermaid
 flowchart TD
-    A([User submits Park Vehicle form]) --> B[API call: POST /api/v1/sessions]
-    B --> C{Network error - no response received?}
-    C -->|Yes| D[Show error: Cannot connect to parking system. Check if the API server is running.]
-    D --> E[Display Retry button below error]
-    E --> F[Show API URL in error context so user can verify configuration]
-    F --> G{User action?}
-    G -->|Click Retry| B
-    G -->|Go to Settings| H[Navigate to Settings page to update API base URL]
-    H --> I[User updates URL and saves]
-    I --> J[Navigate back to Park Vehicle]
-    J --> B
+- A([User submits Park Vehicle form]) --> B[API call: POST /api/v1/sessions]
+- B --> C{Network error - no response received?}
+- C -->|Yes| D[Show error: Cannot connect to parking system. Check if the API server is running.]
+- D --> E[Display Retry button below error]
+- E --> F[Show API URL in error context so user can verify configuration]
+- F --> G{User action?}
+- G -->|Click Retry| B
+- G -->|Go to Settings| H[Navigate to Settings page to update API base URL]
+- H --> I[User updates URL and saves]
+- I --> J[Navigate back to Park Vehicle]
+- J --> B
 ```
 
 #### 1.1.4 Edge Case — Invalid / Missing Fields
 
 ```mermaid
 flowchart TD
-    A([User clicks Park Vehicle without filling fields]) --> B{vehicleType empty?}
-    B -->|Yes| C[Highlight Vehicle Type dropdown with red border]
-    C --> D[Show inline error: Please select a vehicle type]
-    B -->|No| E{entryPointId empty?}
-    E -->|Yes| F[Highlight Entry Point dropdown with red border]
-    F --> G[Show inline error: Please select an entry point]
-    E -->|No| H[Proceed with API call]
-    D --> I([User corrects field and re-submits])
-    G --> I
-    I --> H
+- A([User clicks Park Vehicle without filling fields]) --> B{vehicleType empty?}
+- B -->|Yes| C[Highlight Vehicle Type dropdown with red border]
+- C --> D[Show inline error: Please select a vehicle type]
+- B -->|No| E{entryPointId empty?}
+- E -->|Yes| F[Highlight Entry Point dropdown with red border]
+- F --> G[Show inline error: Please select an entry point]
+- E -->|No| H[Proceed with API call]
+- D --> I([User corrects field and re-submits])
+- G --> I
+- I --> H
 ```
 
 #### 1.1.5 Edge Case — Concurrent Parking Attempt
 
 ```mermaid
 flowchart TD
-    A([Two users submit simultaneously for last available slot]) --> B[User A API call goes first]
-    B --> C[User A receives HTTP 201 - slot assigned]
-    C --> D[User A sees success with slot assignment]
-    D --> E[User B API call arrives - slot now occupied]
-    E --> F[User B receives HTTP 409 Conflict]
-    F --> G[User B sees error: No available X parking slot]
-    G --> H[User B can try different entry point or vehicle type]
+- A([Two users submit simultaneously for last available slot]) --> B[User A API call goes first]
+- B --> C[User A receives HTTP 201 - slot assigned]
+- C --> D[User A sees success with slot assignment]
+- D --> E[User B API call arrives - slot now occupied]
+- E --> F[User B receives HTTP 409 Conflict]
+- F --> G[User B sees error: No available X parking slot]
+- G --> H[User B can try different entry point or vehicle type]
 ```
 
 ---
@@ -141,85 +140,85 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([User navigates to Unpark Vehicle page]) --> B[Render Session ID text input field]
-    B --> C[User types session ID into input]
-    C --> D[User clicks Calculate Fee button]
-    D --> E[Button enters loading state: text changes to Calculating...]
-    E --> F[API call: POST /api/v1/sessions/SESSION_ID/unpark]
-    F --> G{HTTP 200 OK?}
-    G -->|Yes| H[Parse response: session_id, vehicle_type, parking_slot, entry_point, parked_at, exited_at, duration_hours, total_fee, is_continuous, fee_breakdown]
-    H --> I[Animate fee breakdown section into view]
-    I --> J[Show Base Fee section: 40 PHP for first 3 hours]
-    J --> K{duration_hours greater than 3?}
-    K -->|Yes| L[Show Exceeding Hours section with hourly rate by slot type]
-    K -->|No| M[Show flat rate only section]
-    L --> N{Has long_term days greater than 0?}
-    N -->|Yes| O[Show Long-Term section: X days x 5000 PHP]
-    N -->|No| P[Skip long-term section]
-    O --> Q[Show Total Fee prominently in large bold text with PHP currency symbol]
-    M --> Q
-    P --> Q
-    Q --> R[Show duration in hours - rounded up]
-    R --> S{is_continuous is true?}
-    S -->|Yes| T[Show continuous parking notice with base_start_time explanation]
-    S -->|No| U[Show standard receipt view]
-    T --> V[Show Print Receipt button]
-    U --> V
-    V --> W([User collects payment - flow complete])
+- A([User navigates to Unpark Vehicle page]) --> B[Render Session ID text input field]
+- B --> C[User types session ID into input]
+- C --> D[User clicks Calculate Fee button]
+- D --> E[Button enters loading state: text changes to Calculating...]
+- E --> F[API call: POST /api/v1/sessions/SESSION_ID/unpark]
+- F --> G{HTTP 200 OK?}
+- G -->|Yes| H[Parse response: session_id, vehicle_type, parking_slot, entry_point, parked_at, exited_at, duration_hours, total_fee, is_continuous, fee_breakdown]
+- H --> I[Animate fee breakdown section into view]
+- I --> J[Show Base Fee section: 40 PHP for first 3 hours]
+- J --> K{duration_hours greater than 3?}
+- K -->|Yes| L[Show Exceeding Hours section with hourly rate by slot type]
+- K -->|No| M[Show flat rate only section]
+- L --> N{Has long_term days greater than 0?}
+- N -->|Yes| O[Show Long-Term section: X days x 5000 PHP]
+- N -->|No| P[Skip long-term section]
+- O --> Q[Show Total Fee prominently in large bold text with PHP currency symbol]
+- M --> Q
+- P --> Q
+- Q --> R[Show duration in hours - rounded up]
+- R --> S{is_continuous is true?}
+- S -->|Yes| T[Show continuous parking notice with base_start_time explanation]
+- S -->|No| U[Show standard receipt view]
+- T --> V[Show Print Receipt button]
+- U --> V
+- V --> W([User collects payment - flow complete])
 ```
 
 #### 1.2.2 Edge Case — Session Not Found
 
 ```mermaid
 flowchart TD
-    A([User submits session ID]) --> B[API call: POST /api/v1/sessions/ID/unpark]
-    B --> C{HTTP 404 Not Found?}
-    C -->|Yes| D[Show error: Session not found. It may have already been completed.]
-    D --> E[Clear session ID input field]
-    E --> F[Suggest: Check the session ID and try again]
-    F --> G{User action?}
-    G -->|Enter new ID| H[User types different session ID]
-    G -->|View sessions list| I[Navigate to Sessions Management page]
-    H --> B
+- A([User submits session ID]) --> B[API call: POST /api/v1/sessions/ID/unpark]
+- B --> C{HTTP 404 Not Found?}
+- C -->|Yes| D[Show error: Session not found. It may have already been completed.]
+- D --> E[Clear session ID input field]
+- E --> F[Suggest: Check the session ID and try again]
+- F --> G{User action?}
+- G -->|Enter new ID| H[User types different session ID]
+- G -->|View sessions list| I[Navigate to Sessions Management page]
+- H --> B
 ```
 
 #### 1.2.3 Edge Case — Already Unparked Vehicle
 
 ```mermaid
 flowchart TD
-    A([User submits session ID for completed session]) --> B[API call: POST /api/v1/sessions/ID/unpark]
-    B --> C{HTTP 404 returned?}
-    C -->|Yes| D[Show error: Session not found. It may have already been completed.]
-    D --> E[Offer option to View Session Details]
-    E --> F{User clicks View Session?}
-    F -->|Yes| G[Navigate to View Session page with session ID prefilled]
-    F -->|No| H([User enters a different session ID])
+- A([User submits session ID for completed session]) --> B[API call: POST /api/v1/sessions/ID/unpark]
+- B --> C{HTTP 404 returned?}
+- C -->|Yes| D[Show error: Session not found. It may have already been completed.]
+- D --> E[Offer option to View Session Details]
+- E --> F{User clicks View Session?}
+- F -->|Yes| G[Navigate to View Session page with session ID prefilled]
+- F -->|No| H([User enters a different session ID])
 ```
 
 #### 1.2.4 Edge Case — Invalid Session ID Format
 
 ```mermaid
 flowchart TD
-    A([User leaves session ID empty and clicks Calculate]) --> B{sessionId is empty?}
-    B -->|Yes| C[Show inline validation error: Session ID is required]
-    C --> D[Highlight input field with red border and shake animation]
-    D --> E[Disable API call - do not proceed]
-    E --> F([User enters session ID and resubmits])
-    B -->|No| G[Proceed to API call]
+- A([User leaves session ID empty and clicks Calculate]) --> B{sessionId is empty?}
+- B -->|Yes| C[Show inline validation error: Session ID is required]
+- C --> D[Highlight input field with red border and shake animation]
+- D --> E[Disable API call - do not proceed]
+- E --> F([User enters session ID and resubmits])
+- B -->|No| G[Proceed to API call]
 ```
 
 #### 1.2.5 Continuous Parking Receipt Display
 
 ```mermaid
 flowchart TD
-    A([Unpark response received with is_continuous true]) --> B[Show yellow info banner at top of receipt]
-    B --> C[Display: This vehicle returned within 1 hour of previous exit]
-    C --> D[Show base_start_time - original park time]
-    D --> E[Show current_park_time - second park time]
-    E --> F[Show that fee is calculated from base_start_time]
-    F --> G[Render full fee breakdown starting from base_start_time]
-    G --> H[Highlight continuous parking discount or notice]
-    H --> I([Receipt complete])
+- A([Unpark response received with is_continuous true]) --> B[Show yellow info banner at top of receipt]
+- B --> C[Display: This vehicle returned within 1 hour of previous exit]
+- C --> D[Show base_start_time - original park time]
+- D --> E[Show current_park_time - second park time]
+- E --> F[Show that fee is calculated from base_start_time]
+- F --> G[Render full fee breakdown starting from base_start_time]
+- G --> H[Highlight continuous parking discount or notice]
+- H --> I([Receipt complete])
 ```
 
 ---
@@ -230,45 +229,45 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([User navigates to View Session page]) --> B[Render Session ID input field]
-    B --> C{Session ID prefilled from navigation?}
-    C -->|Yes| D[Auto-populate input with session ID from route params]
-    C -->|No| E[Input is empty - user must type session ID]
-    D --> F[Auto-trigger GET request]
-    E --> G[User types session ID]
-    G --> H[User clicks View Session button]
-    F --> I[API call: GET /api/v1/sessions/SESSION_ID]
-    H --> I
-    I --> J{HTTP 200 OK?}
-    J -->|Yes| K[Parse response: session_id, vehicle_type, parking_slot, entry_point, parked_at, exited_at, is_active, is_continuous]
-    K --> L{is_active is true?}
-    L -->|Yes| M[Show green Active badge]
-    L -->|No| N[Show gray Completed badge]
-    M --> O[Display slot label and type - slot distances]
-    N --> O
-    O --> P[Display entry point identifier and name]
-    P --> Q[Display parked_at timestamp - formatted]
-    Q --> R{exited_at present?}
-    R -->|Yes| S[Display exited_at and duration_hours and total_fee]
-    R -->|No| T[Show Currently Parked status]
-    S --> U{is_active?}
-    T --> V([Session display complete])
-    U -->|Yes| W[Show Unpark button - links to Unpark with session ID prefilled]
-    U -->|No| V
-    W --> V
+- A([User navigates to View Session page]) --> B[Render Session ID input field]
+- B --> C{Session ID prefilled from navigation?}
+- C -->|Yes| D[Auto-populate input with session ID from route params]
+- C -->|No| E[Input is empty - user must type session ID]
+- D --> F[Auto-trigger GET request]
+- E --> G[User types session ID]
+- G --> H[User clicks View Session button]
+- F --> I[API call: GET /api/v1/sessions/SESSION_ID]
+- H --> I
+- I --> J{HTTP 200 OK?}
+- J -->|Yes| K[Parse response: session_id, vehicle_type, parking_slot, entry_point, parked_at, exited_at, is_active, is_continuous]
+- K --> L{is_active is true?}
+- L -->|Yes| M[Show green Active badge]
+- L -->|No| N[Show gray Completed badge]
+- M --> O[Display slot label and type - slot distances]
+- N --> O
+- O --> P[Display entry point identifier and name]
+- P --> Q[Display parked_at timestamp - formatted]
+- Q --> R{exited_at present?}
+- R -->|Yes| S[Display exited_at and duration_hours and total_fee]
+- R -->|No| T[Show Currently Parked status]
+- S --> U{is_active?}
+- T --> V([Session display complete])
+- U -->|Yes| W[Show Unpark button - links to Unpark with session ID prefilled]
+- U -->|No| V
+- W --> V
 ```
 
 #### 1.3.2 Session Not Found
 
 ```mermaid
 flowchart TD
-    A([User submits session ID for view]) --> B[API call: GET /api/v1/sessions/ID]
-    B --> C{HTTP 404?}
-    C -->|Yes| D[Show error card: Session ID not found]
-    D --> E[Show suggestion to check the ID or browse Sessions list]
-    E --> F{User action?}
-    F -->|Try new ID| G([User clears field and enters new ID])
-    F -->|Browse sessions| H[Navigate to Sessions Management page]
+- A([User submits session ID for view]) --> B[API call: GET /api/v1/sessions/ID]
+- B --> C{HTTP 404?}
+- C -->|Yes| D[Show error card: Session ID not found]
+- D --> E[Show suggestion to check the ID or browse Sessions list]
+- E --> F{User action?}
+- F -->|Try new ID| G([User clears field and enters new ID])
+- F -->|Browse sessions| H[Navigate to Sessions Management page]
 ```
 
 ---
@@ -279,69 +278,69 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([User navigates to Slots Management page]) --> B[API call: GET /api/v1/slots]
-    B --> C{Success?}
-    C -->|Yes| D[Render slots grid or list]
-    D --> E[Show each slot: label - type badge - available/occupied indicator - distances array]
-    E --> F[Show filter controls: filter by type SP/MP/LP and availability]
-    F --> G[Show Create New Slot button at top right]
-    G --> H([User can browse and take action])
-    C -->|No| I[Show error banner with Retry]
-    I --> B
+- A([User navigates to Slots Management page]) --> B[API call: GET /api/v1/slots]
+- B --> C{Success?}
+- C -->|Yes| D[Render slots grid or list]
+- D --> E[Show each slot: label - type badge - available/occupied indicator - distances array]
+- E --> F[Show filter controls: filter by type SP/MP/LP and availability]
+- F --> G[Show Create New Slot button at top right]
+- G --> H([User can browse and take action])
+- C -->|No| I[Show error banner with Retry]
+- I --> B
 ```
 
 #### 1.4.2 Create Slot
 
 ```mermaid
 flowchart TD
-    A([User clicks Create New Slot button]) --> B[Open Create Slot modal or drawer]
-    B --> C[Render form: slot_label text input - slot_type selector SP/MP/LP - distances 3 numeric inputs]
-    C --> D[User fills in all fields]
-    D --> E[User clicks Save button]
-    E --> F{Form validation passes?}
-    F -->|No| G[Show inline validation errors on failing fields]
-    G --> D
-    F -->|Yes| H[API call: POST /api/v1/slots with slot_label - slot_type - distances array]
-    H --> I{HTTP 201 Created?}
-    I -->|Yes| J[Close modal]
-    J --> K[Show toast: Slot created successfully]
-    K --> L[Refresh slots list]
-    L --> M([New slot appears in list])
-    I -->|No| N[Show error in modal]
-    N --> D
+- A([User clicks Create New Slot button]) --> B[Open Create Slot modal or drawer]
+- B --> C[Render form: slot_label text input - slot_type selector SP/MP/LP - distances 3 numeric inputs]
+- C --> D[User fills in all fields]
+- D --> E[User clicks Save button]
+- E --> F{Form validation passes?}
+- F -->|No| G[Show inline validation errors on failing fields]
+- G --> D
+- F -->|Yes| H[API call: POST /api/v1/slots with slot_label - slot_type - distances array]
+- H --> I{HTTP 201 Created?}
+- I -->|Yes| J[Close modal]
+- J --> K[Show toast: Slot created successfully]
+- K --> L[Refresh slots list]
+- L --> M([New slot appears in list])
+- I -->|No| N[Show error in modal]
+- N --> D
 ```
 
 #### 1.4.3 Update Slot
 
 ```mermaid
 flowchart TD
-    A([User clicks Edit on a slot row]) --> B[Open Edit Slot modal prefilled with existing values]
-    B --> C[User modifies desired fields: label - type - distances]
-    C --> D[User clicks Save Changes button]
-    D --> E{Validation passes?}
-    E -->|No| F[Show inline errors]
-    F --> C
-    E -->|Yes| G[API call: PUT /api/v1/slots/SLOT_ID]
-    G --> H{HTTP 200 OK?}
-    H -->|Yes| I[Close modal - show success toast - refresh list]
-    H -->|No| J[Show error message in modal]
-    J --> C
+- A([User clicks Edit on a slot row]) --> B[Open Edit Slot modal prefilled with existing values]
+- B --> C[User modifies desired fields: label - type - distances]
+- C --> D[User clicks Save Changes button]
+- D --> E{Validation passes?}
+- E -->|No| F[Show inline errors]
+- F --> C
+- E -->|Yes| G[API call: PUT /api/v1/slots/SLOT_ID]
+- G --> H{HTTP 200 OK?}
+- H -->|Yes| I[Close modal - show success toast - refresh list]
+- H -->|No| J[Show error message in modal]
+- J --> C
 ```
 
 #### 1.4.4 Delete Slot
 
 ```mermaid
 flowchart TD
-    A([User clicks Delete on a slot row]) --> B[Show confirmation dialog: Are you sure you want to delete slot LABEL?]
-    B --> C{User confirms?}
-    C -->|Cancel| D([Modal closes - no action taken])
-    C -->|Confirm| E[Button enters loading state]
-    E --> F[API call: DELETE /api/v1/slots/SLOT_ID]
-    F --> G{HTTP 204 No Content?}
-    G -->|Yes| H[Show success toast: Slot deleted]
-    H --> I[Remove slot from list with fade-out animation]
-    G -->|No| J[Show error: Cannot delete slot - check for active sessions]
-    J --> D
+- A([User clicks Delete on a slot row]) --> B[Show confirmation dialog: Are you sure you want to delete slot LABEL?]
+- B --> C{User confirms?}
+- C -->|Cancel| D([Modal closes - no action taken])
+- C -->|Confirm| E[Button enters loading state]
+- E --> F[API call: DELETE /api/v1/slots/SLOT_ID]
+- F --> G{HTTP 204 No Content?}
+- G -->|Yes| H[Show success toast: Slot deleted]
+- H --> I[Remove slot from list with fade-out animation]
+- G -->|No| J[Show error: Cannot delete slot - check for active sessions]
+- J --> D
 ```
 
 ---
@@ -352,62 +351,62 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([User navigates to Entry Points Management]) --> B[API call: GET /api/v1/entry_points]
-    B --> C{Success?}
-    C -->|Yes| D[Render entry points list: identifier badge - name - ID - action buttons]
-    D --> E[Show Add Entry Point button at top]
-    E --> F([User can view - edit - or delete entry points])
-    C -->|No| G[Show error banner with Retry]
-    G --> B
+- A([User navigates to Entry Points Management]) --> B[API call: GET /api/v1/entry_points]
+- B --> C{Success?}
+- C -->|Yes| D[Render entry points list: identifier badge - name - ID - action buttons]
+- D --> E[Show Add Entry Point button at top]
+- E --> F([User can view - edit - or delete entry points])
+- C -->|No| G[Show error banner with Retry]
+- G --> B
 ```
 
 #### 1.5.2 Create Entry Point
 
 ```mermaid
 flowchart TD
-    A([User clicks Add Entry Point]) --> B[Open Create Entry Point modal]
-    B --> C[Render form: identifier single-char input - name text input]
-    C --> D[User fills fields]
-    D --> E[User clicks Create button]
-    E --> F{identifier is 1 character?}
-    F -->|No| G[Show: Identifier must be a single character]
-    G --> D
-    F -->|Yes| H{name is not empty?}
-    H -->|No| I[Show: Name is required]
-    I --> D
-    H -->|Yes| J[API call: POST /api/v1/entry_points with identifier and name]
-    J --> K{HTTP 201?}
-    K -->|Yes| L[Close modal - show success toast - refresh list]
-    K -->|Duplicate| M[Show: Entry point with this identifier already exists]
-    M --> D
+- A([User clicks Add Entry Point]) --> B[Open Create Entry Point modal]
+- B --> C[Render form: identifier single-char input - name text input]
+- C --> D[User fills fields]
+- D --> E[User clicks Create button]
+- E --> F{identifier is 1 character?}
+- F -->|No| G[Show: Identifier must be a single character]
+- G --> D
+- F -->|Yes| H{name is not empty?}
+- H -->|No| I[Show: Name is required]
+- I --> D
+- H -->|Yes| J[API call: POST /api/v1/entry_points with identifier and name]
+- J --> K{HTTP 201?}
+- K -->|Yes| L[Close modal - show success toast - refresh list]
+- K -->|Duplicate| M[Show: Entry point with this identifier already exists]
+- M --> D
 ```
 
 #### 1.5.3 Update Entry Point
 
 ```mermaid
 flowchart TD
-    A([User clicks Edit on entry point row]) --> B[Open Edit modal prefilled with identifier and name]
-    B --> C[User updates name field]
-    C --> D[User clicks Save Changes]
-    D --> E[API call: PUT /api/v1/entry_points/ID with updated name]
-    E --> F{HTTP 200?}
-    F -->|Yes| G[Close modal - toast success - refresh list]
-    F -->|No| H[Show error in modal]
-    H --> C
+- A([User clicks Edit on entry point row]) --> B[Open Edit modal prefilled with identifier and name]
+- B --> C[User updates name field]
+- C --> D[User clicks Save Changes]
+- D --> E[API call: PUT /api/v1/entry_points/ID with updated name]
+- E --> F{HTTP 200?}
+- F -->|Yes| G[Close modal - toast success - refresh list]
+- F -->|No| H[Show error in modal]
+- H --> C
 ```
 
 #### 1.5.4 Delete Entry Point
 
 ```mermaid
 flowchart TD
-    A([User clicks Delete on entry point]) --> B[Show confirmation: Delete entry point IDENTIFIER?]
-    B --> C{User confirms?}
-    C -->|No| D([Close dialog])
-    C -->|Yes| E[API call: DELETE /api/v1/entry_points/ID]
-    E --> F{HTTP 204?}
-    F -->|Yes| G[Success toast - remove from list with animation]
-    F -->|No| H[Show error: Cannot delete - may have associated sessions]
-    H --> D
+- A([User clicks Delete on entry point]) --> B[Show confirmation: Delete entry point IDENTIFIER?]
+- B --> C{User confirms?}
+- C -->|No| D([Close dialog])
+- C -->|Yes| E[API call: DELETE /api/v1/entry_points/ID]
+- E --> F{HTTP 204?}
+- F -->|Yes| G[Success toast - remove from list with animation]
+- F -->|No| H[Show error: Cannot delete - may have associated sessions]
+- H --> D
 ```
 
 ---
@@ -416,25 +415,25 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([User navigates to Configuration page]) --> B[Page shows 3 tabs: Entry Points - Parking Slots - System]
-    B --> C[User clicks System tab]
-    C --> D[Show Initialize System section with JSON editor or form]
-    D --> E[Default config pre-populated: 3 entry points A-B-C and sample slots]
-    E --> F[User reviews or edits configuration]
-    F --> G[User clicks Initialize System button]
-    G --> H[Show confirmation dialog: This will create entry points and slots. Proceed?]
-    H --> I{User confirms?}
-    I -->|No| J([Dialog closes])
-    I -->|Yes| K[Button shows Initializing... loading state]
-    K --> L[API call: POST /api/v1/initialize with entry_points and parking_slots arrays]
-    L --> M{HTTP 200 or 201?}
-    M -->|Yes| N[Parse response: entry_points_created - parking_slots_created - message]
-    N --> O[Show success result card]
-    O --> P[Display counts: X entry points created - Y parking slots created]
-    P --> Q[Offer Navigate to Dashboard button]
-    M -->|Partial failure| R[Show partial success with counts and any errors]
-    M -->|Error| S[Show error details with option to retry]
-    S --> F
+- A([User navigates to Configuration page]) --> B[Page shows 3 tabs: Entry Points - Parking Slots - System]
+- B --> C[User clicks System tab]
+- C --> D[Show Initialize System section with JSON editor or form]
+- D --> E[Default config pre-populated: 3 entry points A-B-C and sample slots]
+- E --> F[User reviews or edits configuration]
+- F --> G[User clicks Initialize System button]
+- G --> H[Show confirmation dialog: This will create entry points and slots. Proceed?]
+- H --> I{User confirms?}
+- I -->|No| J([Dialog closes])
+- I -->|Yes| K[Button shows Initializing... loading state]
+- K --> L[API call: POST /api/v1/initialize with entry_points and parking_slots arrays]
+- L --> M{HTTP 200 or 201?}
+- M -->|Yes| N[Parse response: entry_points_created - parking_slots_created - message]
+- N --> O[Show success result card]
+- O --> P[Display counts: X entry points created - Y parking slots created]
+- P --> Q[Offer Navigate to Dashboard button]
+- M -->|Partial failure| R[Show partial success with counts and any errors]
+- M -->|Error| S[Show error details with option to retry]
+- S --> F
 ```
 
 ---
@@ -445,37 +444,37 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([Vehicle exits - session A ends with exited_at timestamp]) --> B[Time passes - less than 60 minutes]
-    B --> C[Same vehicle type arrives at same or different entry point]
-    C --> D[Attendant uses Park Vehicle form]
-    D --> E[API call: POST /api/v1/sessions]
-    E --> F[Backend detects previous session within 1 hour window]
-    F --> G[Backend creates new session with is_continuous = true]
-    G --> H[Backend sets base_start_time to original session parked_at]
-    H --> I[Frontend receives session with is_continuous = true]
-    I --> J[Show special continuous parking banner in success state]
-    J --> K[Display: Vehicle returned within 1 hour - continuous rate applied]
-    K --> L[Show base_start_time to attendant for transparency]
-    L --> M([Attendant provides ticket with continuous notice])
-    M --> N[When vehicle unparks - fee calculated from base_start_time]
-    N --> O[Unpark receipt shows continuous parking explanation]
+- A([Vehicle exits - session A ends with exited_at timestamp]) --> B[Time passes - less than 60 minutes]
+- B --> C[Same vehicle type arrives at same or different entry point]
+- C --> D[Attendant uses Park Vehicle form]
+- D --> E[API call: POST /api/v1/sessions]
+- E --> F[Backend detects previous session within 1 hour window]
+- F --> G[Backend creates new session with is_continuous = true]
+- G --> H[Backend sets base_start_time to original session parked_at]
+- H --> I[Frontend receives session with is_continuous = true]
+- I --> J[Show special continuous parking banner in success state]
+- J --> K[Display: Vehicle returned within 1 hour - continuous rate applied]
+- K --> L[Show base_start_time to attendant for transparency]
+- L --> M([Attendant provides ticket with continuous notice])
+- M --> N[When vehicle unparks - fee calculated from base_start_time]
+- N --> O[Unpark receipt shows continuous parking explanation]
 ```
 
 #### 1.7.2 Fee Calculation from Base Start Time
 
 ```mermaid
 flowchart TD
-    A([Vehicle first parked at 8:00 AM]) --> B[Vehicle exits at 9:30 AM - 1.5 hours]
-    B --> C{Returned at 10:00 AM - within 1 hour?}
-    C -->|Yes - 30 min gap| D[New session marked is_continuous = true]
-    D --> E[base_start_time = 8:00 AM]
-    E --> F[Vehicle exits second session at 2:00 PM]
-    F --> G[Total duration = from 8:00 AM to 2:00 PM = 6 hours]
-    G --> H[Fee = 40 base + 3 exceeding hours x slot_rate]
-    H --> I[Receipt shows: base_start_time = 8:00 AM - duration = 6 hours]
-    C -->|No - more than 1 hour| J[New session is NOT continuous]
-    J --> K[base_start_time = current park time]
-    K --> L[Standard fee calculation applies]
+- A([Vehicle first parked at 8:00 AM]) --> B[Vehicle exits at 9:30 AM - 1.5 hours]
+- B --> C{Returned at 10:00 AM - within 1 hour?}
+- C -->|Yes - 30 min gap| D[New session marked is_continuous = true]
+- D --> E[base_start_time = 8:00 AM]
+- E --> F[Vehicle exits second session at 2:00 PM]
+- F --> G[Total duration = from 8:00 AM to 2:00 PM = 6 hours]
+- G --> H[Fee = 40 base + 3 exceeding hours x slot_rate]
+- H --> I[Receipt shows: base_start_time = 8:00 AM - duration = 6 hours]
+- C -->|No - more than 1 hour| J[New session is NOT continuous]
+- J --> K[base_start_time = current park time]
+- K --> L[Standard fee calculation applies]
 ```
 
 ---
@@ -486,26 +485,26 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([Vehicle unparked after 26 hours in SP slot]) --> B[Backend calculates: 1 full 24h chunk and 2 remaining hours]
-    B --> C[Fee = 5000 for 24h + 40 base for remaining + 0 exceeding under 3h]
-    C --> D[Frontend receives fee_breakdown with long_term.days = 1 and long_term.fee = 5000]
-    D --> E[Render Long-Term Parking section in receipt]
-    E --> F[Show: 1 day x 5000 = 5000 PHP]
-    F --> G[Show: Remaining 2 hours - flat rate 40 PHP]
-    G --> H[Show total: 5040 PHP]
-    H --> I([Receipt highlights long-term rate applied])
+- A([Vehicle unparked after 26 hours in SP slot]) --> B[Backend calculates: 1 full 24h chunk and 2 remaining hours]
+- B --> C[Fee = 5000 for 24h + 40 base for remaining + 0 exceeding under 3h]
+- C --> D[Frontend receives fee_breakdown with long_term.days = 1 and long_term.fee = 5000]
+- D --> E[Render Long-Term Parking section in receipt]
+- E --> F[Show: 1 day x 5000 = 5000 PHP]
+- F --> G[Show: Remaining 2 hours - flat rate 40 PHP]
+- G --> H[Show total: 5040 PHP]
+- H --> I([Receipt highlights long-term rate applied])
 ```
 
 #### 1.8.2 48+ Hour Parking
 
 ```mermaid
 flowchart TD
-    A([Vehicle parked 50 hours in SP slot]) --> B[Backend: 2 full 24h chunks = 48h - remaining 2 hours]
-    B --> C[Fee = 10000 for 2 days + 40 base + 0 exceeding]
-    C --> D[Frontend receipt shows: 2 days x 5000 = 10000]
-    D --> E[Show: Remaining 2 hours - base fee 40 PHP]
-    E --> F[Total: 10040 PHP]
-    F --> G([Large total fee displayed prominently in receipt])
+- A([Vehicle parked 50 hours in SP slot]) --> B[Backend: 2 full 24h chunks = 48h - remaining 2 hours]
+- B --> C[Fee = 10000 for 2 days + 40 base + 0 exceeding]
+- C --> D[Frontend receipt shows: 2 days x 5000 = 10000]
+- D --> E[Show: Remaining 2 hours - base fee 40 PHP]
+- E --> F[Total: 10040 PHP]
+- F --> G([Large total fee displayed prominently in receipt])
 ```
 
 ---
@@ -603,9 +602,9 @@ Each feature follows a consistent specification template covering user story, ac
 **Fee Breakdown Display Spec:**
 ```
 Fee Breakdown
-├─ Base Fee: ₱40.00  (first 3 hours)
+├─ Base Fee: ₱40.00 (first 3 hours)
 ├─ Exceeding Hours: N hours
-│   └─ Rate: ₱XX.00/hour  (slot type)
+│ └─ Rate: ₱XX.00/hour (slot type)
 ├─ Exceeding Fee: ₱XX.00
 [If long-term:]
 ├─ Long-Term: N days × ₱5,000.00 = ₱X,XXX.00
@@ -1062,16 +1061,16 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  HEADER: Title + Subtitle | Health Badge | Refresh  │
+│ HEADER: Title + Subtitle | Health Badge | Refresh │
 ├─────────────────────────────────────────────────────┤
-│  STATS GRID (5 cards, auto-fit columns)             │
-│  [Total] [Available] [Occupied] [Active] [Revenue] │
+│ STATS GRID (5 cards, auto-fit columns) │
+│ [Total] [Available] [Occupied] [Active] [Revenue] │
 ├─────────────────────────────────────────────────────┤
-│  MAIN CONTENT (2-col: slot grid | sidebar)          │
-│  LEFT: Slot Occupancy Grid                          │
-│  RIGHT: Activity Feed + Entry Points Panel          │
+│ MAIN CONTENT (2-col: slot grid | sidebar) │
+│ LEFT: Slot Occupancy Grid │
+│ RIGHT: Activity Feed + Entry Points Panel │
 ├─────────────────────────────────────────────────────┤
-│  FOOTER: Last updated timestamp                     │
+│ FOOTER: Last updated timestamp │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -1123,17 +1122,17 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  HEADER: 🚗 Park Vehicle                           │
+│ HEADER: Park Vehicle │
 ├─────────────────────────────────────────────────────┤
-│  ERROR BANNER (AnimatePresence - only when error)  │
-│  SUCCESS BANNER (AnimatePresence - only on success)│
+│ ERROR BANNER (AnimatePresence - only when error) │
+│ SUCCESS BANNER (AnimatePresence - only on success)│
 ├─────────────────────────────────────────────────────┤
-│  FORM:                                              │
-│  [Vehicle Type Dropdown ▼]                         │
-│  [Entry Point Dropdown ▼]                          │
-│  [  Park Vehicle Button  ]                         │
+│ FORM: │
+│ [Vehicle Type Dropdown ▼] │
+│ [Entry Point Dropdown ▼] │
+│ [ Park Vehicle Button ] │
 ├─────────────────────────────────────────────────────┤
-│  INFO BOX: Vehicle Type Compatibility Table        │
+│ INFO BOX: Vehicle Type Compatibility Table │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -1186,24 +1185,24 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  HEADER: Unpark Vehicle                            │
+│ HEADER: Unpark Vehicle │
 ├─────────────────────────────────────────────────────┤
-│  ERROR BANNER (AnimatePresence)                    │
+│ ERROR BANNER (AnimatePresence) │
 ├─────────────────────────────────────────────────────┤
-│  FORM:                                              │
-│  [Session ID ________________]                     │
-│  [  Calculate Fee Button    ]                      │
+│ FORM: │
+│ [Session ID ________________] │
+│ [ Calculate Fee Button ] │
 ├─────────────────────────────────────────────────────┤
-│  FEE BREAKDOWN CARD (animates in on success)       │
-│  ┌──────────────────────────────────────────────┐  │
-│  │ CONTINUOUS BADGE (if applicable)            │  │
-│  │ Base Fee: ₱40.00                            │  │
-│  │ Exceeding N hours × ₱XX.00 = ₱XX.00        │  │
-│  │ [Long-term: N days × ₱5,000 if applicable] │  │
-│  │ ─────────────────────────────────────────── │  │
-│  │ TOTAL FEE: ₱XXX.00  (large bold)           │  │
-│  └──────────────────────────────────────────────┘  │
-│  [Print Receipt]                                   │
+│ FEE BREAKDOWN CARD (animates in on success) │
+│ ┌──────────────────────────────────────────────┐ │
+│ │ CONTINUOUS BADGE (if applicable) │ │
+│ │ Base Fee: ₱40.00 │ │
+│ │ Exceeding N hours × ₱XX.00 = ₱XX.00 │ │
+│ │ [Long-term: N days × ₱5,000 if applicable] │ │
+│ │ ─────────────────────────────────────────── │ │
+│ │ TOTAL FEE: ₱XXX.00 (large bold) │ │
+│ └──────────────────────────────────────────────┘ │
+│ [Print Receipt] │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -1231,24 +1230,24 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  HEADER: View Session Details                      │
+│ HEADER: View Session Details │
 ├─────────────────────────────────────────────────────┤
-│  SEARCH FORM:                                       │
-│  [Session ID _____________] [View Button]          │
+│ SEARCH FORM: │
+│ [Session ID _____________] [View Button] │
 ├─────────────────────────────────────────────────────┤
-│  SESSION DETAIL CARD (only shown after lookup)     │
-│  ┌──────────────────────────────────────────────┐  │
-│  │ Session: #SESSION_ID          [ACTIVE/DONE] │  │
-│  │ Vehicle: [S/M/L badge]                      │  │
-│  │ Slot: SP-1 [SP badge]                       │  │
-│  │ Entry Point: [A] Main Entrance              │  │
-│  │ Parked At: Jan 15, 2024 10:30 AM            │  │
-│  │ Exited At: (if completed)                   │  │
-│  │ Duration: X hours (if completed)            │  │
-│  │ Total Fee: ₱XX.00 (if completed)            │  │
-│  │ Continuous: YES/NO badge                    │  │
-│  └──────────────────────────────────────────────┘  │
-│  [Unpark This Vehicle] (only if active)            │
+│ SESSION DETAIL CARD (only shown after lookup) │
+│ ┌──────────────────────────────────────────────┐ │
+│ │ Session: #SESSION_ID [ACTIVE/DONE] │ │
+│ │ Vehicle: [S/M/L badge] │ │
+│ │ Slot: SP-1 [SP badge] │ │
+│ │ Entry Point: [A] Main Entrance │ │
+│ │ Parked At: Jan 15, 2024 10:30 AM │ │
+│ │ Exited At: (if completed) │ │
+│ │ Duration: X hours (if completed) │ │
+│ │ Total Fee: ₱XX.00 (if completed) │ │
+│ │ Continuous: YES/NO badge │ │
+│ └──────────────────────────────────────────────┘ │
+│ [Unpark This Vehicle] (only if active) │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -1266,21 +1265,21 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  HEADER: Available Slots                           │
+│ HEADER: Available Slots │
 ├─────────────────────────────────────────────────────┤
-│  FILTER ROW:                                        │
-│  [Vehicle Type ▼] [Entry Point ▼] [Check Button]  │
+│ FILTER ROW: │
+│ [Vehicle Type ▼] [Entry Point ▼] [Check Button] │
 ├─────────────────────────────────────────────────────┤
-│  RESULTS HEADER: X available slots for S from A   │
+│ RESULTS HEADER: X available slots for S from A │
 ├─────────────────────────────────────────────────────┤
-│  SLOTS GRID:                                        │
-│  ┌────────┐  ┌────────┐  ┌────────┐               │
-│  │ SP-1   │  │ SP-3   │  │ MP-1   │               │
-│  │ [SP]   │  │ [SP]   │  │ [MP]   │               │
-│  │  5 mi  │  │  7 mi  │  │ 10 mi  │               │
-│  └────────┘  └────────┘  └────────┘               │
-│                                                     │
-│  [Empty state: No compatible slots found]          │
+│ SLOTS GRID: │
+│ ┌────────┐ ┌────────┐ ┌────────┐ │
+│ │ SP-1 │ │ SP-3 │ │ MP-1 │ │
+│ │ [SP] │ │ [SP] │ │ [MP] │ │
+│ │ 5 mi │ │ 7 mi │ │ 10 mi │ │
+│ └────────┘ └────────┘ └────────┘ │
+│ │
+│ [Empty state: No compatible slots found] │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -1300,17 +1299,17 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  HEADER: Sessions Management                       │
-│  [Total count] [Per page selector ▼] [Auto-refresh]│
+│ HEADER: Sessions Management │
+│ [Total count] [Per page selector ▼] [Auto-refresh]│
 ├─────────────────────────────────────────────────────┤
-│  SESSIONS TABLE (desktop):                         │
-│  Session ID | Vehicle | Slot | Entry | Parked At  │
-│  ────────────────────────────────────────────────  │
-│  [row 1]                                           │
-│  [row 2] ...                                       │
+│ SESSIONS TABLE (desktop): │
+│ Session ID | Vehicle | Slot | Entry | Parked At │
+│ ──────────────────────────────────────────────── │
+│ [row 1] │
+│ [row 2] ... │
 ├─────────────────────────────────────────────────────┤
-│  PAGINATION: [<] [1] [2] [3] ... [N] [>]          │
-│  Showing 1-20 of 150                               │
+│ PAGINATION: [<] [1] [2] [3] ... [N] [>] │
+│ Showing 1-20 of 150 │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -1328,18 +1327,18 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  HEADER: Slots Management                          │
-│  [Filter: All/SP/MP/LP] [Filter: All/Available] │
-│  [+ Create New Slot]                               │
+│ HEADER: Slots Management │
+│ [Filter: All/SP/MP/LP] [Filter: All/Available] │
+│ [+ Create New Slot] │
 ├─────────────────────────────────────────────────────┤
-│  SUMMARY: SP: X/Y | MP: X/Y | LP: X/Y            │
+│ SUMMARY: SP: X/Y | MP: X/Y | LP: X/Y │
 ├─────────────────────────────────────────────────────┤
-│  SLOTS GRID/TABLE:                                 │
-│  [Slot Cell] [Slot Cell] [Slot Cell] ...           │
-│  Each cell: label, type, status, edit/delete icons │
+│ SLOTS GRID/TABLE: │
+│ [Slot Cell] [Slot Cell] [Slot Cell] ... │
+│ Each cell: label, type, status, edit/delete icons │
 ├─────────────────────────────────────────────────────┤
-│  CREATE/EDIT MODAL (overlays when active)          │
-│  DELETE CONFIRM MODAL (overlays when active)       │
+│ CREATE/EDIT MODAL (overlays when active) │
+│ DELETE CONFIRM MODAL (overlays when active) │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -1360,16 +1359,16 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  HEADER: Entry Points Management                   │
-│  [+ Add Entry Point]                               │
+│ HEADER: Entry Points Management │
+│ [+ Add Entry Point] │
 ├─────────────────────────────────────────────────────┤
-│  ENTRY POINTS LIST:                                │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  [A]  Main Entrance          [Edit] [Delete] │  │
-│  │  [B]  Side Entrance          [Edit] [Delete] │  │
-│  │  [C]  North Parking Gate     [Edit] [Delete] │  │
-│  └──────────────────────────────────────────────┘  │
-│  Minimum 3 required (system rule indicator)        │
+│ ENTRY POINTS LIST: │
+│ ┌──────────────────────────────────────────────┐ │
+│ │ [A] Main Entrance [Edit] [Delete] │ │
+│ │ [B] Side Entrance [Edit] [Delete] │ │
+│ │ [C] North Parking Gate [Edit] [Delete] │ │
+│ └──────────────────────────────────────────────┘ │
+│ Minimum 3 required (system rule indicator) │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -1390,22 +1389,22 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  SYSTEM HEALTH CARD:                               │
-│  Status: Online ● | Service: parking-system        │
-│  Version: X.X.X | DB: Healthy                     │
-│  Last checked: HH:MM:SS                            │
+│ SYSTEM HEALTH CARD: │
+│ Status: Online ● | Service: parking-system │
+│ Version: X.X.X | DB: Healthy │
+│ Last checked: HH:MM:SS │
 ├─────────────────────────────────────────────────────┤
-│  INITIALIZE SYSTEM SECTION:                        │
-│  [JSON Editor or Structured Form]                  │
-│  Entry Points: (collapsible list)                  │
-│  Parking Slots: (collapsible list)                 │
-│  [Preview Configuration]                           │
-│  [Initialize System Button]                        │
+│ INITIALIZE SYSTEM SECTION: │
+│ [JSON Editor or Structured Form] │
+│ Entry Points: (collapsible list) │
+│ Parking Slots: (collapsible list) │
+│ [Preview Configuration] │
+│ [Initialize System Button] │
 ├─────────────────────────────────────────────────────┤
-│  RESULT CARD (after init):                         │
-│  ✅ X Entry Points Created                         │
-│  ✅ Y Parking Slots Created                        │
-│  [Go to Dashboard]                                 │
+│ RESULT CARD (after init): │
+│ X Entry Points Created │
+│ Y Parking Slots Created │
+│ [Go to Dashboard] │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -1419,19 +1418,19 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  HEADER: Settings                                  │
+│ HEADER: Settings │
 ├─────────────────────────────────────────────────────┤
-│  API Configuration:                                │
-│  API Base URL:                                     │
-│  [http://localhost:8082 ________________] [Save]  │
-│                                                     │
-│  Quick Select:                                     │
-│  [Go Backend :8082]  [Rails Backend :3000]         │
-│                                                     │
-│  [Test Connection] → shows health check result     │
+│ API Configuration: │
+│ API Base URL: │
+│ [http://localhost:8082 ________________] [Save] │
+│ │
+│ Quick Select: │
+│ [Go Backend :8082] [Rails Backend :3000] │
+│ │
+│ [Test Connection] → shows health check result │
 ├─────────────────────────────────────────────────────┤
-│  Connection Status:                                │
-│  ✅ Connected to parking-system v1.0.0             │
+│ Connection Status: │
+│ Connected to parking-system v1.0.0 │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -1504,7 +1503,7 @@ This section defines every screen in both the React Web and React Native apps, i
 
 **Error Banner Design:**
 - Background: #fef2f2 (red-50), Border: #fecaca (red-200), Text: #991b1b (red-800)
-- Icon: ❌ or ⚠️ depending on severity
+- Icon: or depending on severity
 - Dismiss button: X on right side
 
 **Specific Error Messages by HTTP Status:**
@@ -1516,7 +1515,7 @@ This section defines every screen in both the React Web and React Native apps, i
 
 ### 4.5 Success Feedback
 
-**Success Banner:** Background: #dcfce7 (green-100), Icon: ✅, border: #bbf7d0
+**Success Banner:** Background: #dcfce7 (green-100), Icon: , border: #bbf7d0
 **Toast Notification:** Green background, white text, checkmark icon, auto-dismisses in 4 seconds
 **Checkmark Animation:** Scale from 0 to 1 with bounce easing (easeOutBack)
 **Success State Duration:** Success banners stay visible until user dismisses or performs new action
@@ -1563,28 +1562,28 @@ Used for: Delete Slot, Delete Entry Point, System Initialization, Unpark (option
 **Park Vehicle Data Flow:**
 ```
 User fills form
-  → vehicleType: 'S' | 'M' | 'L'
-  → entryPointId: 'A' | 'B' | 'C' | ...
-  → Form validation (client-side)
-  → setState({ loading: true, error: null })
-  → parkVehicle(vehicleType, entryPointId) [URLSearchParams POST]
-  → API responds 201 or 409
-  → 201: setState({ data: session, loading: false, success: true })
-  → 409: setState({ error: ApiError, loading: false })
-  → Render success banner OR error banner
+ → vehicleType: 'S' | 'M' | 'L'
+ → entryPointId: 'A' | 'B' | 'C' | ...
+ → Form validation (client-side)
+ → setState({ loading: true, error: null })
+ → parkVehicle(vehicleType, entryPointId) [URLSearchParams POST]
+ → API responds 201 or 409
+ → 201: setState({ data: session, loading: false, success: true })
+ → 409: setState({ error: ApiError, loading: false })
+ → Render success banner OR error banner
 ```
 
 **Unpark Vehicle Data Flow:**
 ```
 User enters sessionId
-  → Validation (non-empty)
-  → setState({ loading: true })
-  → unpackVehicle(sessionId) [POST /sessions/:id/unpark]
-  → API responds 200 or 404
-  → 200: setState({ data: session, loading: false })
-  → Render fee breakdown card with animation
-  → 404: setState({ error: ApiError, loading: false })
-  → Render error banner
+ → Validation (non-empty)
+ → setState({ loading: true })
+ → unpackVehicle(sessionId) [POST /sessions/:id/unpark]
+ → API responds 200 or 404
+ → 200: setState({ data: session, loading: false })
+ → Render fee breakdown card with animation
+ → 404: setState({ error: ApiError, loading: false })
+ → Render error banner
 ```
 
 ### 5.2 State Management Patterns
@@ -1592,13 +1591,13 @@ User enters sessionId
 **Global State (ParkingContext — Context + useReducer):**
 ```typescript
 ParkingState {
-  slots: ParkingSlot[]         // From GET /api/v1/slots
-  entryPoints: EntryPoint[]    // From GET /api/v1/entry_points
-  activeSessions: Session[]    // From GET /api/v1/sessions
-  systemHealth: 'online' | 'offline' | 'checking'
-  isInitialized: boolean
-  loading: boolean
-  error: string | null
+ slots: ParkingSlot[] // From GET /api/v1/slots
+ entryPoints: EntryPoint[] // From GET /api/v1/entry_points
+ activeSessions: Session[] // From GET /api/v1/sessions
+ systemHealth: 'online' | 'offline' | 'checking'
+ isInitialized: boolean
+ loading: boolean
+ error: string | null
 }
 ```
 
@@ -1610,14 +1609,14 @@ ParkingState {
 Each page manages its own form state, submission state, and result state independently. Example for Park Vehicle:
 ```typescript
 {
-  vehicleType: VehicleType | ''
-  entryPointId: EntryPointIdentifier
-  state: AsyncStateWithSuccess<ParkingSession> {
-    data: ParkingSession | null
-    loading: boolean
-    error: Error | null
-    success: boolean
-  }
+ vehicleType: VehicleType | ''
+ entryPointId: EntryPointIdentifier
+ state: AsyncStateWithSuccess<ParkingSession> {
+ data: ParkingSession | null
+ loading: boolean
+ error: Error | null
+ success: boolean
+ }
 }
 ```
 
@@ -1633,22 +1632,22 @@ Each page manages its own form state, submission state, and result state indepen
 **Implementation Pattern:**
 ```typescript
 useEffect(() => {
-  const interval = setInterval(() => {
-    fetchSessions();
-  }, 30000);
+ const interval = setInterval(() => {
+ fetchSessions();
+ }, 30000);
 
-  // Pause polling when tab is hidden
-  const handleVisibilityChange = () => {
-    if (document.hidden) {
-      clearInterval(interval);
-    }
-  };
-  document.addEventListener('visibilitychange', handleVisibilityChange);
+ // Pause polling when tab is hidden
+ const handleVisibilityChange = () => {
+ if (document.hidden) {
+ clearInterval(interval);
+ }
+ };
+ document.addEventListener('visibilitychange', handleVisibilityChange);
 
-  return () => {
-    clearInterval(interval);
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
-  };
+ return () => {
+ clearInterval(interval);
+ document.removeEventListener('visibilitychange', handleVisibilityChange);
+ };
 }, [page, perPage]);
 ```
 
@@ -1666,13 +1665,13 @@ useEffect(() => {
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 
 async function fetchWithCache<T>(key: string, fetcher: () => Promise<T>, ttl: number): Promise<T> {
-  const cached = cache.get(key);
-  if (cached && Date.now() - cached.timestamp < ttl) {
-    return cached.data as T;
-  }
-  const data = await fetcher();
-  cache.set(key, { data, timestamp: Date.now() });
-  return data;
+ const cached = cache.get(key);
+ if (cached && Date.now() - cached.timestamp < ttl) {
+ return cached.data as T;
+ }
+ const data = await fetcher();
+ cache.set(key, { data, timestamp: Date.now() });
+ return data;
 }
 ```
 
@@ -2022,19 +2021,19 @@ All Framer Motion animation configurations used in the web app:
 **Container variants (page-level):**
 ```javascript
 containerVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1, y: 0,
-    transition: { duration: 0.6, staggerChildren: 0.1 }
-  }
+ hidden: { opacity: 0, y: 20 },
+ visible: {
+ opacity: 1, y: 0,
+ transition: { duration: 0.6, staggerChildren: 0.1 }
+ }
 }
 ```
 
 **Item variants (child elements):**
 ```javascript
 itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 }
+ hidden: { opacity: 0, y: 20 },
+ visible: { opacity: 1, y: 0 }
 }
 ```
 
@@ -2104,30 +2103,30 @@ transition: { type: 'spring', stiffness: 300, damping: 25 }
 **React Web (React Router):**
 ```
 / (root)
-├── /           → Dashboard
-├── /park       → Park Vehicle page
-├── /unpark     → Unpark Vehicle page
+├── / → Dashboard
+├── /park → Park Vehicle page
+├── /unpark → Unpark Vehicle page
 ├── /session/:id → View Session page
-├── /slots      → Available Slots page (quick check)
-├── /sessions   → Sessions Management page
+├── /slots → Available Slots page (quick check)
+├── /sessions → Sessions Management page
 ├── /manage/slots → Slots Management page
 ├── /manage/entry-points → Entry Points Management page
 ├── /configuration → Configuration page (tabs: entry-points, parking-slots, system)
-└── /settings   → Settings / API Configuration page
+└── /settings → Settings / API Configuration page
 ```
 
 **React Native (React Navigation — Stack + Bottom Tabs):**
 ```
 Bottom Tabs:
-  ├── Home Tab → Dashboard screen
-  ├── Park Tab → ParkVehicle screen
-  ├── Unpark Tab → UnparkVehicle screen
-  ├── Sessions Tab → Sessions list screen
-  └── Settings Tab → Settings screen
+ ├── Home Tab → Dashboard screen
+ ├── Park Tab → ParkVehicle screen
+ ├── Unpark Tab → UnparkVehicle screen
+ ├── Sessions Tab → Sessions list screen
+ └── Settings Tab → Settings screen
 
 Stack Navigation (from any tab):
-  ├── ViewSession screen (params: id)
-  └── AvailableSlots screen
+ ├── ViewSession screen (params: id)
+ └── AvailableSlots screen
 ```
 
 ---
@@ -2147,7 +2146,7 @@ Stack Navigation (from any tab):
 | POST | /api/v1/slots | FEAT-008 | application/json |
 | PUT | /api/v1/slots/:id | FEAT-009 | application/json |
 | DELETE | /api/v1/slots/:id | FEAT-010 | — |
-| POST | /api/v1/sessions | FEAT-001 | **application/x-www-form-urlencoded** |
+| POST | /api/v1/sessions | FEAT-001 |**application/x-www-form-urlencoded** |
 | GET | /api/v1/sessions | FEAT-005 | — |
 | GET | /api/v1/sessions/:id | FEAT-004 | — |
 | POST | /api/v1/sessions/:id/unpark | FEAT-002 | application/json |

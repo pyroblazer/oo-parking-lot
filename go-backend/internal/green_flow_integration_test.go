@@ -516,15 +516,29 @@ func TestGreenFlow_ContinuousParkingWithinThreshold(t *testing.T) {
 		return
 	}
 	
-	// Unpark after 30 minutes (simulated with 2 seconds for quick test)
+	// Unpark after 30 minutes - get parked_at and calculate explicit exited_at
+	getSessionReq := httptest.NewRequest("GET", "/api/v1/sessions/"+int64ToString(int64(sessionID1)), nil)
+	getSessionRecorder := httptest.NewRecorder()
+	router.ServeHTTP(getSessionRecorder, getSessionReq)
+	require.Equal(t, http.StatusOK, getSessionRecorder.Code)
+
+	var getSessionResponse map[string]interface{}
+	err = json.Unmarshal(getSessionRecorder.Body.Bytes(), &getSessionResponse)
+	require.NoError(t, err)
+	parkedAtStr := getSessionResponse["data"].(map[string]interface{})["parked_at"].(string)
+	require.NotEmpty(t, parkedAtStr)
+	parkedAtTime, err := time.Parse(time.RFC3339, parkedAtStr)
+	require.NoError(t, err)
+	exitedAtTime := parkedAtTime.Add(30 * time.Minute)
+
 	time.Sleep(2 * time.Second)
-	
-	unparkReq1 := httptest.NewRequest("POST", "/api/v1/sessions/"+int64ToString(int64(sessionID1))+"/unpark", nil)
+
+	unparkReq1 := httptest.NewRequest("POST", "/api/v1/sessions/"+int64ToString(int64(sessionID1))+"/unpark?exited_at="+exitedAtTime.Format(time.RFC3339), nil)
 	unparkRecorder1 := httptest.NewRecorder()
 	router.ServeHTTP(unparkRecorder1, unparkReq1)
-	
+
 	require.Equal(t, http.StatusOK, unparkRecorder1.Code)
-	
+
 	// Return within 1 hour (45 minutes after exit, simulated with 3 seconds for quick test)
 	time.Sleep(3 * time.Second)
 	
@@ -594,15 +608,29 @@ func TestGreenFlow_ContinuousParkingAfterThreshold(t *testing.T) {
 		return
 	}
 	
-	// Unpark after 30 minutes (simulated with 2 seconds for quick test)
+	// Unpark after 30 minutes - get parked_at and calculate explicit exited_at
+	getSessionReq := httptest.NewRequest("GET", "/api/v1/sessions/"+int64ToString(int64(sessionID1)), nil)
+	getSessionRecorder := httptest.NewRecorder()
+	router.ServeHTTP(getSessionRecorder, getSessionReq)
+	require.Equal(t, http.StatusOK, getSessionRecorder.Code)
+
+	var getSessionResponse map[string]interface{}
+	err = json.Unmarshal(getSessionRecorder.Body.Bytes(), &getSessionResponse)
+	require.NoError(t, err)
+	parkedAtStr := getSessionResponse["data"].(map[string]interface{})["parked_at"].(string)
+	require.NotEmpty(t, parkedAtStr)
+	parkedAtTime, err := time.Parse(time.RFC3339, parkedAtStr)
+	require.NoError(t, err)
+	exitedAtTime := parkedAtTime.Add(30 * time.Minute)
+
 	time.Sleep(2 * time.Second)
-	
-	unparkReq1 := httptest.NewRequest("POST", "/api/v1/sessions/"+int64ToString(int64(sessionID1))+"/unpark", nil)
+
+	unparkReq1 := httptest.NewRequest("POST", "/api/v1/sessions/"+int64ToString(int64(sessionID1))+"/unpark?exited_at="+exitedAtTime.Format(time.RFC3339), nil)
 	unparkRecorder1 := httptest.NewRecorder()
 	router.ServeHTTP(unparkRecorder1, unparkReq1)
-	
+
 	require.Equal(t, http.StatusOK, unparkRecorder1.Code)
-	
+
 	// Return after 1 hour (90 minutes after exit, simulated with 4 seconds for quick test)
 	time.Sleep(4 * time.Second)
 	
@@ -626,7 +654,9 @@ func TestGreenFlow_ContinuousParkingAfterThreshold(t *testing.T) {
 	require.NoError(t, err)
 	
 	assert.True(t, parkResponse2["success"].(bool))
-	data := parkResponse2["data"].(map[string]interface{})
+	data, ok := parkResponse2["data"].(map[string]interface{})
+	require.True(t, ok, "Response data should be a map")
+	require.NotNil(t, data, "Response data should not be nil")
 	assert.False(t, data["is_continuous"].(bool))
 }
 
@@ -878,10 +908,7 @@ func TestGreenFlow_APIEndpointSessionDetails(t *testing.T) {
 
 // Helper function to setup test database
 func setupTestDB(t *testing.T) *database.DB {
-	os.Setenv("DATABASE_HOST", "localhost")
-	os.Setenv("DATABASE_PORT", "5432")
-	os.Setenv("DATABASE_USER", "postgres")
-	os.Setenv("DATABASE_PASSWORD", "")
+	database.SetupTestEnvironment()
 	os.Setenv("DATABASE_NAME", "oo_parking_lot_test")
 
 	db, err := database.NewDBFromEnv()
@@ -917,10 +944,12 @@ func setupTestDB(t *testing.T) *database.DB {
 			parked_at TIMESTAMP NOT NULL,
 			exited_at TIMESTAMP,
 			total_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+			license_plate VARCHAR(20),
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
+	db.GetDB().Exec(`ALTER TABLE parking_sessions ADD COLUMN IF NOT EXISTS license_plate VARCHAR(20);`)
 
 	return db
 }
@@ -929,16 +958,31 @@ func setupTestDB(t *testing.T) *database.DB {
 func setupTestRouter(t *testing.T) http.Handler {
 	db := setupTestDB(t)
 
-	// Clean up database before creating test data
-	db.GetDB().Exec("DELETE FROM parking_sessions")
-	db.GetDB().Exec("DELETE FROM parking_slots")
-	db.GetDB().Exec("DELETE FROM entry_points")
+	// Clean up database before creating test data using TRUNCATE for faster cleanup
+	// TRUNCATE is faster than DELETE and resets sequences
+	_, err := db.GetDB().Exec("TRUNCATE TABLE parking_sessions CASCADE")
+	require.NoError(t, err, "Failed to truncate parking_sessions table")
+	
+	_, err = db.GetDB().Exec("TRUNCATE TABLE parking_slots CASCADE")
+	require.NoError(t, err, "Failed to truncate parking_slots table")
+	
+	_, err = db.GetDB().Exec("TRUNCATE TABLE entry_points CASCADE")
+	require.NoError(t, err, "Failed to truncate entry_points table")
 
 	// Clean up database after test
 	t.Cleanup(func() {
-		db.GetDB().Exec("DELETE FROM parking_sessions")
-		db.GetDB().Exec("DELETE FROM parking_slots")
-		db.GetDB().Exec("DELETE FROM entry_points")
+		_, err := db.GetDB().Exec("TRUNCATE TABLE parking_sessions CASCADE")
+		if err != nil {
+			t.Logf("Warning: Failed to truncate parking_sessions table: %v", err)
+		}
+		_, err = db.GetDB().Exec("TRUNCATE TABLE parking_slots CASCADE")
+		if err != nil {
+			t.Logf("Warning: Failed to truncate parking_slots table: %v", err)
+		}
+		_, err = db.GetDB().Exec("TRUNCATE TABLE entry_points CASCADE")
+		if err != nil {
+			t.Logf("Warning: Failed to truncate entry_points table: %v", err)
+		}
 		db.Close()
 	})
 
@@ -988,21 +1032,24 @@ func setupTestRouter(t *testing.T) http.Handler {
 
 // Helper function to create test entry point
 func createTestEntryPoint(t *testing.T, db *sql.DB, identifier, name string) *models.EntryPoint {
-	query := `INSERT INTO entry_points (identifier, name, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING id, identifier, name, created_at, updated_at`
+	// Use INSERT ... ON CONFLICT DO NOTHING to handle potential duplicate key errors gracefully
+	// This can happen in race conditions or if database state isn't properly cleaned
+	query := `INSERT INTO entry_points (identifier, name, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT (identifier) DO UPDATE SET name = EXCLUDED.name RETURNING id, identifier, name, created_at, updated_at`
 	var ep models.EntryPoint
 	err := db.QueryRow(query, identifier, name).Scan(&ep.ID, &ep.Identifier, &ep.Name, &ep.CreatedAt, &ep.UpdatedAt)
-	require.NoError(t, err)
+	require.NoError(t, err, "Failed to create entry point %s: %v", identifier, err)
 	return &ep
 }
 
 // Helper function to create test parking slot
 func createTestParkingSlot(t *testing.T, db *sql.DB, slotLabel, slotType string, distances []int, available bool) *models.ParkingSlot {
 	distancesBytes, _ := json.Marshal(distances)
-	query := `INSERT INTO parking_slots (slot_label, slot_type, distances, available, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING id, slot_label, slot_type, distances, available, created_at, updated_at`
+	// Use INSERT ... ON CONFLICT DO UPDATE to handle potential duplicate key errors gracefully
+	query := `INSERT INTO parking_slots (slot_label, slot_type, distances, available, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) ON CONFLICT (slot_label) DO UPDATE SET slot_type = EXCLUDED.slot_type, distances = EXCLUDED.distances, available = EXCLUDED.available RETURNING id, slot_label, slot_type, distances, available, created_at, updated_at`
 	var slot models.ParkingSlot
 	var distancesJSON []byte
 	err := db.QueryRow(query, slotLabel, slotType, distancesBytes, available).Scan(&slot.ID, &slot.SlotLabel, &slot.SlotType, &distancesJSON, &slot.Available, &slot.CreatedAt, &slot.UpdatedAt)
-	require.NoError(t, err)
+	require.NoError(t, err, "Failed to create parking slot %s: %v", slotLabel, err)
 	json.Unmarshal(distancesJSON, &slot.Distances)
 	return &slot
 }

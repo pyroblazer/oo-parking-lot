@@ -12,10 +12,7 @@ RSpec.describe ParkingService, type: :service do
         parking_slot = create(:parking_slot, slot_type: 'SP', entry_point: entry_point, status: 'available')
         session = service.park_vehicle(vehicle_type, entry_point.identifier)
         if session.nil?
-          puts "Service errors: #{service.errors.inspect}"
-          puts "Entry point identifier: #{entry_point.identifier}"
-          puts "Parking slot: #{parking_slot.inspect}"
-          puts "Available slots: #{ParkingSlot.available.count}"
+
         end
         expect(session).not_to be_nil
         expect(ParkingSession.count).to eq(1)
@@ -93,7 +90,7 @@ RSpec.describe ParkingService, type: :service do
         slots = create_list(:parking_slot, slot_count, slot_type: 'SP', entry_point: entry_point)
         ParkingSession.count
 
-        threads = thread_count.times.map do
+        threads = Array.new(thread_count) do
           Thread.new do
             service.park_vehicle(vehicle_type, entry_point.identifier)
           end

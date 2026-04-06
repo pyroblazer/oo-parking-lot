@@ -34,12 +34,26 @@ export class AvailableSlotsPage extends BasePage {
   readonly filterLarge: any;
   readonly filterAll: any;
 
+  // Vehicle type selector
+  readonly vehicleTypeSmall: any;
+  readonly vehicleTypeMedium: any;
+  readonly vehicleTypeLarge: any;
+
+  // Entry point selector
+  readonly entryPointButton: any;
+
+  // Search
+  readonly searchButton: any;
+
+  // No results
+  readonly noSlotsMessage: any;
+
   // Refresh
   readonly refreshButton: any;
 
   constructor() {
     super();
-    
+
     // Page selectors
     this.page = element(by.id('available-slots-page'));
     this.title = element(by.text('Available Slots'));
@@ -58,8 +72,22 @@ export class AvailableSlotsPage extends BasePage {
     this.filterLarge = element(by.text('Large'));
     this.filterAll = element(by.text('All'));
 
+    // Vehicle type selector
+    this.vehicleTypeSmall = element(by.id('vehicle-type-small'));
+    this.vehicleTypeMedium = element(by.id('vehicle-type-medium'));
+    this.vehicleTypeLarge = element(by.id('vehicle-type-large'));
+
+    // Entry point selector (generic reference)
+    this.entryPointButton = element(by.id('entry-point'));
+
+    // Search
+    this.searchButton = element(by.id('search-button'));
+
+    // No results message
+    this.noSlotsMessage = element(by.id('no-slots-message'));
+
     // Refresh
-    this.refreshButton = element(by.id('refresh-button');
+    this.refreshButton = element(by.id('refresh-button'));
   }
 
   /**
@@ -254,19 +282,119 @@ export class AvailableSlotsPage extends BasePage {
   }
 
   /**
+   * Select a vehicle type
+   * @param type - The vehicle type to select ('S', 'M', or 'L')
+   */
+  async selectVehicleType(type: 'S' | 'M' | 'L'): Promise<void> {
+    const typeMap: Record<string, string> = {
+      S: 'vehicle-type-small',
+      M: 'vehicle-type-medium',
+      L: 'vehicle-type-large',
+    };
+    const testId = typeMap[type];
+    await this.click(testId);
+  }
+
+  /**
+   * Select an entry point by identifier
+   * @param identifier - The entry point identifier (e.g. 'A', 'B', 'C')
+   */
+  async selectEntryPoint(identifier: string): Promise<void> {
+    const entryPointElement = element(by.id(`entry-point-${identifier}`));
+    await waitFor(entryPointElement)
+      .toBeVisible()
+      .withTimeout(5000);
+    await entryPointElement.tap();
+  }
+
+  /**
+   * Click the search button to find available slots
+   */
+  async clickSearch(): Promise<void> {
+    await this.click('search-button');
+    await this.waitForLoadingToComplete();
+  }
+
+  /**
+   * Check if search results (slot items) are visible
+   * @returns True if slot items are visible
+   */
+  async hasResults(): Promise<boolean> {
+    return await this.isVisible('slot-item');
+  }
+
+  /**
+   * Check if no-slots message is visible
+   * @returns True if the no-slots message is visible
+   */
+  async hasNoResults(): Promise<boolean> {
+    return await this.isVisible('no-slots');
+  }
+
+  /**
    * Verify available slots screen is displayed correctly
    */
   async verifyAvailableSlotsScreen(): Promise<void> {
     await this.waitForVisible();
-    
+
     // Verify slots list is visible
     await waitFor(this.slotsList)
       .toBeVisible()
       .withTimeout(5000);
-    
+
     // Verify filter button is visible
     await waitFor(this.filterButton)
       .toBeVisible()
       .withTimeout(5000);
+  }
+
+  /**
+   * Select a vehicle type
+   * @param type - The vehicle type to select ('S', 'M', or 'L')
+   */
+  async selectVehicleType(type: 'S' | 'M' | 'L'): Promise<void> {
+    const typeMap: Record<string, string> = {
+      'S': 'vehicle-type-small',
+      'M': 'vehicle-type-medium',
+      'L': 'vehicle-type-large',
+    };
+    const testId = typeMap[type];
+    await this.click(testId);
+  }
+
+  /**
+   * Select an entry point by identifier
+   * @param identifier - The entry point identifier (e.g. 'A', 'B', 'C')
+   */
+  async selectEntryPoint(identifier: string): Promise<void> {
+    const entryPointElement = element(by.id(`entry-point-${identifier}`));
+    await waitFor(entryPointElement)
+      .toBeVisible()
+      .withTimeout(5000);
+    await entryPointElement.tap();
+  }
+
+  /**
+   * Click the search button to find available slots
+   */
+  async clickSearch(): Promise<void> {
+    await this.click('search-button');
+    await this.waitForLoadingToComplete();
+  }
+
+  /**
+   * Check if search results (slot items) are visible
+   * @returns True if slot items are visible
+   */
+  async hasResults(): Promise<boolean> {
+    return await this.isVisible('slot-item');
+  }
+
+  /**
+   * Check if no-slots message is visible
+   * @returns True if the no-slots message is visible
+   */
+  async hasNoResults(): Promise<boolean> {
+    return await this.isVisible('no-slots-message');
   }
 }

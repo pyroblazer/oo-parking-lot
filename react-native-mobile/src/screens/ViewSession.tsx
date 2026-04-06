@@ -1,37 +1,32 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
-import parkingApi from '../api/parkingApi';
-import type { 
-  SessionId, 
-  ParkingSession,
-  AsyncState,
-  ScreenProps
-} from '../types';
+import * as parkingApi from '../api/parkingApi';
+import type { Session } from '../api/parkingApi';
+
+// Slot type display names
+const SLOT_TYPE_NAMES: Record<string, string> = {
+  SP: 'Small Parking',
+  MP: 'Medium Parking',
+  LP: 'Large Parking',
+} as const;
+
+// Vehicle type display names
+const VEHICLE_TYPE_NAMES: Record<string, string> = {
+  S: 'Small',
+  M: 'Medium',
+  L: 'Large',
+} as const;
 
 // Helper function to extract error message consistently
 const extractErrorMessage = (error: unknown): string => {
+  if (error instanceof parkingApi.ApiError) {
+    return error.message;
+  }
   if (error instanceof Error) {
     return error.message;
   }
-  if (error && typeof error === 'object' && 'response' in error) {
-    const responseError = error as { response?: { data?: { error?: string } } };
-    return responseError.response?.data?.error ?? 'An unknown error occurred';
-  }
-  if (error && typeof error === 'object' && 'message' in error) {
-    const messageError = error as { message?: string };
-    return messageError.message ?? 'An unknown error occurred';
-  }
   return 'An unknown error occurred';
 };
-
-// Create async state object helper
-const createAsyncState = <T,>(): AsyncState<T, string> => ({
-  data: null,
-  loading: false,
-  error: null,
-});
-
-interface ViewSessionProps extends ScreenProps<{ id: SessionId }> {}
 
 // Helper function to format timestamp in human-readable format
 function formatTimestamp(isoString: string): string {
@@ -74,39 +69,46 @@ function getSlotTypeColor(slotType: 'SP' | 'MP' | 'LP'): { backgroundColor: stri
   }
 }
 
+interface ViewSessionRouteParams {
+  id: string;
+}
+
+interface ViewSessionProps {
+  route: {
+    params: ViewSessionRouteParams;
+    key: string;
+    name: string;
+  };
+  navigation: {
+    navigate: (screen: string, params?: Record<string, unknown>) => void;
+    goBack: () => void;
+  };
+}
+
 function ViewSession({ route, navigation }: ViewSessionProps): React.JSX.Element {
   const { id } = route.params;
-  const [state, setState] = useState<AsyncState<ParkingSession, string>>(createAsyncState<ParkingSession>());
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadSession = useCallback(async (): Promise<void> => {
     if (!id) {
-      setState({
-        data: null,
-        loading: false,
-        error: 'Invalid session ID',
-      });
+      setError('Invalid session ID');
+      setLoading(false);
       return;
     }
 
-    setState({
-      data: null,
-      loading: true,
-      error: null,
-    });
+    setLoading(true);
+    setError(null);
 
     try {
       const sessionData = await parkingApi.getSession(id);
-      setState({
-        data: sessionData as unknown as ParkingSession,
-        loading: false,
-        error: null,
-      });
+      setSession(sessionData);
+      setError(null);
     } catch (err) {
-      setState({
-        data: null,
-        loading: false,
-        error: extractErrorMessage(err),
-      });
+      setError(extractErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   }, [id]);
 
@@ -118,372 +120,563 @@ function ViewSession({ route, navigation }: ViewSessionProps): React.JSX.Element
     navigation.goBack();
   };
 
-  if (state.loading) {
+  // Loading state
+  if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#667eea" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#1e40af" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
 
-  if (state.error) {
+  // Error state
+  if (error) {
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <View style={styles.errorBox}>
-          <Text style={styles.errorText}>❌ {state.error}</Text>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorTitle}>Error</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.retryButton}
+        <TouchableOpacity
+          style={styles.primaryButton}
           onPress={loadSession}
+          activeOpacity={0.7}
         >
-          <Text style={styles.retryButtonText}>Try Again</Text>
+          <Text style={styles.primaryButtonText}>Try Again</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.browseButton}
-          onPress={() => navigation.navigate('Sessions' as never)}
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate('Sessions')}
+          activeOpacity={0.7}
         >
-          <Text style={styles.browseButtonText}>Browse Sessions</Text>
+          <Text style={styles.secondaryButtonText}>Browse Sessions</Text>
         </TouchableOpacity>
       </ScrollView>
     );
   }
 
-  if (!state.data) {
+  // Not found state
+  if (!session) {
     return (
-      <ScrollView style={styles.container}>
-        <Text style={styles.title}>Session Not Found</Text>
-        <Text style={styles.notFoundMessage}>Session ID not found — It may have been deleted or never existed</Text>
-        <TouchableOpacity 
-          style={styles.retryButton}
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.notFoundBox}>
+          <Text style={styles.notFoundIcon}>🔍</Text>
+          <Text style={styles.notFoundTitle}>Session Not Found</Text>
+          <Text style={styles.notFoundMessage}>
+            Session ID not found — It may have been deleted or never existed
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.primaryButton}
           onPress={loadSession}
+          activeOpacity={0.7}
         >
-          <Text style={styles.retryButtonText}>Try Again</Text>
+          <Text style={styles.primaryButtonText}>Try Again</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.browseButton}
-          onPress={() => navigation.navigate('Sessions' as never)}
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate('Sessions')}
+          activeOpacity={0.7}
         >
-          <Text style={styles.browseButtonText}>Browse Sessions</Text>
+          <Text style={styles.secondaryButtonText}>Browse Sessions</Text>
         </TouchableOpacity>
       </ScrollView>
     );
   }
 
-  const session = state.data;
+  // Resolve entry point display value
+  const entryPointDisplay = typeof session.entry_point === 'string'
+    ? session.entry_point
+    : session.entry_point.identifier ?? 'N/A';
+
+  const slotLabel = session.parking_slot?.slot_label || 'N/A';
+  const slotType = session.parking_slot?.slot_type || 'SP';
+  const slotTypeColor = getSlotTypeColor(slotType);
   const vehicleTypeColor = getVehicleTypeColor(session.vehicle_type);
-  const slotTypeColor = getSlotTypeColor(session.parking_slot?.type || 'SP');
 
   return (
-    <ScrollView style={styles.container}>
-      <TouchableOpacity 
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      {/* Back Button */}
+      <TouchableOpacity
         style={styles.backButton}
         onPress={handleBack}
+        accessibilityLabel="Go back"
+        accessibilityRole="button"
       >
         <Text style={styles.backButtonText}>← Back</Text>
       </TouchableOpacity>
-      
-      <Text style={styles.title}>🔍 View Session Details</Text>
-      
+
+      {/* Session Card */}
       <View style={styles.sessionCard}>
-        <ScrollView style={styles.cardContainer}>
-          {/* Session ID */}
-          <View style={styles.sessionIdRow}>
-            <Text style={styles.label}>Session:</Text>
-            <Text style={styles.sessionId}>{session.session_id}</Text>
+        {/* Header with Session ID */}
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardHeaderLabel}>Session Details</Text>
+          <View style={[
+            styles.statusBadge,
+            session.is_active ? styles.activeBadge : styles.completedBadge,
+          ]}>
+            <Text style={styles.statusBadgeText}>
+              {session.is_active ? '● Active' : '✓ Completed'}
+            </Text>
           </View>
-          
-          {/* Status Badge */}
-          <View style={[styles.badge, session.is_active ? styles.activeBadge : styles.completedBadge]}>
-            <Text style={styles.badgeText}>{session.is_active ? 'Active' : 'Completed'}</Text>
+        </View>
+
+        {/* Session ID */}
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Session ID</Text>
+          <Text style={styles.detailValueMono}>{session.session_id}</Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Vehicle Type */}
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Vehicle Type</Text>
+          <View style={[styles.typeBadge, vehicleTypeColor]}>
+            <Text style={styles.typeBadgeText}>
+              {VEHICLE_TYPE_NAMES[session.vehicle_type]} ({session.vehicle_type})
+            </Text>
           </View>
-          
-          {/* Vehicle Type */}
-          <View style={styles.row}>
-            <Text style={styles.label}>Vehicle:</Text>
-            <View style={[styles.vehicleBadge, vehicleTypeColor]}>
-              <Text style={styles.badgeText}>{session.vehicle_type}</Text>
+        </View>
+
+        {/* Parking Slot */}
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Parking Slot</Text>
+          <View style={styles.slotInfo}>
+            <Text style={styles.slotLabelText}>{slotLabel}</Text>
+            <View style={[styles.typeBadge, slotTypeColor]}>
+              <Text style={styles.typeBadgeText}>
+                {SLOT_TYPE_NAMES[slotType] || slotType}
+              </Text>
             </View>
           </View>
-          
-          {/* Slot Information */}
-          <View style={styles.row}>
-            <Text style={styles.label}>Slot:</Text>
-            <Text style={styles.slotLabel}>{session.parking_slot?.label || 'N/A'}</Text>
-            <View style={[styles.slotTypeBadge, slotTypeColor]}>
-              <Text style={styles.badgeText}>{session.parking_slot?.type || 'SP'}</Text>
+        </View>
+
+        {/* Entry Point */}
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Entry Point</Text>
+          <View style={styles.entryPointInfo}>
+            <View style={styles.entryPointCircle}>
+              <Text style={styles.entryPointLetter}>
+                {entryPointDisplay.charAt(0)}
+              </Text>
+            </View>
+            <Text style={styles.entryPointText}>{entryPointDisplay}</Text>
+          </View>
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Parked At */}
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Parked At</Text>
+          <Text style={styles.detailValue}>{formatTimestamp(session.parked_at)}</Text>
+        </View>
+
+        {/* Exited At (completed sessions only) */}
+        {session.exited_at && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Exited At</Text>
+            <Text style={styles.detailValue}>{formatTimestamp(session.exited_at)}</Text>
+          </View>
+        )}
+
+        {/* Duration (completed sessions only) */}
+        {session.exited_at && session.duration_hours != null && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Duration</Text>
+            <Text style={styles.detailValueBold}>{session.duration_hours.toFixed(1)} hour{session.duration_hours !== 1 ? 's' : ''}</Text>
+          </View>
+        )}
+
+        {/* Total Fee (completed sessions only) */}
+        {session.exited_at && session.total_fee != null && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Total Fee</Text>
+            <Text style={styles.feeValue}>₱{session.total_fee.toFixed(2)}</Text>
+          </View>
+        )}
+
+        {/* Fee Breakdown (completed sessions with breakdown) */}
+        {session.fee_breakdown && (
+          <View style={styles.feeBreakdownBox}>
+            <Text style={styles.feeBreakdownTitle}>Fee Breakdown</Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Base Fee</Text>
+              <Text style={styles.detailValue}>₱{session.fee_breakdown.remaining.base_fee.toFixed(2)}</Text>
+            </View>
+            {session.fee_breakdown.remaining.exceeding_hours > 0 && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>
+                  Exceeding ({session.fee_breakdown.remaining.exceeding_hours}h)
+                </Text>
+                <Text style={styles.detailValue}>
+                  ₱{session.fee_breakdown.remaining.exceeding_fee.toFixed(2)}
+                </Text>
+              </View>
+            )}
+            {session.fee_breakdown.long_term.days > 0 && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>
+                  Long Term ({session.fee_breakdown.long_term.days} day(s))
+                </Text>
+                <Text style={styles.detailValue}>
+                  ₱{session.fee_breakdown.long_term.fee.toFixed(2)}
+                </Text>
+              </View>
+            )}
+            <View style={[styles.divider, { marginVertical: 8 }]} />
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { fontWeight: '700' }]}>Total</Text>
+              <Text style={styles.feeValue}>₱{session.fee_breakdown.total_fee.toFixed(2)}</Text>
             </View>
           </View>
-          
-          {/* Entry Point */}
-          <View style={styles.row}>
-            <Text style={styles.label}>Entry Point:</Text>
-            <View style={styles.entryPointBadge}>
-              <Text style={styles.entryPointIdentifier}>{session.entry_point?.charAt(0) || '?'}</Text>
-            </View>
-            <Text style={styles.entryPointName}>{session.entry_point || 'N/A'}</Text>
+        )}
+
+        {/* Continuous Parking Badge */}
+        {session.is_continuous && (
+          <View style={styles.continuousBadge}>
+            <Text style={styles.continuousBadgeText}>🔄 Continuous Parking</Text>
           </View>
-          
-          {/* Parked At */}
-          <View style={styles.row}>
-            <Text style={styles.label}>Parked At:</Text>
-            <Text style={styles.timestamp}>{formatTimestamp(session.parked_at)}</Text>
-          </View>
-          
-          {/* Exited At (if completed) */}
-          {session.exited_at && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Exited At:</Text>
-              <Text style={styles.timestamp}>{formatTimestamp(session.exited_at)}</Text>
-            </View>
-          )}
-          
-          {/* Duration (if completed) */}
-          {session.exited_at && session.duration_hours && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Duration:</Text>
-              <Text style={styles.duration}>{session.duration_hours.toFixed(1)} hours</Text>
-            </View>
-          )}
-          
-          {/* Total Fee (if completed) */}
-          {session.exited_at && session.total_fee && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Total Fee:</Text>
-              <Text style={styles.fee}>₱{session.total_fee.toFixed(2)}</Text>
-            </View>
-          )}
-          
-          {/* Continuous Parking Badge */}
-          {session.is_continuous && (
-            <View style={[styles.badge, styles.continuousBadge]}>
-              <Text style={styles.badgeText}>Continuous Parking</Text>
-            </View>
-          )}
-        </ScrollView>
+        )}
       </View>
-      
-      {/* Unpark Button (only for active sessions) */}
-      {session.is_active && (
-        <TouchableOpacity 
-          style={styles.unparkButton} 
-          onPress={() => navigation.navigate('UnparkVehicle' as never, { sessionId: session.session_id })}
+
+      {/* Action Buttons */}
+      {session.is_active ? (
+        <TouchableOpacity
+          style={styles.unparkButton}
+          onPress={() => navigation.navigate('UnparkVehicle', { sessionId: session.session_id })}
           activeOpacity={0.7}
+          accessibilityLabel="Unpark this vehicle"
+          accessibilityRole="button"
         >
           <Text style={styles.unparkButtonText}>Unpark This Vehicle</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={styles.browseButton}
+          onPress={() => navigation.navigate('Sessions')}
+          activeOpacity={0.7}
+          accessibilityLabel="Browse all sessions"
+          accessibilityRole="button"
+        >
+          <Text style={styles.browseButtonText}>Browse All Sessions</Text>
         </TouchableOpacity>
       )}
     </ScrollView>
   );
 }
 
+const COLORS = {
+  primary: '#1e40af',
+  primaryLight: '#3b82f6',
+  success: '#16a34a',
+  warning: '#d97706',
+  danger: '#dc2626',
+  background: '#f8fafc',
+  surface: '#ffffff',
+  text: '#0f172a',
+  textSecondary: '#64748b',
+  border: '#e2e8f0',
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
+  },
+  scrollContent: {
     padding: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#667eea',
-    textAlign: 'center',
-    marginTop: 40,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: COLORS.primary,
+  },
+  backButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
     marginBottom: 20,
   },
-  notFoundMessage: {
+  backButtonText: {
+    color: COLORS.surface,
     fontSize: 16,
-    color: '#64748b',
-    textAlign: 'center',
-    marginVertical: 10,
-    paddingHorizontal: 20,
+    fontWeight: '600',
   },
   sessionCard: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
     marginBottom: 20,
   },
-  cardContainer: {
-    padding: 20,
-  },
-  sessionIdRow: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    padding: 16,
+    backgroundColor: COLORS.primary,
   },
-  sessionId: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    fontFamily: 'monospace',
+  cardHeaderLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.surface,
   },
-  badge: {
+  statusBadge: {
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginBottom: 15,
-  },
-  badgeText: {
-    fontSize: 14,
-    fontWeight: '600',
+    borderRadius: 16,
   },
   activeBadge: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: '#bbf7d0',
   },
   completedBadge: {
     backgroundColor: '#f3f4f6',
   },
-  continuousBadge: {
-    backgroundColor: '#fef3c7',
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
   },
-  row: {
+  detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#64748b',
+  detailLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
     flex: 1,
   },
-  vehicleBadge: {
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.text,
+    flex: 1,
+    textAlign: 'right',
+  },
+  detailValueBold: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+    flex: 1,
+    textAlign: 'right',
+  },
+  detailValueMono: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    fontFamily: 'monospace',
+    flex: 1,
+    textAlign: 'right',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginHorizontal: 20,
+  },
+  typeBadge: {
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 10,
   },
-  slotLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginRight: 8,
+  typeBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
-  slotTypeBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+  slotInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+    gap: 8,
   },
-  entryPointBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#3b82f6',
+  slotLabelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  entryPointInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  entryPointCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
   },
-  entryPointIdentifier: {
+  entryPointLetter: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.surface,
+  },
+  entryPointText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  feeValue: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
+    fontWeight: '700',
+    color: COLORS.success,
+    flex: 1,
+    textAlign: 'right',
   },
-  entryPointName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1f2937',
+  feeBreakdownBox: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    padding: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  timestamp: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
+  feeBreakdownTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 8,
   },
-  duration: {
+  continuousBadge: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fef3c7',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  continuousBadgeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.warning,
+  },
+  primaryButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    minHeight: 48,
+  },
+  primaryButtonText: {
+    color: COLORS.surface,
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
   },
-  fee: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#059669',
-  },
-  unparkButton: {
-    backgroundColor: '#667eea',
-    paddingVertical: 16,
+  secondaryButton: {
+    backgroundColor: COLORS.surface,
+    paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 12,
     minHeight: 48,
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+  },
+  secondaryButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  unparkButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
   },
   unparkButtonText: {
-    color: 'white',
+    color: COLORS.surface,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
-  backButton: {
-    backgroundColor: '#667eea',
-    padding: 10,
+  browseButton: {
+    backgroundColor: COLORS.surface,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     borderRadius: 8,
-    marginTop: 10,
-    alignSelf: 'flex-start',
-    marginBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minHeight: 52,
   },
-  backButtonText: {
-    color: 'white',
+  browseButtonText: {
+    color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
   },
   errorBox: {
     backgroundColor: '#fee2e2',
-    padding: 20,
-    borderRadius: 10,
-    textAlign: 'center',
+    padding: 24,
+    borderRadius: 12,
+    alignItems: 'center',
     marginBottom: 20,
   },
-  errorText: {
-    color: '#991b1b',
-    fontSize: 16,
+  errorIcon: {
+    fontSize: 40,
+    marginBottom: 8,
   },
-  retryButton: {
-    backgroundColor: '#667eea',
-    padding: 16,
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.danger,
+    marginBottom: 4,
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: COLORS.danger,
+    textAlign: 'center',
+  },
+  notFoundBox: {
+    backgroundColor: COLORS.surface,
+    padding: 32,
     borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-    minHeight: 48,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 20,
   },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+  notFoundIcon: {
+    fontSize: 48,
+    marginBottom: 12,
   },
-  browseButton: {
-    backgroundColor: '#f3f4f6',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
+  notFoundTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 8,
   },
-  browseButtonText: {
-    color: '#64748b',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#667eea',
+  notFoundMessage: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
     textAlign: 'center',
   },
 });

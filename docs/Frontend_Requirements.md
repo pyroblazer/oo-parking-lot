@@ -1,8 +1,8 @@
 # Frontend Requirements Document
 ## OO Parking Lot System
 
-**Document Version:** 1.0  
-**Date:** 2025-03-08  
+**Document Version:** 1.0
+**Date:** 2025-03-08
 **Status:** Draft
 
 ---
@@ -174,9 +174,9 @@ The OO Parking Lot System is an object-oriented parking management system that:
 
 **Special Considerations:**
 - Vehicle type compatibility:
-  - Small (S): Can park in SP, MP, or LP
-  - Medium (M): Can park in MP or LP
-  - Large (L): Can only park in LP
+ - Small (S): Can park in SP, MP, or LP
+ - Medium (M): Can park in MP or LP
+ - Large (L): Can only park in LP
 - Slot selection algorithm: Choose closest available slot to entry point
 - Continuous parking detection: Check previous sessions for same vehicle type within 1 hour
 
@@ -229,16 +229,16 @@ The OO Parking Lot System is an object-oriented parking management system that:
 **Acceptance Criteria:**
 - System must display flat rate (40 PHP) for first 3 hours
 - System must display hourly rates after 3 hours:
-  - Small Parking (SP): 20 PHP/hour
-  - Medium Parking (MP): 60 PHP/hour
-  - Large Parking (LP): 100 PHP/hour
+ - Small Parking (SP): 20 PHP/hour
+ - Medium Parking (MP): 60 PHP/hour
+ - Large Parking (LP): 100 PHP/hour
 - System must display long-term rate (5,000 PHP per 24 hours)
 - System must show fee breakdown components:
-  - Base fee (40 PHP)
-  - Exceeding hours count
-  - Exceeding fee calculation
-  - Long-term days count
-  - Long-term fee calculation
+ - Base fee (40 PHP)
+ - Exceeding hours count
+ - Exceeding fee calculation
+ - Long-term days count
+ - Long-term fee calculation
 - System must always round up duration hours (ceiling)
 - System must handle continuous parking correctly
 - System must display total fee clearly
@@ -323,12 +323,12 @@ The OO Parking Lot System is an object-oriented parking management system that:
 - System must show total session count
 - System must provide pagination controls (previous, next, page numbers)
 - System must display key information for each session:
-  - Session ID
-  - Vehicle Type
-  - Slot Label
-  - Entry Point
-  - Parked At
-  - Status (Active/Completed)
+ - Session ID
+ - Vehicle Type
+ - Slot Label
+ - Entry Point
+ - Parked At
+ - Status (Active/Completed)
 - System must allow filtering by status (optional enhancement)
 - System must allow sorting by date (optional enhancement)
 
@@ -362,11 +362,11 @@ The OO Parking Lot System is an object-oriented parking management system that:
 
 **Output:**
 - Slots array with:
-  - ID
-  - Slot Label
-  - Slot Type
-  - Distances (array of 3 integers)
-  - Available flag
+ - ID
+ - Slot Label
+ - Slot Type
+ - Distances (array of 3 integers)
+ - Available flag
 
 **API Endpoint:** GET `/api/v1/slots`
 
@@ -489,9 +489,9 @@ The OO Parking Lot System is an object-oriented parking management system that:
 
 **Output:**
 - Entry Points array with:
-  - ID
-  - Identifier
-  - Name
+ - ID
+ - Identifier
+ - Name
 
 **API Endpoint:** GET `/api/v1/entry_points`
 
@@ -775,16 +775,16 @@ Tab Navigation:
 
 ```mermaid
 flowchart TD
-    A[Start] --> B[Select Vehicle Type]
-    B --> C[Select Entry Point]
-    C --> D{Click Park Button}
-    D --> E[API Call: POST /sessions]
-    E --> F{Success?}
-    F -->|Yes| G[Display Success]
-    F -->|No| H[Display Error]
-    G --> I[Show Session ID & Slot]
-    H --> B
-    I --> J[End]
+- A[Start] --> B[Select Vehicle Type]
+- B --> C[Select Entry Point]
+- C --> D{Click Park Button}
+- D --> E[API Call: POST /sessions]
+- E --> F{Success?}
+- F -->|Yes| G[Display Success]
+- F -->|No| H[Display Error]
+- G --> I[Show Session ID & Slot]
+- H --> B
+- I --> J[End]
 ```
 
 **Requirements:**
@@ -798,16 +798,16 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Start] --> B[Enter Session ID]
-    B --> C{Click Calculate Button}
-    C --> D[API Call: POST /sessions/id/unpark]
-    D --> E{Success?}
-    E -->|Yes| F[Display Fee Breakdown]
-    E -->|No| G[Display Error]
-    F --> H[Show Total Fee]
-    H --> I[Generate Receipt]
-    G --> B
-    I --> J[End]
+- A[Start] --> B[Enter Session ID]
+- B --> C{Click Calculate Button}
+- C --> D[API Call: POST /sessions/id/unpark]
+- D --> E{Success?}
+- E -->|Yes| F[Display Fee Breakdown]
+- E -->|No| G[Display Error]
+- F --> H[Show Total Fee]
+- H --> I[Generate Receipt]
+- G --> B
+- I --> J[End]
 ```
 
 **Requirements:**
@@ -821,15 +821,15 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Start] --> B[Enter Session ID]
-    B --> C{Click View Button}
-    C --> D[API Call: GET /sessions/id]
-    D --> E{Found?}
-    E -->|Yes| F[Display Session Details]
-    E -->|No| G[Display Not Found]
-    F --> H[Show Status & Info]
-    G --> B
-    H --> I[End]
+- A[Start] --> B[Enter Session ID]
+- B --> C{Click View Button}
+- C --> D[API Call: GET /sessions/id]
+- D --> E{Found?}
+- E -->|Yes| F[Display Session Details]
+- E -->|No| G[Display Not Found]
+- F --> H[Show Status & Info]
+- G --> B
+- H --> I[End]
 ```
 
 **Requirements:**
@@ -1041,11 +1041,11 @@ flowchart TD
 ```javascript
 // Example polling implementation
 useEffect(() => {
-  const interval = setInterval(() => {
-    fetchSessions();
-  }, 30000); // 30 seconds
-  
-  return () => clearInterval(interval);
+ const interval = setInterval(() => {
+ fetchSessions();
+ }, 30000); // 30 seconds
+
+ return () => clearInterval(interval);
 }, [page, perPage]);
 ```
 
@@ -1075,14 +1075,14 @@ useEffect(() => {
 const cache = new Map();
 
 async function fetchWithCache(key, fetcher, ttl) {
-  const cached = cache.get(key);
-  if (cached && Date.now() - cached.timestamp < ttl) {
-    return cached.data;
-  }
-  
-  const data = await fetcher();
-  cache.set(key, { data, timestamp: Date.now() });
-  return data;
+ const cached = cache.get(key);
+ if (cached && Date.now() - cached.timestamp < ttl) {
+ return cached.data;
+ }
+
+ const data = await fetcher();
+ cache.set(key, { data, timestamp: Date.now() });
+ return data;
 }
 ```
 
@@ -1297,21 +1297,21 @@ Base Start Time: Jan 15, 2024 at 8:00 AM
 **Visual Representation:**
 - Grid layout for slots
 - Color coding by type:
-  - SP: Green
-  - MP: Blue
-  - LP: Purple
+ - SP: Green
+ - MP: Blue
+ - LP: Purple
 - Availability indicators:
-  - Available: Solid color
-  - Occupied: Grayed out
+ - Available: Solid color
+ - Occupied: Grayed out
 - Distance badge on each slot
 
 **Display Format:**
 ```
 Available Slots: 5
 
-[ SP-1 ]  [ MP-1 ]  [ LP-1 ]
-  10m        15m        20m
-Available   Available   Available
+[ SP-1 ] [ MP-1 ] [ LP-1 ]
+ 10m 15m 20m
+Available Available Available
 ```
 
 #### 7.1.4 Continuous Parking Status
@@ -1324,7 +1324,7 @@ Available   Available   Available
 
 **Display Format:**
 ```
-⚠️ Continuous Parking Detected
+- Continuous Parking Detected
 
 This vehicle returned within 1 hour of previous exit.
 Fee calculation starts from original park time.
@@ -1341,9 +1341,9 @@ Current Park Time: Jan 15, 2024 at 9:30 AM
 
 | Vehicle Type | SP | MP | LP |
 |--------------|-----|-----|-----|
-| Small (S) | ✅ | ✅ | ✅ |
-| Medium (M) | ❌ | ✅ | ✅ |
-| Large (L) | ❌ | ❌ | ✅ |
+| Small (S) | | | |
+| Medium (M) | | | |
+| Large (L) | | | |
 
 **Display in UI:**
 - Show compatible slot types when selecting vehicle type
@@ -1376,9 +1376,9 @@ Hourly Rate: ₱20.00/hour
 **Requirements:**
 - Display clear error message: "No available [vehicle type] parking slot. All [vehicle type] slots are occupied."
 - Show alternative options:
-  - Try different entry point
-  - Wait for slot to become available
-  - Contact administrator
+ - Try different entry point
+ - Wait for slot to become available
+ - Contact administrator
 - Display current slot availability by type
 - Provide estimated wait time (if available)
 
@@ -1422,8 +1422,8 @@ Duration: 50 hours
 Fee Breakdown
 ├─ Long-Term: 2 days × ₱5,000.00 = ₱10,000.00
 ├─ Remaining: 2 hours
-│  ├─ Base Fee: ₱40.00
-│  └─ Exceeding Fee: 2 × ₱20.00 = ₱40.00
+│ ├─ Base Fee: ₱40.00
+│ └─ Exceeding Fee: 2 × ₱20.00 = ₱40.00
 └─ Total Fee: ₱10,040.00
 ```
 
@@ -1535,23 +1535,23 @@ Fee Breakdown
 **Example Test:**
 ```javascript
 describe('useParkVehicle', () => {
-  it('should park vehicle successfully', async () => {
-    const { result } = renderHook(() => useParkVehicle());
-    await act(async () => {
-      await result.current.park('S', 'A');
-    });
-    expect(result.current.data).toBeDefined();
-    expect(result.current.loading).toBe(false);
-  });
-  
-  it('should handle no available slots', async () => {
-    const { result } = renderHook(() => useParkVehicle());
-    await act(async () => {
-      await result.current.park('S', 'A');
-    });
-    expect(result.current.error).toBeDefined();
-    expect(result.current.error.message).toContain('No available');
-  });
+ it('should park vehicle successfully', async () => {
+ const { result } = renderHook(() => useParkVehicle());
+ await act(async () => {
+ await result.current.park('S', 'A');
+ });
+ expect(result.current.data).toBeDefined();
+ expect(result.current.loading).toBe(false);
+ });
+
+ it('should handle no available slots', async () => {
+ const { result } = renderHook(() => useParkVehicle());
+ await act(async () => {
+ await result.current.park('S', 'A');
+ });
+ expect(result.current.error).toBeDefined();
+ expect(result.current.error.message).toContain('No available');
+ });
 });
 ```
 
@@ -1667,15 +1667,15 @@ describe('useParkVehicle', () => {
 const isDebugMode = import.meta.env.VITE_DEBUG_MODE === 'true';
 
 if (isDebugMode) {
-  // Show time input fields for testing
-  return (
-    <ParkVehicleForm>
-      <VehicleTypeSelector />
-      <EntryPointSelector />
-      {isDebugMode && <ParkedAtInput />}
-      <ParkButton />
-    </ParkVehicleForm>
-  );
+ // Show time input fields for testing
+ return (
+ <ParkVehicleForm>
+ <VehicleTypeSelector />
+ <EntryPointSelector />
+ {isDebugMode && <ParkedAtInput />}
+ <ParkButton />
+ </ParkVehicleForm>
+ );
 }
 ```
 
@@ -1711,40 +1711,40 @@ if (isDebugMode) {
 #### Success Response
 ```json
 {
-  "success": true,
-  "data": {
-    // Response data
-  }
+ "success": true,
+ "data": {
+ // Response data
+ }
 }
 ```
 
 #### Error Response
 ```json
 {
-  "success": false,
-  "error": "Error message"
+ "success": false,
+ "error": "Error message"
 }
 ```
 
 ### A.2 Fee Breakdown Response
 ```json
 {
-  "fee_breakdown": {
-    "total_fee": 80.0,
-    "duration_hours": 5,
-    "is_continuous": false,
-    "long_term": {
-      "days": 0,
-      "fee": 0.0
-    },
-    "remaining": {
-      "total": 80.0,
-      "base_fee": 40.0,
-      "exceeding_hours": 2,
-      "exceeding_fee": 40.0,
-      "hourly_rate": 20.0
-    }
-  }
+ "fee_breakdown": {
+ "total_fee": 80.0,
+ "duration_hours": 5,
+ "is_continuous": false,
+ "long_term": {
+ "days": 0,
+ "fee": 0.0
+ },
+ "remaining": {
+ "total": 80.0,
+ "base_fee": 40.0,
+ "exceeding_hours": 2,
+ "exceeding_fee": 40.0,
+ "hourly_rate": 20.0
+ }
+ }
 }
 ```
 
@@ -1774,5 +1774,5 @@ if (isDebugMode) {
 
 ---
 
-**Document Status:** Draft - Ready for Review  
+**Document Status:** Draft - Ready for Review
 **Next Steps:** User review and approval, then proceed to user journey flows and feature specifications

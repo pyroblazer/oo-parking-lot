@@ -5,9 +5,10 @@ Rails.logger.info '=== Starting Database Seeding ==='
 
 # Clear existing data
 Rails.logger.info 'Clearing existing data...'
-EntryPoint.delete_all
-ParkingSlot.delete_all
+# Delete in reverse order of dependencies to avoid foreign key violations
 ParkingSession.delete_all
+ParkingSlot.delete_all
+EntryPoint.delete_all
 
 # Create entry points
 Rails.logger.info 'Creating entry points...'
@@ -26,12 +27,12 @@ Rails.logger.info "Total entry points created: #{EntryPoint.count}"
 # Create parking slots
 Rails.logger.info 'Creating parking slots...'
 slots_data = [
-  { slot_label: 'SP-1', slot_type: 'SP', distances: [1, 4, 5] },
-  { slot_label: 'SP-2', slot_type: 'SP', distances: [3, 2, 4] },
-  { slot_label: 'SP-3', slot_type: 'SP', distances: [4, 1, 3] },
-  { slot_label: 'MP-1', slot_type: 'MP', distances: [5, 2, 3] },
-  { slot_label: 'MP-2', slot_type: 'MP', distances: [6, 3, 2] },
-  { slot_label: 'LP-1', slot_type: 'LP', distances: [7, 4, 2] },
+  { slot_label: 'SP-1', slot_type: 'SP', distances: [5, 15, 25] },
+  { slot_label: 'SP-2', slot_type: 'SP', distances: [10, 5, 15] },
+  { slot_label: 'SP-3', slot_type: 'SP', distances: [15, 5, 5] },
+  { slot_label: 'MP-1', slot_type: 'MP', distances: [10, 10, 20] },
+  { slot_label: 'MP-2', slot_type: 'MP', distances: [20, 10, 10] },
+  { slot_label: 'LP-1', slot_type: 'LP', distances: [15, 15, 15] },
   { slot_label: 'LP-2', slot_type: 'LP', distances: [2, 5, 6] }
 ]
 
@@ -50,5 +51,5 @@ end
 
 Rails.logger.info "Total parking slots created: #{ParkingSlot.count}"
 
-puts "Seeded #{EntryPoint.count} entry points and #{ParkingSlot.count} parking slots"
+Rails.logger.debug { "Seeded #{EntryPoint.count} entry points and #{ParkingSlot.count} parking slots" }
 Rails.logger.info '=== Database Seeding Complete ==='

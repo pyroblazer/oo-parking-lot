@@ -20,11 +20,13 @@ var TestDatabases = []string{
 // the test databases required for running Go tests
 func SetupTestDatabases() error {
 	// Get database configuration from environment variables
-	host := getEnv("DATABASE_HOST", "localhost")
-	port := getEnv("DATABASE_PORT", "5432")
-	user := getEnv("DATABASE_USER", "postgres")
-	password := getEnv("DATABASE_PASSWORD", "")
-	defaultDB := getEnv("DATABASE_NAME", "oo_parking_lot")
+	host := GetEnv("DATABASE_HOST", "localhost")
+	port := GetEnv("DATABASE_PORT", "5432")
+	user := GetEnv("DATABASE_USER", "postgres")
+	password := GetEnv("DATABASE_PASSWORD", "")
+	// Always use 'postgres' database for setup, not the application database
+	// This ensures we can create test databases even if the app database doesn't exist
+	defaultDB := "postgres"
 
 	// Connect to the default database (not test databases)
 	// We need to connect to an existing database to create new ones
@@ -98,11 +100,13 @@ func createDatabaseIfNotExists(db *sql.DB, dbName string) error {
 // This is optional and can be used for cleanup after tests
 // Commented out by default for debugging purposes
 func DropTestDatabases() error {
-	host := getEnv("DATABASE_HOST", "localhost")
-	port := getEnv("DATABASE_PORT", "5432")
-	user := getEnv("DATABASE_USER", "postgres")
-	password := getEnv("DATABASE_PASSWORD", "")
-	defaultDB := getEnv("DATABASE_NAME", "oo_parking_lot")
+	host := GetEnv("DATABASE_HOST", "localhost")
+	port := GetEnv("DATABASE_PORT", "5432")
+	user := GetEnv("DATABASE_USER", "postgres")
+	password := GetEnv("DATABASE_PASSWORD", "")
+	// Always use 'postgres' database for setup, not the application database
+	// This ensures we can drop test databases even if the app database doesn't exist
+	defaultDB := "postgres"
 
 	connStr := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable timezone=UTC",

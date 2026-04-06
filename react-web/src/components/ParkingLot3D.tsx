@@ -1,6 +1,6 @@
 /**
  * ParkingLot3D Component
- * 
+ *
  * This component provides a 3D visualization of the parking lot using Three.js.
  * Includes interactive slots, vehicles, and entry points with smooth animations.
  */

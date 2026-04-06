@@ -39,7 +39,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
 
   describe '#calculate' do
     it 'raises NotImplementedError by default' do
-      base_strategy = Pricing::BasePricingStrategy.new(session)
+      base_strategy = described_class.new(session)
       expect do
         base_strategy.calculate
       end.to raise_error(NotImplementedError, 'Subclasses must implement #calculate')
@@ -53,7 +53,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
 
   describe '#breakdown' do
     it 'raises NotImplementedError by default' do
-      base_strategy = Pricing::BasePricingStrategy.new(session)
+      base_strategy = described_class.new(session)
       expect do
         base_strategy.breakdown
       end.to raise_error(NotImplementedError, 'Subclasses must implement #breakdown')
@@ -70,7 +70,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
   end
 
   describe '#duration_hours' do
-    let(:base_strategy) { Pricing::BasePricingStrategy.new(session) }
+    let(:base_strategy) { described_class.new(session) }
 
     context 'with completed session' do
       it 'calculates duration in hours' do
@@ -91,7 +91,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
       end
 
       it 'calculates duration from parked_at to now' do
-        base_strategy = Pricing::BasePricingStrategy.new(active_session)
+        base_strategy = described_class.new(active_session)
         duration = base_strategy.send(:duration_hours)
         expect(duration).to be_a(Numeric)
         expect(duration).to be >= 2
@@ -109,7 +109,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
       end
 
       it 'calculates zero duration' do
-        base_strategy = Pricing::BasePricingStrategy.new(zero_duration_session)
+        base_strategy = described_class.new(zero_duration_session)
         duration = base_strategy.send(:duration_hours)
         expect(duration).to eq(0)
       end
@@ -126,7 +126,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
       end
 
       it 'returns the actual fractional duration' do
-        base_strategy = Pricing::BasePricingStrategy.new(fractional_session)
+        base_strategy = described_class.new(fractional_session)
         duration = base_strategy.send(:duration_hours)
         # The implementation returns the raw BigDecimal duration without rounding
         # Use be_within to handle floating point precision differences
@@ -137,7 +137,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
   end
 
   describe '#total_continuous_duration' do
-    let(:base_strategy) { Pricing::BasePricingStrategy.new(session) }
+    let(:base_strategy) { described_class.new(session) }
 
     context 'with continuous parking' do
       before do
@@ -159,7 +159,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
       end
 
       it 'calculates duration from base start time' do
-        base_strategy = Pricing::BasePricingStrategy.new(continuous_session)
+        base_strategy = described_class.new(continuous_session)
         duration = base_strategy.send(:total_continuous_duration)
         expect(duration).to be >= 4.5
       end
@@ -167,7 +167,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
 
     context 'without continuous parking' do
       it 'calculates duration from current parked_at' do
-        base_strategy = Pricing::BasePricingStrategy.new(session)
+        base_strategy = described_class.new(session)
         duration = base_strategy.send(:total_continuous_duration)
         # For non-continuous parking, total_continuous_duration equals duration_hours
         # Use be_within to handle floating point precision differences
@@ -177,7 +177,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
   end
 
   describe '#calculate_long_term' do
-    let(:base_strategy) { Pricing::BasePricingStrategy.new(session) }
+    let(:base_strategy) { described_class.new(session) }
 
     context 'with duration less than 24 hours' do
       it 'returns 0 days and full duration' do
@@ -224,7 +224,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
   end
 
   describe '#hourly_rate' do
-    let(:base_strategy) { Pricing::BasePricingStrategy.new(session) }
+    let(:base_strategy) { described_class.new(session) }
 
     context 'with SP slot type' do
       it 'returns SP hourly rate' do
@@ -296,7 +296,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
   describe 'edge cases' do
     context 'with negative duration' do
       it 'handles negative duration in calculate_long_term' do
-        base_strategy = Pricing::BasePricingStrategy.new(session)
+        base_strategy = described_class.new(session)
         days, = base_strategy.send(:calculate_long_term, -10)
         expect(days).to be <= 0
       end
@@ -304,7 +304,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
 
     context 'with very large duration' do
       it 'handles very large duration in calculate_long_term' do
-        base_strategy = Pricing::BasePricingStrategy.new(session)
+        base_strategy = described_class.new(session)
         days, remaining = base_strategy.send(:calculate_long_term, 1_000_000)
         expect(days).to be_a(Numeric)
         expect(remaining).to be_a(Numeric)
@@ -314,7 +314,7 @@ RSpec.describe Pricing::BasePricingStrategy, type: :service do
     context 'with nil session' do
       it 'handles nil session gracefully' do
         expect do
-          Pricing::BasePricingStrategy.new(nil)
+          described_class.new(nil)
         end.to raise_error(ArgumentError, 'Session cannot be nil')
       end
     end

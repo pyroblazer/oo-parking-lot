@@ -1,6 +1,7 @@
 package models
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -312,11 +313,11 @@ func TestKafkaEvent_MarkPublished(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			event := &KafkaEvent{Status: "pending"}
 			event.MarkPublished(tt.partition, tt.offset)
-
+ 
 			assert.Equal(t, "published", event.Status)
 			assert.Equal(t, tt.partition, event.Partition)
-			assert.NotNil(t, event.Offset)
-			assert.Equal(t, tt.offset, *event.Offset)
+			assert.NotNil(t, event.KafkaOffset)
+			assert.Equal(t, tt.offset, *event.KafkaOffset)
 			assert.NotNil(t, event.PublishedAt)
 		})
 	}
@@ -592,4 +593,48 @@ func TestKafkaEvent_EventKey(t *testing.T) {
 		event := &KafkaEvent{EventKey: nil}
 		assert.Nil(t, event.EventKey)
 	})
+}
+
+// TestKafkaEvent_ConcurrentStatusUpdates tests that concurrent status updates to Kafka events are handled correctly
+func TestKafkaEvent_ConcurrentStatusUpdates(t *testing.T) {
+	event := &KafkaEvent{
+		ID:         "test-event-123",
+		EventType:  EventTypeVehicleParked,
+		Status:     "pending",
+		RetryCount: 0,
+	}
+
+	// Use a mutex to synchronize access to the event
+	var mu sync.Mutex
+
+	// Simulate concurrent status updates using goroutines
+	numGoroutines := 10
+	done := make(chan bool, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func(index int) {
+			mu.Lock()
+			// Each goroutine tries to update the status
+			if index%2 == 0 {
+				event.MarkPublished(index, int64(index*100))
+			} else if index%3 == 0 {
+				event.MarkFailed("Test error message")
+			} else {
+				event.MarkRetrying()
+			}
+			mu.Unlock()
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	for i := 0; i < numGoroutines; i++ {
+		<-done
+	}
+
+	// Verify final status is consistent
+	// The last update should win, but we should have a valid status
+	assert.True(t, event.IsValidStatus(), "Final status should be valid")
+	assert.Contains(t, []string{"pending", "published", "failed", "retrying"}, event.Status,
+		"Final status should be one of the valid statuses")
 }

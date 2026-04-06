@@ -31,7 +31,7 @@ RSpec.describe KafkaEventRetryJob, type: :worker do
       end
 
       it 'retries events with retry_count < 5' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
         allow(producer).to receive(:publish).and_return(failed_event)
 
@@ -59,7 +59,7 @@ RSpec.describe KafkaEventRetryJob, type: :worker do
                     status: 'failed',
                     retry_count: 2)
 
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
         allow(producer).to receive(:publish).and_return(nil)
 
@@ -84,7 +84,7 @@ RSpec.describe KafkaEventRetryJob, type: :worker do
       end
 
       it 'updates event status to published' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
         allow(producer).to receive(:publish).and_return(failed_event)
 
@@ -95,7 +95,7 @@ RSpec.describe KafkaEventRetryJob, type: :worker do
       end
 
       it 'does not increment retry count' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
         allow(producer).to receive(:publish).and_return(failed_event)
 
@@ -116,7 +116,7 @@ RSpec.describe KafkaEventRetryJob, type: :worker do
       end
 
       it 'increments retry count' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
         allow(producer).to receive(:publish).and_raise(KafkaProducer::PublishError, 'Failed to publish')
 
@@ -127,7 +127,7 @@ RSpec.describe KafkaEventRetryJob, type: :worker do
       end
 
       it 'updates event status to retrying' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
         allow(producer).to receive(:publish).and_raise(KafkaProducer::PublishError, 'Failed to publish')
 
@@ -138,7 +138,7 @@ RSpec.describe KafkaEventRetryJob, type: :worker do
       end
 
       it 'stores error message' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
         allow(producer).to receive(:publish).and_raise(KafkaProducer::PublishError, 'Failed to publish')
 

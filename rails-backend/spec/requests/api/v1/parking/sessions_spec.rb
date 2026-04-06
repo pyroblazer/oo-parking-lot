@@ -12,7 +12,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
             vehicle_type: 'S',
             entry_point_id: entry_point.identifier
           }, as: :json
-        end.to change { ParkingSession.count }.by(1)
+        end.to change(ParkingSession, :count).by(1)
       end
 
       it 'returns session details' do
@@ -22,7 +22,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
         }, as: :json
 
         expect(response).to have_http_status(:created)
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']['vehicle_type']).to eq('S')
         expect(json['data']['parking_slot']['slot_type']).to eq('SP')
         expect(json['data']['is_active']).to be true
@@ -37,7 +37,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
           entry_point_id: entry_point.identifier
         }, as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']['session_id']).to be_present
       end
     end
@@ -50,7 +50,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
         }, as: :json
 
         expect(response).to have_http_status(:bad_request)
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['error']).to be_present
       end
     end
@@ -79,7 +79,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
         }, as: :json
 
         expect(response).to have_http_status(:unprocessable_content)
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['error']).to include('Entry point not found')
       end
     end
@@ -96,7 +96,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
         }, as: :json
 
         expect(response).to have_http_status(:conflict)
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['error']).to include('No available parking slot')
       end
     end
@@ -123,14 +123,14 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
         post "/api/v1/sessions/#{session.id}/unpark", as: :json
 
         expect(response).to have_http_status(:ok)
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']['total_fee']).to be_a(Numeric)
       end
 
       it 'returns fee breakdown' do
         post "/api/v1/sessions/#{session.id}/unpark", as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']['fee_breakdown']).to be_present
         expect(json['data']['duration_hours']).to be_present
         expect(json['data']['fee_breakdown']['long_term']).to be_present
@@ -148,7 +148,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
         post "/api/v1/sessions/#{session.id}/unpark", as: :json
 
         expect(response).to have_http_status(:not_found)
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['error']).to include('already unparked')
       end
     end
@@ -176,7 +176,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
         get "/api/v1/sessions/#{session.id}", as: :json
 
         expect(response).to have_http_status(:ok)
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']['session_id']).to eq(session.id)
         expect(json['data']['vehicle_type']).to eq('S')
         expect(json['data']['is_active']).to be true
@@ -188,7 +188,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
       it 'includes parking slot information' do
         get "/api/v1/sessions/#{session.id}", as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']['parking_slot']).to be_present
         expect(json['data']['parking_slot']['slot_label']).to eq(parking_slot.slot_label)
       end
@@ -196,7 +196,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
       it 'includes entry point information' do
         get "/api/v1/sessions/#{session.id}", as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']['entry_point']).to be_present
         expect(json['data']['entry_point']).to eq(entry_point.identifier)
       end
@@ -224,7 +224,7 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
       get '/api/v1/sessions', as: :json
 
       expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['data']).to be_an(Array)
       expect(json['data'].length).to eq(3)
       json['data'].each do |session|
@@ -238,8 +238,8 @@ RSpec.describe 'Api::V1::Parking::SessionsController', type: :request do
     it 'orders sessions by parked_at desc' do
       get '/api/v1/sessions', as: :json
 
-      json = JSON.parse(response.body)
-      timestamps = json['data'].map { |s| s['parked_at'] }
+      json = response.parsed_body
+      timestamps = json['data'].pluck('parked_at')
       expect(timestamps).to eq(timestamps.sort.reverse)
     end
   end

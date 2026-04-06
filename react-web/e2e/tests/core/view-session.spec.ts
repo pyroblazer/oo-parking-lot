@@ -88,7 +88,17 @@ test.describe('FEAT-004: View Session - Happy Path', () => {
     await page.goto('/park');
     await page.waitForSelector('[data-testid="park-vehicle"]');
     await page.selectOption('[data-testid="vehicle-type-select"]', 'S');
-    await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
+    // Wait for entry point select with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 0 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
     await page.click('[data-testid="park-vehicle-submit"]');
     await page.waitForLoadState('networkidle');
     
@@ -110,8 +120,8 @@ test.describe('FEAT-004: View Session - Happy Path', () => {
   test('should navigate from unpark success to view session', async ({ page }) => {
     // First unpark a vehicle
     await page.goto('/unpark');
-    await page.waitForSelector('input#sessionId');
-    await page.fill('input#sessionId', 'test-session-123');
+    await page.waitForSelector('input[id="sessionId"], [data-testid="session-id-input"]');
+    await page.fill('input[id="sessionId"], [data-testid="session-id-input"]', 'test-session-123');
     await page.click('button:has-text("Calculate Fee")');
     await page.waitForLoadState('networkidle');
     
@@ -243,7 +253,7 @@ test.describe('FEAT-004: View Session - Validation', () => {
     const formVisible = await page.locator('form').count() > 0;
     
     if (formVisible) {
-      const sessionIdInput = page.locator('input#sessionId, input[type="text"]');
+      const sessionIdInput = page.locator('input[id="sessionId"], [data-testid="session-id-input"]');
       await sessionIdInput.fill('');
       
       const submitButton = page.locator('button[type="submit"]');
@@ -332,7 +342,7 @@ test.describe('FEAT-004: View Session - UI/UX', () => {
       expect(true).toBeTruthy();
     } else {
       const formVisible = await page.locator('form').count() > 0;
-      const sessionIdInput = page.locator('input#sessionId, input[type="text"]');
+      const sessionIdInput = page.locator('input[id="sessionId"], [data-testid="session-id-input"]');
       const hasInput = await sessionIdInput.count() > 0;
       expect(formVisible || hasInput).toBeTruthy();
     }

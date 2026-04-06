@@ -18,6 +18,11 @@ Rails.application.configure do
     config.cache_store = :null_store
   end
 
+  # Allow Docker hosts for development
+  config.hosts << 'host.docker.internal'
+  config.hosts << '.docker.internal'
+  config.hosts << 'localhost'
+
   config.action_mailer.raise_delivery_errors = false
   config.action_mailer.perform_caching = false
   config.active_support.deprecation = :log

@@ -84,9 +84,10 @@ RSpec.describe PricingEngine, type: :service do
   end
 
   describe '#breakdown' do
+    subject { described_class.new(session).breakdown }
+
     let(:entry_point) { create(:entry_point, identifier: 'E') }
     let(:parking_slot) { create(:parking_slot, slot_type: 'SP', entry_point: entry_point) }
-    subject { described_class.new(session).breakdown }
 
     it 'returns detailed breakdown' do
       expect(subject).to include(
@@ -112,7 +113,7 @@ RSpec.describe PricingEngine, type: :service do
     it 'registers a custom strategy' do
       expect do
         described_class.register_strategy('custom', custom_strategy)
-      end.to change { described_class.available_strategies }.from(include('standard')).to(include('custom'))
+      end.to change(described_class, :available_strategies).from(include('standard')).to(include('custom'))
     end
   end
 

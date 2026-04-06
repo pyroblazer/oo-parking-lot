@@ -2,23 +2,28 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog"
 
 	"github.com/pyroblazer/oo-parking-lot/go-backend/internal/database"
 	"github.com/pyroblazer/oo-parking-lot/go-backend/internal/handlers"
 	"github.com/pyroblazer/oo-parking-lot/go-backend/internal/middleware"
 	"github.com/pyroblazer/oo-parking-lot/go-backend/internal/repositories"
 	"github.com/pyroblazer/oo-parking-lot/go-backend/internal/services"
+	"github.com/pyroblazer/oo-parking-lot/go-backend/internal/worker"
 )
 
 // initializeDatabase runs database initialization script to create tables and seed data
@@ -33,16 +38,14 @@ func initializeDatabase(db *sql.DB) error {
 	statements := splitSQLStatements(string(script))
 
 	// Execute each statement
-	for i, stmt := range statements {
+	for _, stmt := range statements {
 		if stmt == "" {
 			continue
 		}
-		log.Printf("Executing statement %d...", i+1)
 		_, err = db.Exec(stmt)
 		if err != nil {
-			return fmt.Errorf("failed to execute statement %d: %w", i+1, err)
+			return fmt.Errorf("failed to execute SQL statement: %w", err)
 		}
-		log.Printf("Statement %d executed successfully", i+1)
 	}
 
 	log.Println("Database initialized successfully")
@@ -66,7 +69,6 @@ func splitSQLStatements(script string) []string {
 		// Check if the line ends with a semicolon
 		if strings.HasSuffix(trimmed, ";") {
 			stmt := currentStatement.String()
-			log.Printf("Statement %d: %s", len(statements)+1, stmt)
 			statements = append(statements, stmt)
 			currentStatement.Reset()
 		}
@@ -75,7 +77,6 @@ func splitSQLStatements(script string) []string {
 	// Add the last statement if it doesn't end with a semicolon
 	if currentStatement.Len() > 0 {
 		stmt := currentStatement.String()
-		log.Printf("Statement %d: %s", len(statements)+1, stmt)
 		statements = append(statements, stmt)
 		currentStatement.Reset()
 	}
@@ -96,22 +97,27 @@ func main() {
 	}
 
 	// Ensure available column exists in parking_slots table
-	if err := database.EnsureAvailableColumn(db.GetDB()); err != nil {
-		log.Printf("Warning: failed to ensure available column: %v", err)
-	}
+	// NOTE: database.EnsureAvailableColumn is not implemented - column is created by init-db.sql script
+	// if err := database.EnsureAvailableColumn(db.GetDB()); err != nil {
+	// 	log.Printf("Warning: failed to ensure available column: %v", err)
+	// }
 
 	// Initialize database schema and seed data if needed
+	// This is critical - if initialization fails, the server should not start
 	if err := initializeDatabase(db.GetDB()); err != nil {
-		log.Printf("Warning: failed to initialize database schema: %v", err)
+		log.Fatalf("Failed to initialize database schema: %v", err)
 	}
 
 	// Initialize repositories
 	entryPointRepo := repositories.NewEntryPointRepository(db.GetDB())
 	parkingSlotRepo := repositories.NewParkingSlotRepository(db.GetDB())
 	sessionRepo := repositories.NewParkingSessionRepository(db.GetDB())
+	vehicleRepo := repositories.NewVehicleRepository(db.GetDB())
+	billingAuditLogRepo := repositories.NewBillingAuditLogRepository(db.GetDB())
+	kafkaEventRepo := repositories.NewKafkaEventRepository(db.GetDB())
 
 	// Initialize services
-	parkingService := services.NewParkingService(entryPointRepo, parkingSlotRepo, sessionRepo)
+	parkingService := services.NewParkingServiceWithFullRepos(entryPointRepo, parkingSlotRepo, sessionRepo, vehicleRepo, billingAuditLogRepo, kafkaEventRepo)
 
 	// Initialize handlers
 	parkingHandler := handlers.NewParkingHandler(parkingService)
@@ -119,9 +125,30 @@ func main() {
 	// Setup router
 	router := mux.NewRouter()
 
+	// Custom 404 handler that returns JSON instead of plain text
+	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "404 page not found",
+		}); err != nil {
+			log.Printf("Warning: failed to write 404 response: %v", err)
+		}
+	})
+
+	// Apply logging middleware first (before CORS so all requests are logged)
+	router.Use(middleware.RequestLogger)
+
+	// Apply Prometheus metrics middleware to record request durations
+	router.Use(middleware.MetricsMiddleware)
+
 	// Apply CORS middleware to all routes
 	corsMiddleware := middleware.CORS(middleware.DefaultCORSConfig())
 	router.Use(corsMiddleware)
+
+	// Expose Prometheus metrics endpoint
+	router.Handle("/metrics", middleware.MetricsHandler()).Methods("GET")
 
 	// API routes
 	api := router.PathPrefix("/api/v1").Subrouter()
@@ -139,17 +166,26 @@ func main() {
 	api.HandleFunc("/sessions", parkingHandler.ParkVehicle).Methods("POST")
 	api.HandleFunc("/sessions", parkingHandler.ListSessions).Methods("GET")
 	api.HandleFunc("/sessions", preflightHandler).Methods("OPTIONS")
+	api.HandleFunc("/sessions/recent_exits", parkingHandler.RecentExitsHandler).Methods("GET")
 	api.HandleFunc("/sessions/{id}", parkingHandler.GetSession).Methods("GET")
+	api.HandleFunc("/sessions/{id}", parkingHandler.UpdateSession).Methods("PUT")
 	api.HandleFunc("/sessions/{id}", parkingHandler.DeleteSession).Methods("DELETE")
 	api.HandleFunc("/sessions/{id}", preflightHandler).Methods("OPTIONS")
 	api.HandleFunc("/sessions/{id}/unpark", parkingHandler.UnparkVehicle).Methods("POST")
 	api.HandleFunc("/sessions/{id}/unpark", preflightHandler).Methods("OPTIONS")
+	// NOTE: ClearSessions is not implemented
+	// api.HandleFunc("/sessions/clear", parkingHandler.ClearSessions).Methods("DELETE")
+	// api.HandleFunc("/sessions/clear", preflightHandler).Methods("OPTIONS")
+	// NOTE: ResetTestCounter is not implemented
+	// api.HandleFunc("/sessions/reset-test-counter", parkingHandler.ResetTestCounter).Methods("POST")
+	// api.HandleFunc("/sessions/reset-test-counter", preflightHandler).Methods("OPTIONS")
 
 	// Parking slots routes
 	api.HandleFunc("/slots", parkingHandler.ListSlots).Methods("GET")
 	api.HandleFunc("/slots", parkingHandler.CreateSlot).Methods("POST")
 	api.HandleFunc("/slots", preflightHandler).Methods("OPTIONS")
 	api.HandleFunc("/slots/available", parkingHandler.AvailableSlots).Methods("GET")
+	api.HandleFunc("/slots/{id}", parkingHandler.GetSlot).Methods("GET")
 	api.HandleFunc("/slots/{id}", parkingHandler.UpdateSlot).Methods("PUT")
 	api.HandleFunc("/slots/{id}", parkingHandler.DeleteSlot).Methods("DELETE")
 	api.HandleFunc("/slots/{id}", preflightHandler).Methods("OPTIONS")
@@ -158,6 +194,7 @@ func main() {
 	api.HandleFunc("/entry_points", parkingHandler.ListEntryPoints).Methods("GET")
 	api.HandleFunc("/entry_points", parkingHandler.CreateEntryPoint).Methods("POST")
 	api.HandleFunc("/entry_points", preflightHandler).Methods("OPTIONS")
+	api.HandleFunc("/entry_points/{id}", parkingHandler.GetEntryPoint).Methods("GET")
 	api.HandleFunc("/entry_points/{id}", parkingHandler.UpdateEntryPoint).Methods("PUT")
 	api.HandleFunc("/entry_points/{id}", parkingHandler.DeleteEntryPoint).Methods("DELETE")
 	api.HandleFunc("/entry_points/{id}", preflightHandler).Methods("OPTIONS")
@@ -165,6 +202,21 @@ func main() {
 	// Initialize system route
 	api.HandleFunc("/initialize", parkingHandler.InitializeSystem).Methods("POST")
 	api.HandleFunc("/initialize", preflightHandler).Methods("OPTIONS")
+
+	// Billing audit logs routes (read-only)
+	api.HandleFunc("/billing_audit_logs", parkingHandler.ListBillingAuditLogs).Methods("GET")
+	api.HandleFunc("/billing_audit_logs/{id}", parkingHandler.GetBillingAuditLog).Methods("GET")
+	api.HandleFunc("/billing_audit_logs/session", parkingHandler.GetBillingAuditLogsBySessionID).Methods("GET")
+
+	// Kafka events routes (read-only)
+	api.HandleFunc("/kafka_events", parkingHandler.ListKafkaEvents).Methods("GET")
+	api.HandleFunc("/kafka_events/{id}", parkingHandler.GetKafkaEvent).Methods("GET")
+	api.HandleFunc("/kafka_events/status", parkingHandler.GetKafkaEventsByStatus).Methods("GET")
+	api.HandleFunc("/kafka_events/event_type", parkingHandler.GetKafkaEventsByEventType).Methods("GET")
+
+	// NOTE: ResetTestDatabase is not implemented
+	// api.HandleFunc("/test/reset-database", parkingHandler.ResetTestDatabase).Methods("POST")
+	// api.HandleFunc("/test/reset-database", preflightHandler).Methods("OPTIONS")
 
 	// Health check
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -184,11 +236,13 @@ func main() {
 			"service":   "parking-lot-api",
 			"version":   "1.0.0",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
-			"database":  dbStatus,
 			"checks": map[string]interface{}{
 				"database": map[string]interface{}{
 					"status": dbStatus,
 				},
+			},
+			"data": map[string]interface{}{
+				"status": dbStatus,
 			},
 		}
 
@@ -200,6 +254,36 @@ func main() {
 	// OPTIONS preflight for /health — browsers send this before the GET
 	// when the request comes from a different origin.
 	router.HandleFunc("/health", preflightHandler).Methods("OPTIONS")
+
+	// Start Asynq worker if Redis is available
+	redisAddr := ""
+	if rawURL := os.Getenv("REDIS_URL"); rawURL != "" {
+		// Strip redis:// or rediss:// prefix to get host:port
+		addr := rawURL
+		if idx := strings.Index(rawURL, "://"); idx != -1 {
+			addr = rawURL[idx+3:]
+		}
+		// Remove trailing /db suffix (e.g., localhost:6379/0 -> localhost:6379)
+		if idx := strings.Index(addr, "/"); idx != -1 {
+			addr = addr[:idx]
+		}
+		redisAddr = addr
+	} else if host := os.Getenv("REDIS_HOST"); host != "" {
+		redisAddr = host + ":6379"
+	}
+	var bgWorker *worker.Worker
+	if redisAddr != "" {
+		zlog := zerolog.New(os.Stdout).With().Timestamp().Logger()
+		bgWorker = worker.NewWorker(redisAddr, &zlog)
+		go func() {
+			log.Printf("Starting Asynq worker with Redis at %s", redisAddr)
+			if err := bgWorker.Start(); err != nil {
+				log.Printf("Worker stopped: %v", err)
+			}
+		}()
+	} else {
+		log.Printf("No REDIS_URL set — Asynq worker disabled")
+	}
 
 	// Start server
 	port := os.Getenv("PORT")
@@ -218,7 +302,32 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	if err := server.ListenAndServe(); err != nil {
+	// Graceful shutdown
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		sig := <-sigChan
+		log.Printf("Received signal %v, shutting down gracefully...", sig)
+
+		// Stop the worker first
+		if bgWorker != nil {
+			bgWorker.Stop()
+		}
+
+		// Shutdown HTTP server with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
+
+		// Close database
+		if err := db.Close(); err != nil {
+			log.Printf("Database close error: %v", err)
+		}
+	}()
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Printf("Failed to start server: %v", err)
 		if err := db.Close(); err != nil {
 			log.Printf("Warning: failed to close database: %v", err)

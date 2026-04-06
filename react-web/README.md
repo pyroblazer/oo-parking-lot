@@ -33,7 +33,7 @@ ReactJS web application for Object-Oriented Mall parking system.
 
 1. Install dependencies:
 ```bash
-npm install
+bun install
 ```
 
 2. Configure environment:
@@ -44,7 +44,7 @@ cp .env.example .env
 
 3. Run development server:
 ```bash
-npm run dev
+bun run dev
 ```
 
 The app will be available at `http://localhost:3002`

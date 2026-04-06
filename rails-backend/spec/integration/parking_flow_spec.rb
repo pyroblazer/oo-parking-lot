@@ -322,6 +322,14 @@ RSpec.describe 'Parking Flow Integration', type: :request do
     # - Tracking frequent visitors for loyalty programs
     # - Applying special rates for continuous parking sessions
     # - Preventing abuse of short-term parking rates
+    #
+    # Fee calculation for continuous parking:
+    # - Vehicles returning within 1 hour of exit are charged a continuous rate
+    # - Treated as if they never left (total duration = first session + gap + second session)
+    # - Base rate: 40 pesos for first 3 hours
+    # - Exceeding rates: SP=20/hour, MP=60/hour, LP=100/hour
+    # - 24-hour rule: 5,000 pesos per full 24-hour chunk
+    # - Always round up hours
     context 'Continuous Parking' do
       # Test that the system detects continuous parking within the threshold
       #
@@ -332,39 +340,639 @@ RSpec.describe 'Parking Flow Integration', type: :request do
       # 4. System should mark the second session as continuous
       #
       # The continuous parking threshold is 1 hour from the previous session's exit time
-      it 'detects continuous parking within threshold' do
+      #
+      # Fee calculation:
+      # - First session: 30 minutes (rounds up to 1 hour) = 40 pesos (base rate)
+      # - Gap between sessions: 45 minutes
+      # - Second session: 2 hours
+      # - Total continuous duration: 30 min + 45 min + 2 hours = 3 hours 15 min (rounds up to 4 hours)
+      # - Expected fee: 40 (base) + 20 (1 hour exceeding at SP rate) = 60 pesos
+      it 'detects continuous parking within threshold and calculates correct fee' do
         # Create available slots for the test
         create(:parking_slot, slot_type: 'SP', entry_point: entry_point, status: 'available')
         create(:parking_slot, slot_type: 'SP', entry_point: entry_point, status: 'available')
 
+        # Capture reference time for absolute time calculations
+        reference_time = Time.current
+
         # Park first session
         # Create the initial parking session
+        Timecop.freeze(reference_time) do
+          post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+          expect(response).to have_http_status(:created)
+          json = JSON.parse(response.body)
+          first_session_id = json['data']['session_id']
+          ParkingSession.find(first_session_id)
+
+          # Unpark after 30 minutes
+          # Simulate the vehicle leaving after a short stay
+          Timecop.travel(30.minutes.from_now) do
+            post "/api/v1/sessions/#{first_session_id}/unpark"
+            expect(response).to have_http_status(:ok)
+            json = JSON.parse(response.body)
+            # First session fee: 30 minutes rounds up to 1 hour = 40 pesos
+            expect(json['data']['total_fee']).to eq(40.0)
+          end
+
+          # Park again within 1 hour
+          # Vehicle re-enters within the continuous parking threshold
+          # Use absolute time: reference + 30 minutes + 45 minutes = 75 minutes from start
+          Timecop.freeze(reference_time + 30.minutes + 45.minutes) do
+            post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+            expect(response).to have_http_status(:created)
+            json = JSON.parse(response.body)
+            second_session_id = json['data']['session_id']
+
+            # Verify that continuous parking is detected
+            # The system should mark this session as continuous
+            second_session = ParkingSession.find(second_session_id)
+            expect(second_session.continuous?).to be true
+
+            # Unpark after 2 hours
+            Timecop.travel(2.hours.from_now) do
+              post "/api/v1/sessions/#{second_session_id}/unpark"
+              expect(response).to have_http_status(:ok)
+              json = JSON.parse(response.body)
+
+              # Total continuous duration: 30 min + 45 min + 2 hours = 3 hours 15 min
+              # Rounded up to 4 hours
+              # Expected fee: 40 (base for first 3 hours) + 20 (1 hour exceeding at SP rate) = 60 pesos
+              expect(json['data']['total_fee']).to eq(60.0)
+              expect(json['data']['duration_hours']).to eq(4.0)
+              expect(json['data']['is_continuous']).to be true
+            end
+          end
+        end
+      end
+
+      # Test continuous parking with MP slot type
+      #
+      # Scenario:
+      # 1. Medium vehicle parks for 1 hour
+      # 2. Vehicle exits and unparks
+      # 3. Vehicle re-enters within 1 hour
+      # 4. Parks for 3 hours
+      #
+      # Fee calculation:
+      # - Total continuous duration: 1 hour + 30 min gap + 3 hours = 4 hours 30 min (rounds up to 5 hours)
+      # - Expected fee: 40 (base) + 60*2 (2 hours exceeding at MP rate) = 160 pesos
+      it 'calculates correct continuous parking fee for MP slot' do
+        # Create available MP slots
+        create(:parking_slot, slot_type: 'MP', entry_point: entry_point, status: 'available')
+        create(:parking_slot, slot_type: 'MP', entry_point: entry_point, status: 'available')
+
+        # Capture reference time for absolute time calculations
+        reference_time = Time.current
+
+        # Park first session
+        Timecop.freeze(reference_time) do
+          post '/api/v1/sessions', params: { vehicle_type: 'M', entry_point_id: entry_point.identifier }
+          expect(response).to have_http_status(:created)
+          json = JSON.parse(response.body)
+          first_session_id = json['data']['session_id']
+
+          # Unpark after 1 hour
+          Timecop.travel(1.hour.from_now) do
+            post "/api/v1/sessions/#{first_session_id}/unpark"
+            expect(response).to have_http_status(:ok)
+            json = JSON.parse(response.body)
+            # First session fee: 1 hour = 40 pesos
+            expect(json['data']['total_fee']).to eq(40.0)
+          end
+
+          # Park again within 1 hour (30 minutes after unpark)
+          # Use absolute time: reference + 1 hour + 30 minutes
+          Timecop.freeze(reference_time + 1.hour + 30.minutes) do
+            post '/api/v1/sessions', params: { vehicle_type: 'M', entry_point_id: entry_point.identifier }
+            expect(response).to have_http_status(:created)
+            json = JSON.parse(response.body)
+            second_session_id = json['data']['session_id']
+
+            second_session = ParkingSession.find(second_session_id)
+            expect(second_session.continuous?).to be true
+
+            # Unpark after 3 hours
+            Timecop.travel(3.hours.from_now) do
+              post "/api/v1/sessions/#{second_session_id}/unpark"
+              expect(response).to have_http_status(:ok)
+              json = JSON.parse(response.body)
+
+              # Total continuous duration: 1 hour + 30 min + 3 hours = 4 hours 30 min
+              # Rounded up to 5 hours
+              # Expected fee: 40 (base) + 60*2 (2 hours exceeding at MP rate) = 160 pesos
+              expect(json['data']['total_fee']).to eq(160.0)
+              expect(json['data']['duration_hours']).to eq(5.0)
+              expect(json['data']['is_continuous']).to be true
+            end
+          end
+        end
+      end
+
+      # Test continuous parking with LP slot type
+      #
+      # Scenario:
+      # 1. Large vehicle parks for 2 hours
+      # 2. Vehicle exits and unparks
+      # 3. Vehicle re-enters within 1 hour
+      # 4. Parks for 1 hour
+      #
+      # Fee calculation:
+      # - Total continuous duration: 2 hours + 30 min gap + 1 hour = 3 hours 30 min (rounds up to 4 hours)
+      # - Expected fee: 40 (base) + 100 (1 hour exceeding at LP rate) = 140 pesos
+      it 'calculates correct continuous parking fee for LP slot' do
+        # Create available LP slots
+        create(:parking_slot, slot_type: 'LP', entry_point: entry_point, status: 'available')
+        create(:parking_slot, slot_type: 'LP', entry_point: entry_point, status: 'available')
+
+        # Capture reference time for absolute time calculations
+        reference_time = Time.current
+
+        # Park first session
+        Timecop.freeze(reference_time) do
+          post '/api/v1/sessions', params: { vehicle_type: 'L', entry_point_id: entry_point.identifier }
+          expect(response).to have_http_status(:created)
+          json = JSON.parse(response.body)
+          first_session_id = json['data']['session_id']
+
+          # Unpark after 2 hours
+          Timecop.travel(2.hours.from_now) do
+            post "/api/v1/sessions/#{first_session_id}/unpark"
+            expect(response).to have_http_status(:ok)
+            json = JSON.parse(response.body)
+            # First session fee: 2 hours = 40 pesos
+            expect(json['data']['total_fee']).to eq(40.0)
+          end
+
+          # Park again within 1 hour (30 minutes after unpark)
+          # Use absolute time: reference + 2 hours + 30 minutes
+          Timecop.freeze(reference_time + 2.hours + 30.minutes) do
+            post '/api/v1/sessions', params: { vehicle_type: 'L', entry_point_id: entry_point.identifier }
+            expect(response).to have_http_status(:created)
+            json = JSON.parse(response.body)
+            second_session_id = json['data']['session_id']
+
+            second_session = ParkingSession.find(second_session_id)
+            expect(second_session.continuous?).to be true
+
+            # Unpark after 1 hour
+            Timecop.travel(1.hour.from_now) do
+              post "/api/v1/sessions/#{second_session_id}/unpark"
+              expect(response).to have_http_status(:ok)
+              json = JSON.parse(response.body)
+
+              # Total continuous duration: 2 hours + 30 min + 1 hour = 3 hours 30 min
+              # Rounded up to 4 hours
+              # Expected fee: 40 (base) + 100 (1 hour exceeding at LP rate) = 140 pesos
+              expect(json['data']['total_fee']).to eq(140.0)
+              expect(json['data']['duration_hours']).to eq(4.0)
+              expect(json['data']['is_continuous']).to be true
+            end
+          end
+        end
+      end
+
+      # Test continuous parking at exactly 1 hour threshold
+      #
+      # Scenario:
+      # 1. Vehicle parks and stays for 1 hour
+      # 2. Vehicle exits and unparks
+      # 3. Vehicle re-enters exactly 1 hour later
+      # 4. System should NOT mark as continuous (exactly at threshold)
+      #
+      # Fee calculation:
+      # - First session: 1 hour = 40 pesos
+      # - Second session: 2 hours = 40 pesos (not continuous)
+      it 'does not detect continuous parking at exactly 1 hour threshold' do
+        # Create available slots
+        create(:parking_slot, slot_type: 'SP', entry_point: entry_point, status: 'available')
+        create(:parking_slot, slot_type: 'SP', entry_point: entry_point, status: 'available')
+
+        # Park first session
         post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
         expect(response).to have_http_status(:created)
         json = JSON.parse(response.body)
         first_session_id = json['data']['session_id']
-        ParkingSession.find(first_session_id)
 
-        # Unpark after 30 minutes
-        # Simulate the vehicle leaving after a short stay
-        Timecop.travel(30.minutes.from_now) do
+        # Unpark after 1 hour
+        Timecop.travel(1.hour.from_now) do
           post "/api/v1/sessions/#{first_session_id}/unpark"
           expect(response).to have_http_status(:ok)
+          json = JSON.parse(response.body)
+          expect(json['data']['total_fee']).to eq(40.0)
         end
 
-        # Park again within 1 hour
-        # Vehicle re-enters within the continuous parking threshold
-        # 45 minutes from now means 75 minutes from the first session start
-        Timecop.travel(45.minutes.from_now) do
+        # Park again exactly 1 hour later (at threshold)
+        # Clean up database before creating second session to avoid interference from previous test runs
+        ParkingSession.where(vehicle_type: 'S').delete_all
+
+        Timecop.travel(1.hour.from_now) do
           post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
           expect(response).to have_http_status(:created)
           json = JSON.parse(response.body)
           second_session_id = json['data']['session_id']
 
-          # Verify that continuous parking is detected
-          # The system should mark this session as continuous
+          second_session = ParkingSession.find(second_session_id)
+          # Should NOT be continuous at exactly 1 hour threshold
+          expect(second_session.continuous?).to be false
+
+          # Unpark after 2 hours
+          Timecop.travel(2.hours.from_now) do
+            post "/api/v1/sessions/#{second_session_id}/unpark"
+            expect(response).to have_http_status(:ok)
+            json = JSON.parse(response.body)
+
+            # Second session fee: 2 hours = 40 pesos (not continuous)
+            expect(json['data']['total_fee']).to eq(40.0)
+            expect(json['data']['is_continuous']).to be false
+          end
+        end
+      end
+
+      # Test continuous parking with multiple returns within 1 hour
+      #
+      # Scenario:
+      # 1. Vehicle parks for 30 minutes
+      # 2. Exits and re-enters within 1 hour (multiple times)
+      # 3. Each return should be marked as continuous
+      #
+      # Fee calculation for third session:
+      # - Total continuous duration: 30 min + 20 min + 30 min + 20 min + 1 hour = 2 hours 40 min (rounds up to 3 hours)
+      # - Expected fee: 40 pesos (base rate, no exceeding)
+      it 'handles multiple continuous parking returns within 1 hour' do
+        # Create available slots
+        3.times do
+          create(:parking_slot, slot_type: 'SP', entry_point: entry_point, status: 'available')
+        end
+
+        # Capture reference time for absolute time calculations
+        reference_time = Time.current
+
+        # First session
+        Timecop.freeze(reference_time) do
+          post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+          expect(response).to have_http_status(:created)
+          json = JSON.parse(response.body)
+          first_session_id = json['data']['session_id']
+
+          # Unpark after 30 minutes
+          Timecop.travel(30.minutes.from_now) do
+            post "/api/v1/sessions/#{first_session_id}/unpark"
+            expect(response).to have_http_status(:ok)
+            json = JSON.parse(response.body)
+            expect(json['data']['total_fee']).to eq(40.0)
+          end
+
+          # Second session - within 1 hour (20 minutes after unpark)
+          # Use absolute time: reference + 30 minutes + 20 minutes
+          Timecop.freeze(reference_time + 50.minutes) do
+            post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+            expect(response).to have_http_status(:created)
+            json = JSON.parse(response.body)
+            second_session_id = json['data']['session_id']
+
+            second_session = ParkingSession.find(second_session_id)
+            expect(second_session.continuous?).to be true
+
+            # Unpark after 30 minutes
+            Timecop.travel(30.minutes.from_now) do
+              post "/api/v1/sessions/#{second_session_id}/unpark"
+              expect(response).to have_http_status(:ok)
+              json = JSON.parse(response.body)
+              # Total so far: 30 min + 20 min + 30 min = 1 hour 20 min (rounds up to 2 hours)
+              # Expected fee: 40 pesos
+              expect(json['data']['total_fee']).to eq(40.0)
+            end
+          end
+
+          # Third session - still within 1 hour (20 minutes after second unpark)
+          # Use absolute time: reference + 30 min + 20 min + 30 min + 20 min = 100 minutes
+          Timecop.freeze(reference_time + 100.minutes) do
+            post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+            expect(response).to have_http_status(:created)
+            json = JSON.parse(response.body)
+            third_session_id = json['data']['session_id']
+
+            third_session = ParkingSession.find(third_session_id)
+            expect(third_session.continuous?).to be true
+
+            # Unpark after 1 hour
+            Timecop.travel(1.hour.from_now) do
+              post "/api/v1/sessions/#{third_session_id}/unpark"
+              expect(response).to have_http_status(:ok)
+              json = JSON.parse(response.body)
+
+              # Total continuous duration: 30 min + 20 min + 30 min + 20 min + 1 hour = 2 hours 40 min
+              # Rounded up to 3 hours
+              # Expected fee: 40 pesos (base rate, no exceeding)
+              expect(json['data']['total_fee']).to eq(40.0)
+              expect(json['data']['duration_hours']).to eq(3.0)
+              expect(json['data']['is_continuous']).to be true
+            end
+          end
+        end
+      end
+
+      # Test continuous parking crossing 24-hour boundary
+      #
+      # Scenario:
+      # 1. Vehicle parks for 23 hours
+      # 2. Exits and re-enters within 1 hour
+      # 3. Parks for 3 more hours
+      #
+      # Fee calculation:
+      # - Total continuous duration: 23 hours + 30 min + 3 hours = 26 hours 30 min (rounds up to 27 hours)
+      # - Expected fee: 5000 (24 hours) + 40 (base for next 3 hours) + 100*3 (3 hours exceeding at LP rate) = 5340 pesos
+      it 'calculates correct continuous parking fee crossing 24-hour boundary' do
+        # Create available LP slots
+        create(:parking_slot, slot_type: 'LP', entry_point: entry_point, status: 'available')
+        create(:parking_slot, slot_type: 'LP', entry_point: entry_point, status: 'available')
+
+        # Capture reference time for absolute time calculations
+        reference_time = Time.current
+
+        # Park first session
+        Timecop.freeze(reference_time) do
+          post '/api/v1/sessions', params: { vehicle_type: 'L', entry_point_id: entry_point.identifier }
+          expect(response).to have_http_status(:created)
+          json = JSON.parse(response.body)
+          first_session_id = json['data']['session_id']
+
+          # Unpark after 23 hours
+          Timecop.travel(23.hours.from_now) do
+            post "/api/v1/sessions/#{first_session_id}/unpark"
+            expect(response).to have_http_status(:ok)
+            json = JSON.parse(response.body)
+            # First session fee: 23 hours = 40 (base) + 100*20 (20 hours exceeding) = 2040 pesos
+            expect(json['data']['total_fee']).to eq(2040.0)
+          end
+
+          # Park again within 1 hour (30 minutes later)
+          # Use absolute time: reference + 23 hours + 30 minutes
+          Timecop.freeze(reference_time + 23.hours + 30.minutes) do
+            post '/api/v1/sessions', params: { vehicle_type: 'L', entry_point_id: entry_point.identifier }
+            expect(response).to have_http_status(:created)
+            json = JSON.parse(response.body)
+            second_session_id = json['data']['session_id']
+
+            second_session = ParkingSession.find(second_session_id)
+            expect(second_session.continuous?).to be true
+
+            # Unpark after 3 hours
+            Timecop.travel(3.hours.from_now) do
+              post "/api/v1/sessions/#{second_session_id}/unpark"
+              expect(response).to have_http_status(:ok)
+              json = JSON.parse(response.body)
+
+              # Total continuous duration: 23 hours + 30 min + 3 hours = 26 hours 30 min
+              # Rounded up to 27 hours
+              # Expected fee: 5000 (24 hours) + 40 (base rate for remaining 3 hours) = 5040 pesos
+              expect(json['data']['total_fee']).to eq(5040.0)
+              expect(json['data']['duration_hours']).to eq(27.0)
+              expect(json['data']['is_continuous']).to be true
+            end
+          end
+        end
+      end
+
+      # Test continuous parking with small vehicle in MP slot
+      #
+      # Scenario:
+      # 1. Small vehicle parks in MP slot for 1 hour
+      # 2. Exits and re-enters within 1 hour
+      # 3. Parks for 2 hours
+      #
+      # Fee calculation:
+      # - Total continuous duration: 1 hour + 30 min + 2 hours = 3 hours 30 min (rounds up to 4 hours)
+      # - Expected fee: 40 (base) + 60 (1 hour exceeding at MP rate) = 100 pesos
+      it 'calculates correct continuous parking fee for small vehicle in MP slot' do
+        # Create available MP slots
+        create(:parking_slot, slot_type: 'MP', entry_point: entry_point, status: 'available')
+        create(:parking_slot, slot_type: 'MP', entry_point: entry_point, status: 'available')
+
+        # Capture reference time for absolute time calculations
+        reference_time = Time.current
+
+        # Park first session (small vehicle in MP slot)
+        Timecop.freeze(reference_time) do
+          post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+          expect(response).to have_http_status(:created)
+          json = JSON.parse(response.body)
+          first_session_id = json['data']['session_id']
+
+          # Verify it's assigned to MP slot
+          expect(json['data']['parking_slot']['slot_type']).to eq('MP')
+
+          # Unpark after 1 hour
+          Timecop.travel(1.hour.from_now) do
+            post "/api/v1/sessions/#{first_session_id}/unpark"
+            expect(response).to have_http_status(:ok)
+            json = JSON.parse(response.body)
+            expect(json['data']['total_fee']).to eq(40.0)
+          end
+
+          # Park again within 1 hour (30 minutes after unpark)
+          # Use absolute time: reference + 1 hour + 30 minutes
+          Timecop.freeze(reference_time + 1.hour + 30.minutes) do
+            post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+            expect(response).to have_http_status(:created)
+            json = JSON.parse(response.body)
+            second_session_id = json['data']['session_id']
+
+            second_session = ParkingSession.find(second_session_id)
+            expect(second_session.continuous?).to be true
+
+            # Unpark after 2 hours
+            Timecop.travel(2.hours.from_now) do
+              post "/api/v1/sessions/#{second_session_id}/unpark"
+              expect(response).to have_http_status(:ok)
+              json = JSON.parse(response.body)
+
+              # Total continuous duration: 1 hour + 30 min + 2 hours = 3 hours 30 min
+              # Rounded up to 4 hours
+              # Expected fee: 40 (base) + 60 (1 hour exceeding at MP rate) = 100 pesos
+              expect(json['data']['total_fee']).to eq(100.0)
+              expect(json['data']['duration_hours']).to eq(4.0)
+              expect(json['data']['is_continuous']).to be true
+            end
+          end
+        end
+      end
+
+      # Test continuous parking with medium vehicle in LP slot
+      #
+      # Scenario:
+      # 1. Medium vehicle parks in LP slot for 2 hours
+      # 2. Exits and re-enters within 1 hour
+      # 3. Parks for 1 hour
+      #
+      # Fee calculation:
+      # - Total continuous duration: 2 hours + 30 min + 1 hour = 3 hours 30 min (rounds up to 4 hours)
+      # - Expected fee: 40 (base) + 100 (1 hour exceeding at LP rate) = 140 pesos
+      it 'calculates correct continuous parking fee for medium vehicle in LP slot' do
+        # Create available LP slots
+        create(:parking_slot, slot_type: 'LP', entry_point: entry_point, status: 'available')
+        create(:parking_slot, slot_type: 'LP', entry_point: entry_point, status: 'available')
+
+        # Capture reference time for absolute time calculations
+        reference_time = Time.current
+
+        # Park first session (medium vehicle in LP slot)
+        Timecop.freeze(reference_time) do
+          post '/api/v1/sessions', params: { vehicle_type: 'M', entry_point_id: entry_point.identifier }
+          expect(response).to have_http_status(:created)
+          json = JSON.parse(response.body)
+          first_session_id = json['data']['session_id']
+
+          # Verify it's assigned to LP slot
+          expect(json['data']['parking_slot']['slot_type']).to eq('LP')
+
+          # Unpark after 2 hours
+          Timecop.travel(2.hours.from_now) do
+            post "/api/v1/sessions/#{first_session_id}/unpark"
+            expect(response).to have_http_status(:ok)
+            json = JSON.parse(response.body)
+            expect(json['data']['total_fee']).to eq(40.0)
+          end
+
+          # Park again within 1 hour (30 minutes after unpark)
+          # Use absolute time: reference + 2 hours + 30 minutes
+          Timecop.freeze(reference_time + 2.hours + 30.minutes) do
+            post '/api/v1/sessions', params: { vehicle_type: 'M', entry_point_id: entry_point.identifier }
+            expect(response).to have_http_status(:created)
+            json = JSON.parse(response.body)
+            second_session_id = json['data']['session_id']
+
+            second_session = ParkingSession.find(second_session_id)
+            expect(second_session.continuous?).to be true
+
+            # Unpark after 1 hour
+            Timecop.travel(1.hour.from_now) do
+              post "/api/v1/sessions/#{second_session_id}/unpark"
+              expect(response).to have_http_status(:ok)
+              json = JSON.parse(response.body)
+
+              # Total continuous duration: 2 hours + 30 min + 1 hour = 3 hours 30 min
+              # Rounded up to 4 hours
+              # Expected fee: 40 (base) + 100 (1 hour exceeding at LP rate) = 140 pesos
+              expect(json['data']['total_fee']).to eq(140.0)
+              expect(json['data']['duration_hours']).to eq(4.0)
+              expect(json['data']['is_continuous']).to be true
+            end
+          end
+        end
+      end
+
+      # Test continuous parking with very short duration
+      #
+      # Scenario:
+      # 1. Vehicle parks for 15 minutes
+      # 2. Exits and re-enters within 1 hour
+      # 3. Parks for 15 minutes
+      #
+      # Fee calculation:
+      # - Total continuous duration: 15 min + 30 min + 15 min = 1 hour (rounds up to 1 hour)
+      # - Expected fee: 40 pesos (base rate, no exceeding)
+      it 'calculates correct continuous parking fee for very short duration' do
+        # Create available slots
+        create(:parking_slot, slot_type: 'SP', entry_point: entry_point, status: 'available')
+        create(:parking_slot, slot_type: 'SP', entry_point: entry_point, status: 'available')
+
+        # Park first session
+        post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+        expect(response).to have_http_status(:created)
+        json = JSON.parse(response.body)
+        first_session_id = json['data']['session_id']
+
+        # Unpark after 15 minutes
+        Timecop.travel(15.minutes.from_now) do
+          post "/api/v1/sessions/#{first_session_id}/unpark"
+          expect(response).to have_http_status(:ok)
+          json = JSON.parse(response.body)
+          # First session fee: 15 minutes rounds up to 1 hour = 40 pesos
+          expect(json['data']['total_fee']).to eq(40.0)
+        end
+
+        # Park again within 1 hour (30 minutes later)
+        Timecop.travel(30.minutes.from_now) do
+          post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+          expect(response).to have_http_status(:created)
+          json = JSON.parse(response.body)
+          second_session_id = json['data']['session_id']
+
           second_session = ParkingSession.find(second_session_id)
           expect(second_session.continuous?).to be true
+
+          # Unpark after 15 minutes
+          Timecop.travel(15.minutes.from_now) do
+            post "/api/v1/sessions/#{second_session_id}/unpark"
+            expect(response).to have_http_status(:ok)
+            json = JSON.parse(response.body)
+
+            # Total continuous duration: 15 min + 30 min + 15 min = 1 hour
+            # Rounded up to 1 hour
+            # Expected fee: 40 pesos (base rate, no exceeding)
+            expect(json['data']['total_fee']).to eq(40.0)
+            expect(json['data']['duration_hours']).to eq(1.0)
+            expect(json['data']['is_continuous']).to be true
+          end
+        end
+      end
+
+      # Test continuous parking with exactly 3 hours total duration
+      #
+      # Scenario:
+      # 1. Vehicle parks for 1.5 hours
+      # 2. Exits and re-enters within 1 hour
+      # 3. Parks for 1.5 hours
+      #
+      # Fee calculation:
+      # - Total continuous duration: 1.5 hours + 30 min + 1.5 hours = 3.5 hours (rounds up to 4 hours)
+      # - Expected fee: 40 (base) + 20 (1 hour exceeding at SP rate) = 60 pesos
+      it 'calculates correct continuous parking fee at exactly 3.5 hours' do
+        # Create available slots
+        create(:parking_slot, slot_type: 'SP', entry_point: entry_point, status: 'available')
+        create(:parking_slot, slot_type: 'SP', entry_point: entry_point, status: 'available')
+
+        # Park first session
+        post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+        expect(response).to have_http_status(:created)
+        json = JSON.parse(response.body)
+        first_session_id = json['data']['session_id']
+
+        # Unpark after 1.5 hours
+        Timecop.travel(1.5.hours.from_now) do
+          post "/api/v1/sessions/#{first_session_id}/unpark"
+          expect(response).to have_http_status(:ok)
+          json = JSON.parse(response.body)
+          # First session fee: 1.5 hours rounds up to 2 hours = 40 pesos
+          expect(json['data']['total_fee']).to eq(40.0)
+        end
+
+        # Park again within 1 hour (30 minutes later)
+        # Use Timecop.freeze to set time to 1.5 hours + 30 minutes from original time
+        # This ensures second session is created at the correct time
+        Timecop.freeze(1.5.hours.from_now + 30.minutes) do
+          post '/api/v1/sessions', params: { vehicle_type: 'S', entry_point_id: entry_point.identifier }
+          expect(response).to have_http_status(:created)
+          json = JSON.parse(response.body)
+          second_session_id = json['data']['session_id']
+
+          second_session = ParkingSession.find(second_session_id)
+          expect(second_session.continuous?).to be true
+
+          # Unpark after 1.5 hours
+          Timecop.travel(1.5.hours.from_now) do
+            post "/api/v1/sessions/#{second_session_id}/unpark"
+            expect(response).to have_http_status(:ok)
+            json = JSON.parse(response.body)
+
+            # Total continuous duration: 1.5 hours + 30 min + 1.5 hours = 3.5 hours
+            # Rounded up to 4 hours
+            # Expected fee: 40 (base) + 20 (1 hour exceeding at SP rate) = 60 pesos
+            expect(json['data']['total_fee']).to eq(60.0)
+            expect(json['data']['duration_hours']).to eq(4.0)
+            expect(json['data']['is_continuous']).to be true
+          end
         end
       end
     end
@@ -491,7 +1099,7 @@ RSpec.describe 'Parking Flow Integration', type: :request do
       expect(json['success']).to be true
       expect(json['data']['total_available']).to eq(1)
 
-      slot_ids = json['data']['available_slots'].map { |s| s['id'] }
+      slot_ids = json['data']['available_slots'].pluck('id')
       expect(slot_ids).to include(sp_slot.id)
 
       # Verify that only SP slot is returned
@@ -529,7 +1137,7 @@ RSpec.describe 'Parking Flow Integration', type: :request do
       expect(json['success']).to be true
       expect(json['data']['total_available']).to eq(2)
 
-      slot_ids = json['data']['available_slots'].map { |s| s['id'] }
+      slot_ids = json['data']['available_slots'].pluck('id')
       expect(slot_ids).to include(slot_b.id, slot_a.id)
 
       # Verify that slots are sorted by distance from entry point B

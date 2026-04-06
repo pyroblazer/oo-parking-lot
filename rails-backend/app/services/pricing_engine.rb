@@ -17,8 +17,8 @@ class PricingEngine
     include Tracing
   rescue NameError, LoadError
     # Fallback: define no-op methods if Tracing is not available
-    def with_span(name, &block)
-      block.call
+    def with_span(name, &)
+      yield
     end
 
     def set_error(span, error)
@@ -54,10 +54,10 @@ class PricingEngine
 
       result = if defined?($parking_metrics) && $parking_metrics.respond_to?(:track_billing_calculation_duration)
                  $parking_metrics.track_billing_calculation_duration do
-                   strategy.calculate
+                   strategy.calculate(is_continuous: session.continuous?)
                  end
                else
-                 strategy.calculate
+                 strategy.calculate(is_continuous: session.continuous?)
                end
 
       span.set_attribute('pricing.total_fee', result)
@@ -84,7 +84,7 @@ class PricingEngine
       span.set_attribute('pricing.strategy', strategy.class.name)
       span.set_attribute('session.id', session.id)
 
-      result = strategy.breakdown
+      result = strategy.breakdown(is_continuous: session.continuous?)
 
       span.set_attribute('pricing.breakdown', result.to_json)
       logger.info('Pricing breakdown generated',

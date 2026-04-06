@@ -8,7 +8,7 @@
  */
 
 import { JSDOM } from 'jsdom';
-import { afterEach, beforeEach } from 'bun:test';
+import { afterEach } from 'bun:test';
 
 // ── jsdom environment ────────────────────────────────────────────────────────
 const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -44,6 +44,6 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', {
 // ── @testing-library cleanup ─────────────────────────────────────────────────
 // Defer the import so it resolves after globals are in place
 afterEach(async () => {
-  const { cleanup } = await import('@testing-library/react');
+  const { cleanup } = await import('@testing-library/react' as string);
   cleanup();
 });

@@ -1,20 +1,21 @@
 /**
  * Park Vehicle Component
- * 
+ *
  * This component allows users to park a vehicle by selecting vehicle type and entry point.
  * Includes magnetic hover effects and staggered animations.
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { parkVehicle, getEntryPoints } from '../api';
+import { parkVehicle, getEntryPoints, fetchRecentExits } from '../api';
 import type {
   VehicleType,
   EntryPointIdentifier,
   EntryPoint,
   ParkingSession,
   AsyncStateWithSuccess,
+  RecentExit,
 } from '../types';
 import HealthCheck from './HealthCheck';
 import './ParkVehicle.css';
@@ -26,7 +27,11 @@ function ParkVehicle(): JSX.Element {
   const navigate = useNavigate();
   const [vehicleType, setVehicleType] = useState<VehicleType | ''>('');
   const [entryPointId, setEntryPointId] = useState<EntryPointIdentifier>('');
+  const [licensePlate, setLicensePlate] = useState<string>('');
+  const [previousSessionId, setPreviousSessionId] = useState<string>('');
   const [entryPoints, setEntryPoints] = useState<EntryPoint[]>([]);
+  const [recentExits, setRecentExits] = useState<RecentExit[]>([]);
+  const [loadingRecentExits, setLoadingRecentExits] = useState<boolean>(false);
   const [state, setState] = useState<AsyncStateWithSuccess<ParkingSession>>({
     data: null,
     loading: false,
@@ -41,13 +46,38 @@ function ParkVehicle(): JSX.Element {
   const loadEntryPoints = async (): Promise<void> => {
     try {
       const data = await getEntryPoints();
-      setEntryPoints(data);
+      setEntryPoints(data ?? []);
       // Do not auto-select entry point - user must explicitly select one
     } catch (err) {
       setState(prev => ({
         ...prev,
         error: new Error('Failed to load entry points'),
       }));
+    }
+  };
+
+  const loadRecentExits = async (type: VehicleType): Promise<void> => {
+    setLoadingRecentExits(true);
+    try {
+      const data = await fetchRecentExits(type);
+      setRecentExits(data ?? []);
+      // Reset previous session selection when vehicle type changes
+      setPreviousSessionId('');
+    } catch (err) {
+      setRecentExits([]);
+      setPreviousSessionId('');
+    } finally {
+      setLoadingRecentExits(false);
+    }
+  };
+
+  const handleVehicleTypeChange = async (newType: string): Promise<void> => {
+    setVehicleType(newType as VehicleType | '');
+    if (newType) {
+      await loadRecentExits(newType as VehicleType);
+    } else {
+      setRecentExits([]);
+      setPreviousSessionId('');
     }
   };
 
@@ -76,7 +106,12 @@ function ParkVehicle(): JSX.Element {
     });
 
     try {
-      const response = await parkVehicle(vehicleType, entryPointId);
+      const response = await parkVehicle(
+        vehicleType,
+        entryPointId,
+        licensePlate || undefined,
+        previousSessionId || undefined
+      );
       setState({
         data: response,
         loading: false,
@@ -156,7 +191,7 @@ function ParkVehicle(): JSX.Element {
             ✅ Vehicle parked successfully!
             {state.data && (
               <>
-                {' '}Session ID: {state.data.session_id}
+                {' '}Session ID: <span data-testid="session-id">{state.data.session_id}</span>
                 <motion.button
                   className="view-session-btn"
                   onClick={handleViewSession}
@@ -181,7 +216,7 @@ function ParkVehicle(): JSX.Element {
           <MagneticSelect
             id="vehicleType"
             value={vehicleType}
-            onChange={(e) => setVehicleType(e.target.value as VehicleType)}
+            onChange={(e) => void handleVehicleTypeChange(e.target.value)}
             disabled={state.loading}
             data-testid="vehicle-type-select"
           >
@@ -190,6 +225,19 @@ function ParkVehicle(): JSX.Element {
             <option value="M">Medium (M)</option>
             <option value="L">Large (L)</option>
           </MagneticSelect>
+        </motion.div>
+
+        <motion.div className="form-group" variants={itemVariants}>
+          <label htmlFor="licensePlate">License Plate (Optional):</label>
+          <MagneticInput
+            id="licensePlate"
+            type="text"
+            value={licensePlate}
+            onChange={(e) => setLicensePlate(e.target.value)}
+            placeholder="e.g., ABC-1234"
+            disabled={state.loading}
+            data-testid="license-plate-input"
+          />
         </motion.div>
 
         <motion.div className="form-group" variants={itemVariants}>
@@ -209,6 +257,46 @@ function ParkVehicle(): JSX.Element {
             ))}
           </MagneticSelect>
         </motion.div>
+
+        {vehicleType && recentExits.length > 0 && (
+          <motion.div className="form-group" variants={itemVariants}>
+            <label>Returning from a previous parking? (within 1 hour)</label>
+            <div className="recent-exits-container">
+              <div className="radio-option">
+                <input
+                  type="radio"
+                  id="newParking"
+                  name="previousSession"
+                  value=""
+                  checked={previousSessionId === ''}
+                  onChange={() => setPreviousSessionId('')}
+                  disabled={state.loading}
+                  data-testid="new-parking-radio"
+                />
+                <label htmlFor="newParking">New Parking</label>
+              </div>
+              {recentExits.map((exit) => (
+                <div key={exit.session_id} className="radio-option">
+                  <input
+                    type="radio"
+                    id={`session-${exit.session_id}`}
+                    name="previousSession"
+                    value={exit.session_id}
+                    checked={previousSessionId === exit.session_id}
+                    onChange={() => setPreviousSessionId(exit.session_id)}
+                    disabled={state.loading}
+                    data-testid={`recent-exit-${exit.session_id}`}
+                  />
+                  <label htmlFor={`session-${exit.session_id}`}>
+                    {exit.slot_label} · Entry {exit.entry_point} · Exited {exit.minutes_since_exit} min ago
+                    {exit.license_plate && ` · Plate: ${exit.license_plate}`}
+                  </label>
+                </div>
+              ))}
+            </div>
+            {loadingRecentExits && <p className="loading-text">Loading recent sessions...</p>}
+          </motion.div>
+        )}
 
         <motion.div variants={itemVariants}>
           <MagneticButton
@@ -303,6 +391,44 @@ function MagneticSelect({
     >
       {children}
     </motion.select>
+  );
+}
+
+/**
+ * MagneticInput component with hover effects
+ */
+interface MagneticInputProps {
+  readonly id: string;
+  readonly type?: string;
+  readonly value: string;
+  readonly onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  readonly placeholder?: string;
+  readonly disabled?: boolean;
+  readonly 'data-testid'?: string;
+}
+
+function MagneticInput({
+  id,
+  type = 'text',
+  value,
+  onChange,
+  placeholder,
+  disabled = false,
+  'data-testid': dataTestId,
+}: MagneticInputProps): JSX.Element {
+  return (
+    <motion.input
+      id={id}
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      className="magnetic-input"
+      whileHover={{ scale: 1.02 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      data-testid={dataTestId}
+    />
   );
 }
 

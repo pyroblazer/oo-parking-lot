@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"unicode"
 )
 
 // CORSConfig holds the configuration for CORS middleware
@@ -13,6 +14,42 @@ type CORSConfig struct {
 	AllowedMethods   []string
 	AllowedHeaders   []string
 	AllowCredentials bool
+}
+
+// sanitizeForLogging removes or escapes potentially dangerous characters from input
+// to prevent log injection attacks
+func sanitizeForLogging(input string) string {
+	if input == "" {
+		return ""
+	}
+	
+	var sanitized strings.Builder
+	sanitized.Grow(len(input))
+	
+	for _, r := range input {
+		// Remove control characters and newlines to prevent log injection
+		if r == '\n' || r == '\r' || r == '\t' {
+			sanitized.WriteString("\\")
+			switch r {
+			case '\n':
+				sanitized.WriteString("n")
+			case '\r':
+				sanitized.WriteString("r")
+			case '\t':
+				sanitized.WriteString("t")
+			}
+		} else if unicode.IsControl(r) {
+			// Skip other control characters
+			continue
+		} else if r == '\x00' {
+			// Skip null bytes
+			continue
+		} else {
+			sanitized.WriteRune(r)
+		}
+	}
+	
+	return sanitized.String()
 }
 
 // DefaultCORSConfig returns a default CORS configuration suitable for development
@@ -52,12 +89,15 @@ func CORS(config *CORSConfig) func(http.Handler) http.Handler {
 
 			// Set CORS headers for all requests
 			if origin != "" {
+				// Sanitize origin for logging to prevent log injection
+				sanitizedOrigin := sanitizeForLogging(origin)
+				
 				// Check if origin is allowed
 				allowed := false
 				for _, allowedOrigin := range config.AllowedOrigins {
 					if allowedOrigin == "*" || allowedOrigin == origin {
 						allowed = true
-						log.Printf("[CORS] Origin '%s' allowed (exact match with '%s')", origin, allowedOrigin)
+						log.Printf("[CORS] Origin '%s' allowed (exact match with '%s')", sanitizedOrigin, allowedOrigin)
 						break
 					}
 					// Check for wildcard pattern (e.g., "http://localhost:*")
@@ -71,7 +111,7 @@ func CORS(config *CORSConfig) func(http.Handler) http.Handler {
 				}
 
 				if !allowed {
-					log.Printf("[CORS] Origin '%s' rejected - no matching allowed origin found", origin)
+					log.Printf("[CORS] Origin '%s' rejected - no matching allowed origin found", sanitizedOrigin)
 				}
 
 				if allowed {
@@ -90,7 +130,8 @@ func CORS(config *CORSConfig) func(http.Handler) http.Handler {
 
 			// Handle preflight OPTIONS requests
 			if r.Method == http.MethodOptions {
-				log.Printf("[CORS] Preflight OPTIONS request from origin '%s'", origin)
+				sanitizedOrigin := sanitizeForLogging(origin)
+				log.Printf("[CORS] Preflight OPTIONS request from origin '%s'", sanitizedOrigin)
 				w.WriteHeader(http.StatusOK)
 				return
 			}

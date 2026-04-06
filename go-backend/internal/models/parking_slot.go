@@ -1,4 +1,4 @@
-// Package models provides data models for the parking lot system.
+// Package models provides data models for parking lot system.
 package models
 
 import (
@@ -43,11 +43,17 @@ func (ps *ParkingSlot) Scan(value interface{}) error {
 }
 
 // DistanceFrom returns distance from a specific entry point
+// Supports dynamic entry point configuration with variable-length distance arrays
+// Uses entry point Index() to look up the correct distance regardless of entry point order
 func (ps *ParkingSlot) DistanceFrom(entryPoint *EntryPoint) int {
-	if entryPoint.Index() < len(ps.Distances) {
-		return ps.Distances[entryPoint.Index()]
+	// Use entry point Index() for lookup (based on identifier position)
+	// This supports dynamic entry points while maintaining backward compatibility
+	// FIX: Use Index() method to get correct array index, don't assume loop order
+	idx := entryPoint.Index()
+	if idx >= 0 && idx < len(ps.Distances) {
+		return ps.Distances[idx]
 	}
-	return 999 // Large default distance
+	return 999 // Large default distance if index out of bounds
 }
 
 // CompatibleWith checks if a vehicle type can park in this slot
@@ -58,8 +64,8 @@ func (ps *ParkingSlot) DistanceFrom(entryPoint *EntryPoint) int {
 func (ps *ParkingSlot) CompatibleWith(vehicleType string) bool {
 	switch vehicleType {
 	case "S":
-		// Small vehicles can park in any slot type
-		return true
+		// Small vehicles can park in SP, MP, or LP slots
+		return ps.SlotType == SlotTypeSmall || ps.SlotType == SlotTypeMedium || ps.SlotType == SlotTypeLarge
 	case "M":
 		// Medium vehicles can park in MP or LP slots
 		return ps.SlotType == SlotTypeMedium || ps.SlotType == SlotTypeLarge

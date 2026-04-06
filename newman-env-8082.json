@@ -1,6 +1,6 @@
 {
-  "id": "ruby-backend-8082",
-  "name": "Ruby Backend - Port 8082",
+  "id": "rails-backend-8082",
+  "name": "Rails Backend - Port 8082",
   "values": [
     {
       "key": "base_url",

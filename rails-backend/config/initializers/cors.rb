@@ -5,9 +5,9 @@
 
 # Skip CORS initialization in test environment to avoid frozen array issues
 if Rails.env.test?
-  puts '[DEBUG] cors.rb: Skipping CORS initialization in test environment'
+  Rails.logger.debug '[DEBUG] cors.rb: Skipping CORS initialization in test environment'
 else
-  puts '[DEBUG] cors.rb: Initializing CORS middleware'
+  Rails.logger.debug '[DEBUG] cors.rb: Initializing CORS middleware'
 
   Rails.application.config.middleware.insert_before 0, Rack::Cors do
     allow do
@@ -31,9 +31,9 @@ else
                credentials: true
 
       # Debug logging for CORS requests from localhost
-      puts '[DEBUG] cors.rb: CORS configured to allow requests from localhost/127.0.0.1 origins' if Rails.env.development?
+      Rails.logger.debug '[DEBUG] cors.rb: CORS configured to allow requests from localhost/127.0.0.1 origins' if Rails.env.development?
     end
   end
 
-  puts '[DEBUG] cors.rb: CORS middleware configured successfully'
+  Rails.logger.debug '[DEBUG] cors.rb: CORS middleware configured successfully'
 end

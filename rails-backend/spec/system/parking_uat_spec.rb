@@ -548,7 +548,7 @@ RSpec.describe 'Parking User Acceptance Tests', type: :system do
       # However, the API currently returns only SP slots for small vehicles
 
       # Total: 5 SP slots
-      slot_types = json['data']['available_slots'].map { |s| s['slot_type'] }
+      slot_types = json['data']['available_slots'].pluck('slot_type')
       expect(slot_types).to all(eq('SP'))
     end
   end

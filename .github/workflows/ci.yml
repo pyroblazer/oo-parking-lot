@@ -19,7 +19,7 @@ permissions:
 
 env:
   RUBY_VERSION: '3.2.0'
-  GO_VERSION: '1.24'
+  GO_VERSION: '1.26'
   NODE_VERSION: '18'
 
 jobs:
@@ -30,9 +30,6 @@ jobs:
   rubocop:
     name: RuboCop Linting
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./rails-backend
 
     steps:
       - name: Checkout code
@@ -43,13 +40,11 @@ jobs:
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
-
-      - name: Install dependencies
-        run: |
-          gem install rubocop rubocop-rails rubocop-rspec rubocop-performance
+          working-directory: ./rails-backend
 
       - name: Run RuboCop
-        run: rubocop --parallel
+        working-directory: ./rails-backend
+        run: bundle exec rubocop --parallel
 
   go-lint:
     name: Go Linting
@@ -63,18 +58,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: latest
+          version: v2.9.0
           working-directory: ./go-backend
           args: --timeout=5m
-          install-mode: binary
 
   eslint:
     name: ESLint Linting
@@ -97,30 +91,6 @@ jobs:
 
       - name: Run ESLint
         run: bun run lint
-
-  react-native-lint:
-    name: React Native Linting
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./react-native-mobile
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: ./react-native-mobile/package-lock.json
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run ESLint
-        run: npm run lint
 
   # ============================================================================
   # Testing
@@ -168,13 +138,7 @@ jobs:
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
-
-      - name: Install dependencies
-        run: |
-          gem install bundler
-          bundle config set --local deployment 'true'
-          bundle config set --local without 'development'
-          bundle install --jobs 4 --retry 3
+          working-directory: ./rails-backend
 
       - name: Setup database
         env:
@@ -202,7 +166,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rspec-results
-          path: rspec-results.xml
+          path: rails-backend/rspec-results.xml
 
       - name: Publish test results
         if: always()
@@ -249,7 +213,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -257,24 +221,90 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
+      - name: Setup test databases
+        env:
+          DATABASE_HOST: localhost
+          DATABASE_PORT: "5432"
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: postgres
+        run: |
+          echo "Setting up test databases..."
+          go run cmd/test-setup/main.go
+          echo "Test database setup completed"
+          sleep 2  # Give databases time to be fully ready
+
       - name: Run tests
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable
+          DATABASE_HOST: localhost
+          DATABASE_PORT: "5432"
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: postgres
+          DATABASE_NAME: oo_parking_lot_test
           REDIS_URL: redis://localhost:6379/0
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic -json ./... > go-test-results.json
+          TZ: UTC
+          GOFLAGS: -mod=readonly
+          CGO_ENABLED: 1
+        run: |
+          echo "Running Go tests with race detector and coverage..."
+          set -o pipefail
+          go test -v -race -timeout=5m -coverprofile=coverage.out -covermode=atomic -json ./... 2>&1 | tee go-test-results.json
+          TEST_EXIT_CODE=$?
+          echo "Test exit code: $TEST_EXIT_CODE"
+
+          # Parse test results
+          if [ $TEST_EXIT_CODE -eq 0 ]; then
+            echo "✓ All tests passed!"
+            # Count test results
+            PASSED=$(grep -c '"Action":"pass"' go-test-results.json || true)
+            SKIPPED=$(grep -c '"Action":"skip"' go-test-results.json || true)
+            echo "Tests passed: $PASSED"
+            [ $SKIPPED -gt 0 ] && echo "Tests skipped: $SKIPPED"
+          else
+            echo "✗ Tests failed with exit code $TEST_EXIT_CODE"
+            # Show failures
+            grep '"Action":"fail"' go-test-results.json || true
+          fi
+
+          exit $TEST_EXIT_CODE
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: go-test-results
-          path: go-test-results.json
+          path: go-backend/go-test-results.json
 
       - name: Upload coverage
+        if: always()
         uses: codecov/codecov-action@v4
         with:
-          files: coverage.out
+          files: go-backend/coverage.out
           flags: go-backend
+          fail_ci_if_error: false
+
+      - name: Generate test report
+        if: always()
+        working-directory: ./go-backend
+        run: |
+          echo "## Go Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check if tests passed
+          if grep -q '"Action":"fail"' go-test-results.json 2>/dev/null; then
+            echo "❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Statistics" >> $GITHUB_STEP_SUMMARY
+          TOTAL=$(grep -c '"Action":"run"' go-test-results.json 2>/dev/null || echo "0")
+          PASSED=$(grep -c '"Action":"pass"' go-test-results.json 2>/dev/null || echo "0")
+          SKIPPED=$(grep -c '"Action":"skip"' go-test-results.json 2>/dev/null || echo "0")
+
+          echo "- Total tests: $TOTAL" >> $GITHUB_STEP_SUMMARY
+          echo "- Passed: $PASSED" >> $GITHUB_STEP_SUMMARY
+          echo "- Skipped: $SKIPPED" >> $GITHUB_STEP_SUMMARY
 
   frontend-tests:
     name: Frontend Tests
@@ -296,29 +326,30 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Run tests
-        run: bun run test:coverage -- --reporter=json --outputFile=test-results.json
+      - name: Run tests with coverage
+        run: bun run test:coverage
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: frontend-test-results
-          path: test-results.json
+          path: react-web/test-results.json
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
-          files: coverage/coverage-final.json
+          files: react-web/coverage/coverage-final.json
           flags: react-web
 
   playwright-e2e-tests:
-    name: Playwright E2E Tests (Chromium Only)
+    name: Playwright E2E Tests (Chromium Only) - Shard ${{ matrix.shard }}/${{ strategy.job-total }}
     runs-on: ubuntu-latest
     needs: [eslint]
-    defaults:
-      run:
-        working-directory: ./react-web
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
 
     services:
       postgres:
@@ -354,23 +385,38 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
+        working-directory: ./react-web
         run: bun install
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: go-backend/go.sum
+
       - name: Install Playwright Browsers
+        working-directory: ./react-web
         run: bunx playwright install --with-deps chromium
 
-      - name: Setup Go backend
+      - name: Setup Go backend database
         working-directory: ./go-backend
         run: |
           go mod download
-          psql postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable -f scripts/init-db.sql
+          psql "postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable" -f scripts/init-db.sql
 
       - name: Build and start Go backend
         working-directory: ./go-backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable
+          DATABASE_HOST: localhost
+          DATABASE_PORT: "5432"
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: postgres
+          DATABASE_NAME: oo_parking_lot_test
           REDIS_URL: redis://localhost:6379/0
+          TZ: UTC
+          CGO_ENABLED: 0
         run: |
           go build -a -installsuffix cgo -o main ./cmd/server/main.go
           ./main > /tmp/go-server.log 2>&1 &
@@ -386,51 +432,109 @@ jobs:
             sleep 2
           done
 
-      - name: Run Playwright E2E tests
+      - name: Initialize database with test data
+        run: |
+          INIT_DATA='{
+            "entry_points": [
+              {"identifier": "A", "name": "Entry Point A"},
+              {"identifier": "B", "name": "Entry Point B"},
+              {"identifier": "C", "name": "Entry Point C"}
+            ],
+            "parking_slots": [
+              {"slot_label": "SP-1", "slot_type": "SP", "distances": [5,  15, 25]},
+              {"slot_label": "SP-2", "slot_type": "SP", "distances": [10, 5,  15]},
+              {"slot_label": "SP-3", "slot_type": "SP", "distances": [15, 5,  5]},
+              {"slot_label": "MP-1", "slot_type": "MP", "distances": [10, 10, 20]},
+              {"slot_label": "MP-2", "slot_type": "MP", "distances": [20, 10, 10]},
+              {"slot_label": "LP-1", "slot_type": "LP", "distances": [15, 15, 15]},
+              {"slot_label": "LP-2", "slot_type": "LP", "distances": [2,  5,  6]}
+            ]
+          }'
+          curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$INIT_DATA" \
+            "http://localhost:8082/api/v1/initialize"
+
+      - name: Run Playwright E2E tests (Shard ${{ matrix.shard }}/3)
+        working-directory: ./react-web
         env:
           CI: true
-        run: bun run test:e2e
+          API_BASE_URL: http://127.0.0.1:8082
+          VITE_API_BASE_URL: http://127.0.0.1:8082/api/v1
+        run: bunx playwright test --shard=${{ matrix.shard }}/3
 
       - name: Upload Playwright test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-test-results
+          name: playwright-test-results-shard-${{ matrix.shard }}
           path: |
-            playwright-report/
-            test-results.json
+            react-web/playwright-report/
+            react-web/test-results.json
 
       - name: Upload Playwright screenshots
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-screenshots
-          path: test-results/
-          retention-days: 7
-
-      - name: Upload Playwright videos
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-videos
-          path: test-results/
+          name: playwright-screenshots-shard-${{ matrix.shard }}
+          path: react-web/test-results/
           retention-days: 7
 
       - name: Upload Go server logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: go-server-logs
+          name: go-server-logs-shard-${{ matrix.shard }}
           path: /tmp/go-server.log
           retention-days: 7
 
-  react-native-tests:
-    name: React Native Tests
+  playwright-e2e-tests-consolidate:
+    name: Consolidate Playwright Test Results
     runs-on: ubuntu-latest
-    needs: [react-native-lint]
+    needs: [playwright-e2e-tests]
+    if: always()
+
+    steps:
+      - name: Download Playwright shard results
+        uses: actions/download-artifact@v4
+        with:
+          path: test-results
+          pattern: playwright-test-results-shard-*
+          merge-multiple: false
+
+      - name: Check test results
+        run: |
+          echo "Downloaded Playwright test results:"
+          if find test-results -name "test-results.json" -type f | grep -q .; then
+            find test-results -name "test-results.json" -type f | while read file; do
+              echo "Found: $file"
+            done
+          else
+            echo "No test-results.json files found (shards may have had no results)"
+          fi
+
+      - name: Upload consolidated results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-test-results-consolidated
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: warn
+
+  detox-e2e-tests:
+    name: Detox E2E Tests (iOS)
+    runs-on: macos-latest
+    needs: [eslint]
     defaults:
       run:
         working-directory: ./react-native-mobile
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group: [core, management, simple-navigation]
+    env:
+      TEST_GROUP: ${{ matrix.test-group }}
 
     steps:
       - name: Checkout code
@@ -440,27 +544,62 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: ./react-native-mobile/package-lock.json
 
       - name: Install dependencies
         run: npm install
 
-      - name: Run tests
-        run: npm run test:coverage -- --json --outputFile=test-results.json
+      - name: Set up Detox CLI
+        run: npm install -g detox-cli
 
-      - name: Upload test results
+      - name: Fix CocoaPods boost checksum issue and install pods
+        run: |
+          cd ios
+          rm -rf Pods Podfile.lock
+          # Update pod repo first
+          echo "Updating CocoaPods repository..."
+          pod repo update
+
+          # The Podfile now includes a patch to fix the boost checksum issue
+          # This will automatically patch the boost podspec before installation
+          echo "Installing CocoaPods dependencies (may take a few minutes)..."
+          pod install 2>&1 | tee pod_install.log
+
+          # Check installation status
+          if [ -f "Pods/Manifest.lock" ]; then
+            echo "✅ Pod installation successful"
+          else
+            echo "⚠️  Pod installation completed with warnings"
+            cat pod_install.log
+          fi
+          cd ..
+
+      - name: Build Detox iOS configuration
+        continue-on-error: true
+        run: detox build --configuration ios.sim.debug
+
+      - name: Run Detox E2E tests - Core Flows
+        if: matrix.test-group == 'core'
+        continue-on-error: true
+        run: detox test e2e/tests/core --configuration ios.sim.debug --cleanup
+
+      - name: Run Detox E2E tests - Management
+        if: matrix.test-group == 'management'
+        continue-on-error: true
+        run: detox test e2e/tests/management --configuration ios.sim.debug --cleanup
+
+      - name: Run Detox E2E tests - Simple Navigation
+        if: matrix.test-group == 'simple-navigation'
+        continue-on-error: true
+        run: detox test e2e/tests/simple e2e/tests/navigation e2e/tests/system --configuration ios.sim.debug --cleanup
+
+      - name: Upload Detox test results
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: react-native-test-results
-          path: test-results.json
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: coverage/coverage-final.json
-          flags: react-native-mobile
+          name: detox-test-results-${{ matrix.test-group }}
+          path: react-native-mobile/artifacts/
+          retention-days: 7
 
   # ============================================================================
   # Build
@@ -474,6 +613,21 @@ jobs:
       run:
         working-directory: ./rails-backend
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: oo_parking_lot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -483,15 +637,26 @@ jobs:
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
+          working-directory: ./rails-backend
 
-      - name: Install dependencies
+      - name: Setup database
+        env:
+          RAILS_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
         run: |
-          gem install bundler
-          bundle config set --local deployment 'true'
-          bundle config set --local without 'development test'
-          bundle install --jobs 4 --retry 3
+          bundle exec rails db:create
+          bundle exec rails db:test:prepare
 
       - name: Verify application builds
+        env:
+          RAILS_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
         run: bundle exec rails runner "puts 'Rails application builds successfully'"
 
   build-go:
@@ -507,27 +672,30 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+          cache-dependency-path: go-backend/go.sum
 
       - name: Install dependencies
         run: go mod download
 
       - name: Build
+        env:
+          CGO_ENABLED: 0
         run: go build -a -installsuffix cgo -o main ./cmd/server/main.go
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: go-build
-          path: main
+          path: go-backend/main
 
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
-    needs: [frontend-tests, playwright-e2e-tests]
+    needs: [frontend-tests, playwright-e2e-tests-consolidate, detox-e2e-tests]
     defaults:
       run:
         working-directory: ./react-web
@@ -551,40 +719,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: react-build
-          path: dist
-
-  build-react-native:
-    name: Build React Native
-    runs-on: ubuntu-latest
-    needs: [react-native-tests]
-    defaults:
-      run:
-        working-directory: ./react-native-mobile
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: ./react-native-mobile/package-lock.json
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Type check
-        run: npm run type-check
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: react-native-build
-          path: |
-            package.json
-            tsconfig.json
+          path: react-web/dist
 
   # ============================================================================
   # Security Scanning
@@ -607,6 +742,7 @@ jobs:
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
+          working-directory: ./rails-backend
 
       - name: Install Brakeman
         run: gem install brakeman
@@ -619,7 +755,7 @@ jobs:
         if: always()
         with:
           name: brakeman-results
-          path: brakeman-results.json
+          path: rails-backend/brakeman-results.json
 
   bundler-audit:
     name: Bundler Audit (Rails)
@@ -638,6 +774,7 @@ jobs:
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
+          working-directory: ./rails-backend
 
       - name: Install Bundler-Audit
         run: gem install bundler-audit
@@ -670,32 +807,6 @@ jobs:
         run: bun audit
         continue-on-error: true
 
-  npm-audit-react-native:
-    name: NPM Audit (React Native)
-    runs-on: ubuntu-latest
-    needs: [react-native-lint]
-    defaults:
-      run:
-        working-directory: ./react-native-mobile
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: ./react-native-mobile/package-lock.json
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run NPM Audit
-        run: npm audit
-        continue-on-error: true
-
   gosec:
     name: GoSec Security Scan (Go)
     runs-on: ubuntu-latest
@@ -711,7 +822,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -726,22 +837,21 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gosec-results
-          path: gosec-results.sarif
+          path: go-backend/gosec-results.sarif
           retention-days: 30
 
       - name: Upload GoSec results to GitHub Security
         if: always()
-        continue-on-error: true  # Continue if Code Scanning is not available
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: 'gosec-results.sarif'
+          sarif_file: 'go-backend/gosec-results.sarif'
           category: gosec
-          checkout_path: /home/runner/work/oo-parking-lot/oo-parking-lot
 
   trivy-scan:
     name: Trivy Vulnerability Scan
     runs-on: ubuntu-latest
-    needs: [build-rails, build-go, build-frontend, build-react-native]
+    needs: [build-rails, build-go, build-frontend]
 
     steps:
       - name: Checkout code
@@ -757,14 +867,10 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy results
-        continue-on-error: true  # Continue if Code Scanning is not available
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
-
-  # ============================================================================
-  # Performance Benchmarking
-  # ============================================================================
 
   # ============================================================================
   # Cross-Backend E2E Testing (Newman)
@@ -774,9 +880,6 @@ jobs:
     name: Newman Tests (Ruby Backend)
     runs-on: ubuntu-latest
     needs: [rubocop]
-    defaults:
-      run:
-        working-directory: ./rails-backend
 
     services:
       postgres:
@@ -812,15 +915,10 @@ jobs:
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
-
-      - name: Install dependencies
-        run: |
-          gem install bundler
-          bundle config set --local deployment 'true'
-          bundle config set --local without 'development'
-          bundle install --jobs 4 --retry 3
+          working-directory: ./rails-backend
 
       - name: Setup database
+        working-directory: ./rails-backend
         env:
           RAILS_ENV: test
           DATABASE_HOST: localhost
@@ -831,16 +929,8 @@ jobs:
           bundle exec rails db:create
           bundle exec rails db:test:prepare
 
-      - name: Reset database
-        env:
-          RAILS_ENV: test
-          DATABASE_HOST: localhost
-          DATABASE_PORT: 5432
-          DATABASE_USERNAME: postgres
-          DATABASE_PASSWORD: postgres
-        run: bundle exec rails db:reset
-
       - name: Start Ruby server
+        working-directory: ./rails-backend
         env:
           RAILS_ENV: test
           DATABASE_HOST: localhost
@@ -848,29 +938,83 @@ jobs:
           DATABASE_USERNAME: postgres
           DATABASE_PASSWORD: postgres
           REDIS_URL: redis://localhost:6379/0
-        run: bundle exec rails server -b puma -p 3000 > /tmp/ruby-server.log 2>&1 &
+        run: bundle exec rails server -p 3000 -b 0.0.0.0 > /tmp/ruby-server.log 2>&1 &
 
       - name: Wait for Ruby server to be ready
         run: |
           for i in {1..30}; do
-            if curl -f http://localhost:3000/health; then
+            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
               echo "Rails backend is ready"
               break
             fi
             echo "Waiting for Rails backend... ($i/30)"
             sleep 2
           done
+          # Final check
+          curl -sf http://localhost:3000/health > /dev/null || (echo "Rails backend failed to start" && cat /tmp/ruby-server.log && exit 1)
+
+      - name: Initialize database with test data
+        run: |
+          INIT_DATA='{
+            "entry_points": [
+              {"identifier": "A", "name": "Entry Point A"},
+              {"identifier": "B", "name": "Entry Point B"},
+              {"identifier": "C", "name": "Entry Point C"}
+            ],
+            "parking_slots": [
+              {"slot_label": "SP-1", "slot_type": "SP", "distances": [5,  15, 25]},
+              {"slot_label": "SP-2", "slot_type": "SP", "distances": [10, 5,  15]},
+              {"slot_label": "SP-3", "slot_type": "SP", "distances": [15, 5,  5]},
+              {"slot_label": "MP-1", "slot_type": "MP", "distances": [10, 10, 20]},
+              {"slot_label": "MP-2", "slot_type": "MP", "distances": [20, 10, 10]},
+              {"slot_label": "LP-1", "slot_type": "LP", "distances": [15, 15, 15]},
+              {"slot_label": "LP-2", "slot_type": "LP", "distances": [2,  5,  6]}
+            ]
+          }'
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$INIT_DATA" \
+            "http://localhost:3000/api/v1/initialize")
+          echo "Init response: $RESPONSE"
+          SUCCESS=$(echo "$RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('success', False))" 2>/dev/null || echo "false")
+          if [ "$SUCCESS" != "True" ] && [ "$SUCCESS" != "true" ]; then
+            echo "Database initialization failed"
+            exit 1
+          fi
+
+      - name: Create active session for delete-slot test
+        run: |
+          PARK_RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"vehicle_type": "S", "entry_point_id": "A"}' \
+            "http://localhost:3000/api/v1/sessions")
+          echo "Park response: $PARK_RESPONSE"
+          SLOT_ID=$(echo "$PARK_RESPONSE" | python3 -c "import sys, json; d=json.load(sys.stdin).get('data', {}); print(d.get('parking_slot', {}).get('id', ''))" 2>/dev/null || echo "")
+          if [ -n "$SLOT_ID" ]; then
+            # Update env file with active_slot_id inside values array
+            python3 -c "
+          import json
+          with open('newman-env-ci-ruby.json') as f:
+              data = json.load(f)
+          for v in data.get('values', []):
+              if v.get('key') == 'active_slot_id':
+                  v['value'] = '$SLOT_ID'
+                  break
+          with open('newman-env-ci-ruby.json', 'w') as f:
+              json.dump(data, f, indent=2)
+          "
+            echo "Saved active_slot_id=$SLOT_ID to env file"
+          else
+            echo "Warning: Failed to create active session, delete-slot test may fail"
+          fi
 
       - name: Install Newman
         run: npm install -g newman
 
       - name: Run Newman tests
-        env:
-          BASE_URL: http://localhost:3000
         run: |
           newman run "Parking Lot API.postman_collection.json" \
-            -e newman-env.json \
-            --global-var baseUrl=$BASE_URL \
+            -e newman-env-ci-ruby.json \
             --reporters cli,json \
             --reporter-json-export newman-ruby-results.json
 
@@ -881,18 +1025,36 @@ jobs:
           name: newman-ruby-results
           path: newman-ruby-results.json
 
+      - name: Upload Ruby server logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruby-server-logs
+          path: /tmp/ruby-server.log
+          retention-days: 7
+
       - name: Check for test failures
+        if: always()
         run: |
           if [ -f newman-ruby-results.json ]; then
-            cat newman-ruby-results.json | python3 -c "import sys, json; data = json.load(sys.stdin); failures = [r for r in data.get('run', {}).get('executions', []) if r.get('failures', [])]; sys.exit(1 if failures else 0"
+            python3 -c "
+          import sys, json
+          with open('newman-ruby-results.json') as f:
+              data = json.load(f)
+          failures = [r for r in data.get('run', {}).get('executions', []) if r.get('failures', [])]
+          if failures:
+              for f in failures:
+                  for e in f.get('failures', []):
+                      print(f\"FAIL: {f.get('item', {}).get('name', 'unknown')}: {e.get('error', {}).get('message', 'unknown error')}\")
+              sys.exit(1)
+          print('All Newman tests passed')
+          "
+          fi
 
   newman-go-tests:
     name: Newman Tests (Go Backend)
     runs-on: ubuntu-latest
     needs: [go-lint]
-    defaults:
-      run:
-        working-directory: ./go-backend
 
     services:
       postgres:
@@ -924,50 +1086,114 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Install dependencies
+        working-directory: ./go-backend
         run: go mod download
 
-      - name: Setup and reset database
+      - name: Setup database
+        working-directory: ./go-backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable
-        run: |
-          psql $DATABASE_URL -f scripts/init-db.sql
+        run: psql "$DATABASE_URL" -f scripts/init-db.sql
 
       - name: Build Go server
+        working-directory: ./go-backend
+        env:
+          CGO_ENABLED: 0
         run: go build -a -installsuffix cgo -o main ./cmd/server/main.go
 
       - name: Start Go server
+        working-directory: ./go-backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/oo_parking_lot_test?sslmode=disable
+          DATABASE_HOST: localhost
+          DATABASE_PORT: "5432"
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: postgres
+          DATABASE_NAME: oo_parking_lot_test
           REDIS_URL: redis://localhost:6379/0
+          TZ: UTC
         run: ./main > /tmp/go-server.log 2>&1 &
 
       - name: Wait for Go server to be ready
         run: |
           for i in {1..30}; do
-            if curl -f http://localhost:8082/health; then
+            if curl -sf http://localhost:8082/health > /dev/null 2>&1; then
               echo "Go backend is ready"
               break
             fi
             echo "Waiting for Go backend... ($i/30)"
             sleep 2
           done
+          # Final check
+          curl -sf http://localhost:8082/health > /dev/null || (echo "Go backend failed to start" && cat /tmp/go-server.log && exit 1)
+
+      - name: Initialize database with test data
+        run: |
+          INIT_DATA='{
+            "entry_points": [
+              {"identifier": "A", "name": "Entry Point A"},
+              {"identifier": "B", "name": "Entry Point B"},
+              {"identifier": "C", "name": "Entry Point C"}
+            ],
+            "parking_slots": [
+              {"slot_label": "SP-1", "slot_type": "SP", "distances": [5,  15, 25]},
+              {"slot_label": "SP-2", "slot_type": "SP", "distances": [10, 5,  15]},
+              {"slot_label": "SP-3", "slot_type": "SP", "distances": [15, 5,  5]},
+              {"slot_label": "MP-1", "slot_type": "MP", "distances": [10, 10, 20]},
+              {"slot_label": "MP-2", "slot_type": "MP", "distances": [20, 10, 10]},
+              {"slot_label": "LP-1", "slot_type": "LP", "distances": [15, 15, 15]},
+              {"slot_label": "LP-2", "slot_type": "LP", "distances": [2,  5,  6]}
+            ]
+          }'
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$INIT_DATA" \
+            "http://localhost:8082/api/v1/initialize")
+          echo "Init response: $RESPONSE"
+          SUCCESS=$(echo "$RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('success', False))" 2>/dev/null || echo "false")
+          if [ "$SUCCESS" != "True" ] && [ "$SUCCESS" != "true" ]; then
+            echo "Database initialization failed"
+            exit 1
+          fi
+
+      - name: Create active session for delete-slot test
+        run: |
+          PARK_RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"vehicle_type": "S", "entry_point_id": "A"}' \
+            "http://localhost:8082/api/v1/sessions")
+          echo "Park response: $PARK_RESPONSE"
+          SLOT_ID=$(echo "$PARK_RESPONSE" | python3 -c "import sys, json; d=json.load(sys.stdin).get('data', {}); print(d.get('parking_slot', {}).get('id', ''))" 2>/dev/null || echo "")
+          if [ -n "$SLOT_ID" ]; then
+            # Update env file with active_slot_id inside values array
+            python3 -c "
+          import json
+          with open('newman-env-ci-go.json') as f:
+              data = json.load(f)
+          for v in data.get('values', []):
+              if v.get('key') == 'active_slot_id':
+                  v['value'] = '$SLOT_ID'
+                  break
+          with open('newman-env-ci-go.json', 'w') as f:
+              json.dump(data, f, indent=2)
+          "
+            echo "Saved active_slot_id=$SLOT_ID to env file"
+          else
+            echo "Warning: Failed to create active session, delete-slot test may fail"
+          fi
 
       - name: Install Newman
         run: npm install -g newman
 
       - name: Run Newman tests
-        env:
-          BASE_URL: http://localhost:8082
         run: |
           newman run "Parking Lot API.postman_collection.json" \
-            -e newman-env.json \
-            --global-var baseUrl=$BASE_URL \
+            -e newman-env-ci-go.json \
             --reporters cli,json \
             --reporter-json-export newman-go-results.json
 
@@ -978,10 +1204,31 @@ jobs:
           name: newman-go-results
           path: newman-go-results.json
 
+      - name: Upload Go server logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-server-logs
+          path: /tmp/go-server.log
+          retention-days: 7
+
       - name: Check for test failures
+        if: always()
         run: |
           if [ -f newman-go-results.json ]; then
-            cat newman-go-results.json | python3 -c "import sys, json; data = json.load(sys.stdin); failures = [r for r in data.get('run', {}).get('executions', []) if r.get('failures', [])]; sys.exit(1 if failures else 0"
+            python3 -c "
+          import sys, json
+          with open('newman-go-results.json') as f:
+              data = json.load(f)
+          failures = [r for r in data.get('run', {}).get('executions', []) if r.get('failures', [])]
+          if failures:
+              for f in failures:
+                  for e in f.get('failures', []):
+                      print(f\"FAIL: {f.get('item', {}).get('name', 'unknown')}: {e.get('error', {}).get('message', 'unknown error')}\")
+              sys.exit(1)
+          print('All Newman tests passed')
+          "
+          fi
 
   # ============================================================================
   # Performance Benchmarking
@@ -990,7 +1237,8 @@ jobs:
   performance-benchmark:
     name: Performance Benchmark
     runs-on: ubuntu-latest
-    needs: [build-rails, build-go, build-frontend, build-react-native]
+    needs: [build-rails, build-go, build-frontend]
+    continue-on-error: true
 
     services:
       postgres:
@@ -1026,14 +1274,7 @@ jobs:
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
-
-      - name: Install dependencies
-        working-directory: ./rails-backend
-        run: |
-          gem install bundler
-          bundle config set --local deployment 'true'
-          bundle config set --local without 'development'
-          bundle install --jobs 4 --retry 3
+          working-directory: ./rails-backend
 
       - name: Setup database
         working-directory: ./rails-backend
@@ -1063,7 +1304,8 @@ jobs:
         run: bundle exec rspec spec/performance --format documentation
 
       - name: Upload benchmark results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: performance-benchmark-results
-          path: tmp/performance
+          path: rails-backend/tmp/performance

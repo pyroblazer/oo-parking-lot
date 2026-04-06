@@ -28,6 +28,7 @@ func TestFeeCalculator_Calculate(t *testing.T) {
 		SlotType:  models.SlotTypeLarge,
 	}
 	now := time.Now()
+	exitedAt := now // Capture exact exit time to avoid timing variations in tests
 
 	tests := []struct {
 		name     string
@@ -43,7 +44,7 @@ func TestFeeCalculator_Calculate(t *testing.T) {
 				ParkingSlotID: 1,
 				EntryPointID:  1,
 				ParkedAt:      now.Add(-3 * time.Hour),
-				ExitedAt:      func() *time.Time { t := now; return &t }(),
+				ExitedAt:      &exitedAt,
 			},
 			slot:     smallSlot,
 			expected: BaseRate,
@@ -56,7 +57,7 @@ func TestFeeCalculator_Calculate(t *testing.T) {
 				ParkingSlotID: 1,
 				EntryPointID:  1,
 				ParkedAt:      now.Add(-5 * time.Hour),
-				ExitedAt:      func() *time.Time { t := now; return &t }(),
+				ExitedAt:      &exitedAt,
 			},
 			slot:     smallSlot,
 			expected: 80.00,
@@ -69,7 +70,7 @@ func TestFeeCalculator_Calculate(t *testing.T) {
 				ParkingSlotID: 1,
 				EntryPointID:  1,
 				ParkedAt:      now.Add(-25 * time.Hour),
-				ExitedAt:      func() *time.Time { t := now; return &t }(),
+				ExitedAt:      &exitedAt,
 			},
 			slot:     smallSlot,
 			expected: LongTermRate + BaseRate,
@@ -82,7 +83,7 @@ func TestFeeCalculator_Calculate(t *testing.T) {
 				ParkingSlotID: 2,
 				EntryPointID:  1,
 				ParkedAt:      now.Add(-5 * time.Hour),
-				ExitedAt:      func() *time.Time { t := now; return &t }(),
+				ExitedAt:      &exitedAt,
 			},
 			slot:     mediumSlot,
 			expected: 160.00,
@@ -95,7 +96,7 @@ func TestFeeCalculator_Calculate(t *testing.T) {
 				ParkingSlotID: 3,
 				EntryPointID:  1,
 				ParkedAt:      now.Add(-5 * time.Hour),
-				ExitedAt:      func() *time.Time { t := now; return &t }(),
+				ExitedAt:      &exitedAt,
 			},
 			slot:     largeSlot,
 			expected: 240.00,
@@ -124,6 +125,7 @@ func TestFeeCalculator_Breakdown(t *testing.T) {
 		SlotType:  models.SlotTypeSmall,
 	}
 	now := time.Now()
+	exitedAt := now // Capture exact exit time to avoid timing variations in tests
 
 	tests := []struct {
 		session          *models.ParkingSession
@@ -140,7 +142,7 @@ func TestFeeCalculator_Breakdown(t *testing.T) {
 				ParkingSlotID: 1,
 				EntryPointID:  1,
 				ParkedAt:      now.Add(-3 * time.Hour),
-				ExitedAt:      func() *time.Time { t := now; return &t }(),
+				ExitedAt:      &exitedAt,
 			},
 			slot:             slot,
 			expectedDuration: 3, // ceil(3.0) = 3
@@ -154,7 +156,7 @@ func TestFeeCalculator_Breakdown(t *testing.T) {
 				ParkingSlotID: 1,
 				EntryPointID:  1,
 				ParkedAt:      now.Add(-5 * time.Hour),
-				ExitedAt:      func() *time.Time { t := now; return &t }(),
+				ExitedAt:      &exitedAt,
 			},
 			slot:             slot,
 			expectedDuration: 5, // ceil(5.0) = 5
@@ -168,7 +170,7 @@ func TestFeeCalculator_Breakdown(t *testing.T) {
 				ParkingSlotID: 1,
 				EntryPointID:  1,
 				ParkedAt:      now.Add(-25 * time.Hour),
-				ExitedAt:      func() *time.Time { t := now; return &t }(),
+				ExitedAt:      &exitedAt,
 			},
 			slot:             slot,
 			expectedDuration: 25, // ceil(25.0) = 25

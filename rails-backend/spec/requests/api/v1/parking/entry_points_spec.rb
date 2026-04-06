@@ -27,35 +27,35 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
     it 'returns success field' do
       get '/api/v1/entry_points', as: :json
 
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['success']).to be true
     end
 
     it 'returns data field' do
       get '/api/v1/entry_points', as: :json
 
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['data']).to be_present
     end
 
     it 'returns data as array' do
       get '/api/v1/entry_points', as: :json
 
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['data']).to be_an(Array)
     end
 
     it 'returns at least one entry point' do
       get '/api/v1/entry_points', as: :json
 
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['data'].length).to be >= 1
     end
 
     it 'returns entry points with required fields' do
       get '/api/v1/entry_points', as: :json
 
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       json['data'].each do |entry_point|
         expect(entry_point).to have_key('id')
         expect(entry_point).to have_key('identifier')
@@ -68,7 +68,7 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
     it 'returns valid entry point identifiers' do
       get '/api/v1/entry_points', as: :json
 
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       valid_identifiers = %w[A B C]
       json['data'].each do |entry_point|
         expect(valid_identifiers).to include(entry_point['identifier'])
@@ -78,8 +78,8 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
     it 'returns no duplicate identifiers' do
       get '/api/v1/entry_points', as: :json
 
-      json = JSON.parse(response.body)
-      identifiers = json['data'].map { |ep| ep['identifier'] }
+      json = response.parsed_body
+      identifiers = json['data'].pluck('identifier')
       expect(identifiers.length).to eq(identifiers.uniq.length)
     end
 
@@ -87,8 +87,8 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
     it 'returns entry points in order' do
       get '/api/v1/entry_points', as: :json
 
-      json = JSON.parse(response.body)
-      identifiers = json['data'].map { |ep| ep['identifier'] }
+      json = response.parsed_body
+      identifiers = json['data'].pluck('identifier')
       expect(identifiers).to eq(%w[A B C])
     end
 
@@ -103,7 +103,7 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
         get '/api/v1/entry_points', as: :json
 
         expect(response).to have_http_status(:ok)
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']).to eq([])
       end
     end
@@ -156,7 +156,7 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
         }
 
         post '/api/v1/entry_points', params: params, as: :json
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['success']).to be true
       end
 
@@ -169,7 +169,7 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
         }
 
         post '/api/v1/entry_points', params: params, as: :json
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']).to be_present
       end
 
@@ -182,7 +182,7 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
         }
 
         post '/api/v1/entry_points', params: params, as: :json
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']).to have_key('id')
         expect(json['data']).to have_key('identifier')
         expect(json['data']).to have_key('name')
@@ -263,7 +263,7 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
         }
 
         put "/api/v1/entry_points/#{@entry_point.id}", params: params, as: :json
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['success']).to be true
       end
 
@@ -275,7 +275,7 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
         }
 
         put "/api/v1/entry_points/#{@entry_point.id}", params: params, as: :json
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']).to be_present
       end
 
@@ -287,7 +287,7 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
         }
 
         put "/api/v1/entry_points/#{@entry_point.id}", params: params, as: :json
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']).to have_key('id')
         expect(json['data']).to have_key('identifier')
         expect(json['data']).to have_key('name')
@@ -333,9 +333,9 @@ RSpec.describe 'Api::V1::EntryPointsController', type: :request do
     end
 
     context 'with invalid parameters' do
-      it 'returns 204 when entry point not found' do
+      it 'returns 404 when entry point not found' do
         delete '/api/v1/entry_points/999999', as: :json
-        expect(response).to have_http_status(:no_content)
+        expect(response).to have_http_status(:not_found)
       end
     end
   end

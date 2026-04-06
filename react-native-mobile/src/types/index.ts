@@ -91,7 +91,7 @@ export interface NumericBaseEntity {
 
 /** Entry point interface */
 export interface EntryPoint {
-  readonly id: number;
+  readonly id: string | number;
   readonly name: string;
   readonly identifier: EntryPointIdentifier;
   readonly x?: number;
@@ -101,7 +101,7 @@ export interface EntryPoint {
 
 /** Parking slot interface */
 export interface ParkingSlot {
-  readonly id: number;
+  readonly id: string | number;
   readonly label: string;
   readonly type: SlotTypeLiteral;
   readonly status: SlotStatusLiteral;
@@ -123,6 +123,82 @@ export interface ParkingSession {
   readonly total_fee?: number;
   readonly is_active: boolean;
   readonly is_continuous?: boolean;
+}
+
+/** Vehicle interface */
+export interface Vehicle {
+  readonly id: string;
+  readonly license_plate: string;
+  readonly vehicle_type: VehicleType;
+  readonly color?: string;
+  readonly brand?: string;
+  readonly model?: string;
+  readonly year?: number;
+  readonly metadata?: Record<string, unknown>;
+  readonly first_seen_at: string;
+  readonly last_seen_at?: string;
+  readonly total_sessions: number;
+  readonly total_spent: number;
+  readonly total_hours_parked: number;
+  readonly is_frequent: boolean;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/** Billing audit log interface */
+export interface BillingAuditLog {
+  readonly id: number;
+  readonly parking_session_id: number;
+  readonly vehicle_type: string;
+  readonly slot_label: string;
+  readonly slot_type: string;
+  readonly entry_point: string;
+  readonly parked_at: string;
+  readonly exited_at: string;
+  readonly total_fee: number;
+  readonly base_fee: number;
+  readonly exceeding_fee: number;
+  readonly exceeding_hours: number;
+  readonly long_term_days: number;
+  readonly long_term_fee: number;
+  readonly duration_hours: number;
+  readonly is_continuous: boolean;
+  readonly base_start_time?: string;
+  readonly fee_breakdown?: BillingFeeBreakdown;
+  readonly correlation_id?: string;
+  readonly idempotency_key?: string;
+  readonly billing_version: string;
+  readonly calculated_at: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/** Billing fee breakdown interface */
+export interface BillingFeeBreakdown {
+  readonly base_fee: number;
+  readonly exceeding_fee: number;
+  readonly long_term_fee: number;
+  readonly total_fee: number;
+  readonly duration_hours: number;
+}
+
+/** Kafka event interface */
+export interface KafkaEvent {
+  readonly id: string;
+  readonly event_type: string;
+  readonly topic: string;
+  readonly event_id: string;
+  readonly payload: Record<string, unknown>;
+  readonly status: 'pending' | 'published' | 'failed' | 'retrying';
+  readonly retry_count: number;
+  readonly error_message?: string;
+  readonly partition: number;
+  readonly offset?: number;
+  readonly published_at?: string;
+  readonly occurred_at: string;
+  readonly idempotency_key?: string;
+  readonly created_at: string;
+  readonly updated_at: string;
 }
 
 /** Available slots response interface */

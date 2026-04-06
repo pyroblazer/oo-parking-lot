@@ -27,11 +27,13 @@ module.exports = {
     }
   },
   moduleNameMapper: {
+    '^@env$': '<rootDir>/__mocks__/env.js',
     '^react-native$': '<rootDir>/__mocks__/react-native.js',
     '^@react-native-picker/picker$': '<rootDir>/__mocks__/@react-native-picker/picker.js',
     '^@react-native-async-storage/async-storage$': '<rootDir>/__mocks__/@react-native-async-storage/async-storage.js',
     '^@react-native-community/datetimepicker$': '<rootDir>/__mocks__/@react-native-community/datetimepicker.js',
     '^@react-navigation/native$': '<rootDir>/__mocks__/@react-navigation/native/native.js',
+    '^@react-navigation/native-stack$': '<rootDir>/__mocks__/@react-navigation/native-stack.js',
     '^@react-navigation/(.*)$': '<rootDir>/__mocks__/@react-navigation/native/native.js',
   },
   transform: {

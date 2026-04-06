@@ -2,13 +2,25 @@
  * View Session Component Tests
  */
 
+import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import ViewSession from '../ViewSession';
 import * as api from '../../api';
-import * as reactRouterDom from 'react-router-dom';
 import type { ParkingSlot, ParkingSession } from '../../types';
+
+// Mock react-router-dom - must be before importing
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: vi.fn(),
+    useParams: vi.fn()
+  };
+});
+
+import { MemoryRouter } from 'react-router-dom';
+import * as reactRouterDom from 'react-router-dom';
 
 describe('ViewSession Component', () => {
   const mockNavigate = vi.fn();
@@ -17,8 +29,8 @@ describe('ViewSession Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(api, 'getSession').mockResolvedValue(undefined as any);
-    vi.spyOn(reactRouterDom, 'useNavigate').mockReturnValue(mockNavigate);
-    vi.spyOn(reactRouterDom, 'useParams').mockImplementation(mockUseParams);
+    vi.mocked(reactRouterDom).useNavigate.mockReturnValue(mockNavigate);
+    vi.mocked(reactRouterDom).useParams.mockImplementation(mockUseParams);
     mockUseParams.mockReturnValue({ id: '1' });
   });
 
@@ -149,6 +161,35 @@ describe('ViewSession Component', () => {
       vi.spyOn(api, 'getSession').mockResolvedValue(mockSession);
       render(<MemoryRouter><ViewSession /></MemoryRouter>);
       expect(await screen.findByText(/exited at:/i)).toBeInTheDocument();
+    });
+
+    it('displays plural "hours" for duration > 1', async () => {
+      const mockSession: ParkingSession = {
+        id: 1, vehicle_type: 'S', is_active: false, parking_slot_id: 1, entry_point_id: 1,
+        parked_at: new Date(Date.now() - 18000000).toISOString(),
+        exited_at: new Date().toISOString(), duration_hours: 5, total_fee: 80,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        parking_slot: { id: 1, slot_label: 'SP-1', slot_type: 'SP' },
+        session_id: '1', is_continuous: false
+      };
+      vi.spyOn(api, 'getSession').mockResolvedValue(mockSession);
+      render(<MemoryRouter><ViewSession /></MemoryRouter>);
+      expect(await screen.findByText(/5 hours/i)).toBeInTheDocument();
+    });
+
+    it('displays singular "hour" for 1 hour duration', async () => {
+      const mockSession: ParkingSession = {
+        id: 1, vehicle_type: 'S', is_active: false, parking_slot_id: 1, entry_point_id: 1,
+        parked_at: new Date(Date.now() - 3600000).toISOString(),
+        exited_at: new Date().toISOString(), duration_hours: 1, total_fee: 40,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        parking_slot: { id: 1, slot_label: 'SP-1', slot_type: 'SP' },
+        session_id: '1', is_continuous: false
+      };
+      vi.spyOn(api, 'getSession').mockResolvedValue(mockSession);
+      render(<MemoryRouter><ViewSession /></MemoryRouter>);
+      expect(await screen.findByText(/1 hour$/)).toBeInTheDocument();
+      expect(screen.queryByText(/1 hours/)).not.toBeInTheDocument();
     });
 
     it('displays active status badge', async () => {

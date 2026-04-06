@@ -38,14 +38,14 @@ RSpec.describe 'Api::V1::InitializationsController', type: :request do
       it 'returns success field' do
         post '/api/v1/initialize', params: valid_params, as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['success']).to be true
       end
 
       it 'returns data field' do
         post '/api/v1/initialize', params: valid_params, as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']).to be_present
       end
 
@@ -75,42 +75,42 @@ RSpec.describe 'Api::V1::InitializationsController', type: :request do
       it 'returns entry_points_created field' do
         post '/api/v1/initialize', params: valid_params, as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']).to have_key('entry_points_created')
       end
 
       it 'returns parking_slots_created field' do
         post '/api/v1/initialize', params: valid_params, as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']).to have_key('parking_slots_created')
       end
 
       it 'returns message field' do
         post '/api/v1/initialize', params: valid_params, as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']).to have_key('message')
       end
 
       it 'returns correct entry_points_created count' do
         post '/api/v1/initialize', params: valid_params, as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']['entry_points_created']).to eq(3)
       end
 
       it 'returns correct parking_slots_created count' do
         post '/api/v1/initialize', params: valid_params, as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']['parking_slots_created']).to eq(7)
       end
 
       it 'returns initialization message' do
         post '/api/v1/initialize', params: valid_params, as: :json
 
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['data']['message']).to be_present
       end
     end
@@ -203,7 +203,7 @@ RSpec.describe 'Api::V1::InitializationsController', type: :request do
         post '/api/v1/initialize', params: {}, as: :json
 
         expect(response).to have_http_status(:unprocessable_content)
-        json = JSON.parse(response.body)
+        json = response.parsed_body
         expect(json['success']).to be false
         expect(json['error']).to be_present
       end

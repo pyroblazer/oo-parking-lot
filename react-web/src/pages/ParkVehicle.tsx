@@ -1,6 +1,6 @@
 /**
  * Park Vehicle Page
- * 
+ *
  * Implements FEAT-001: Park Vehicle with simple form (no 3-step wizard)
  * - Vehicle Type dropdown (S/M/L)
  * - Entry Point dropdown (populated from API)
@@ -8,11 +8,11 @@
  * - Success banner with Session ID copy
  * - Error handling for 409 (no available slots)
  * - Continuous parking notice
- * 
+ *
  * @module ParkVehicle
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import * as parkingApi from '../api/parkingApi';
 import { useParking } from '../context/ParkingContext';
 
@@ -252,7 +252,7 @@ function SuccessBanner({
           <strong>Slot:</strong> {session.parking_slot.slot_label} ({SLOT_TYPE_LABELS[session.parking_slot.slot_type]})
         </div>
         <div className="slot-info">
-          <strong>Entry Point:</strong> {session.entry_point}
+          <strong>Entry Point:</strong> {typeof session.entry_point === 'string' ? session.entry_point : session.entry_point?.identifier || ''}
         </div>
         <div className="slot-info">
           <strong>Vehicle Type:</strong> {VEHICLE_TYPE_LABELS[session.vehicle_type]} ({session.vehicle_type})
@@ -397,15 +397,6 @@ export function ParkVehicle(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Reset form to initial state
-   */
-  const resetForm = (): void => {
-    setVehicleType('');
-    setEntryPointId('');
-    setParkingResult(null);
-    setError(null);
-  };
 
   /**
    * Copy session ID to clipboard

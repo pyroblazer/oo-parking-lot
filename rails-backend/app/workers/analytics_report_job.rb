@@ -34,9 +34,7 @@ class AnalyticsReportJob
 
     # Average session duration
     avg_duration = if completed_sessions.positive?
-                     daily_sessions.where.not(exited_at: nil)
-                                   .map { |s| (s.exited_at - s.parked_at) / 3600.0 }
-                                   .sum / completed_sessions
+                     daily_sessions.where.not(exited_at: nil).sum { |s| (s.exited_at - s.parked_at) / 3600.0 } / completed_sessions
                    else
                      0
                    end

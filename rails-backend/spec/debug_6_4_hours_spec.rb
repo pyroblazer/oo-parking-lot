@@ -1,4 +1,3 @@
-# rubocop:disable Naming/VariableNumber
 require 'rails_helper'
 
 RSpec.describe 'Debug 6.4 Hours Fee Calculation', type: :request do
@@ -24,12 +23,6 @@ RSpec.describe 'Debug 6.4 Hours Fee Calculation', type: :request do
     session = ParkingSession.find(session_id)
 
     # DEBUG: Log session state before update
-    puts "\n=== Session Before Update ==="
-    puts "Session ID: #{session.id}"
-    puts "Parked at: #{session.parked_at}"
-    puts "Exited at: #{session.exited_at}"
-    puts "Active?: #{session.active?}"
-    puts "Reloaded from DB: #{ParkingSession.find(session_id).parked_at}"
 
     parked_at = Time.parse('2024-01-15T10:30:00Z')
     Time.parse('2024-01-15T17:24:00Z')
@@ -38,32 +31,15 @@ RSpec.describe 'Debug 6.4 Hours Fee Calculation', type: :request do
     session.reload
 
     # DEBUG: Log session state after update
-    puts "\n=== Session After Update ==="
-    puts "Session ID: #{session.id}"
-    puts "Parked at: #{session.parked_at}"
-    puts "Exited at: #{session.exited_at}"
-    puts "Active?: #{session.active?}"
-    puts "Reloaded from DB after update: #{ParkingSession.find(session_id).parked_at}"
 
-    puts "\n=== Pricing Breakdown ==="
     pricing_engine = PricingEngine.new(session)
-    breakdown = pricing_engine.breakdown
-    puts "Total fee: #{breakdown[:total_fee]}"
-    puts "Duration hours: #{breakdown[:duration_hours]}"
+    pricing_engine.breakdown
 
     # Unpark vehicle to get API response
     post "/api/v1/sessions/#{session_id}/unpark"
 
     expect(response).to have_http_status(:ok)
-    json = JSON.parse(response.body)
-
-    puts "\n=== API Response ==="
-    puts "Total fee: #{json['data']['total_fee']}"
-    puts "Duration hours: #{json['data']['duration_hours']}"
-    puts "Base fee: #{json['data']['fee_breakdown']['remaining']['base_fee']}"
-    puts "Exceeding hours: #{json['data']['fee_breakdown']['remaining']['exceeding_hours']}"
-    puts "Exceeding fee: #{json['data']['fee_breakdown']['remaining']['exceeding_fee']}"
-    puts "Hourly rate: #{json['data']['fee_breakdown']['remaining']['hourly_rate']}"
+    JSON.parse(response.body)
   end
 end
 # rubocop:enable Naming/VariableNumber

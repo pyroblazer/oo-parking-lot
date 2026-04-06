@@ -5,13 +5,19 @@
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
 import ParkVehicle from '../../src/screens/ParkVehicle';
-import * as api from '../../src/api';
+import * as api from '../../src/api/parkingApi';
 import type { NavigationProp, RouteProp } from '../../src/types';
 
 // Mock API functions
-jest.mock('../../src/api', () => ({
+jest.mock('../../src/api/parkingApi', () => ({
   parkVehicle: jest.fn(),
-  getEntryPoints: jest.fn(),
+  listEntryPoints: jest.fn(),
+  ApiError: class extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'ApiError';
+    }
+  },
 }));
 
 const mockNavigation: NavigationProp = {
@@ -29,7 +35,7 @@ describe('ParkVehicle Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock successful getEntryPoints response
-    (api.getEntryPoints as jest.Mock).mockResolvedValue([
+    (api.listEntryPoints as jest.Mock).mockResolvedValue([
       { id: '1', identifier: 'A', name: 'Main Entrance' },
       { id: '2', identifier: 'B', name: 'Side Entrance' },
     ]);
@@ -314,12 +320,12 @@ describe('ParkVehicle Screen', () => {
       render(<ParkVehicle navigation={mockNavigation} route={mockRoute} />);
 
       await waitFor(() => {
-        expect(api.getEntryPoints).toHaveBeenCalled();
+        expect(api.listEntryPoints).toHaveBeenCalled();
       });
     });
 
     it('displays error when entry points fail to load', async () => {
-      (api.getEntryPoints as jest.Mock).mockRejectedValue(new Error('Network error'));
+      (api.listEntryPoints as jest.Mock).mockRejectedValue(new Error('Network error'));
 
       render(<ParkVehicle navigation={mockNavigation} route={mockRoute} />);
 

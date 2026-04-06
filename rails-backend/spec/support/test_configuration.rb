@@ -38,13 +38,9 @@ module TestConfiguration
 
   # Mock Kafka producer for tests
   def self.mock_kafka_producer
-    instance_double('KafkaProducer').tap do |mock|
-      allow(mock).to receive(:new).and_return(mock)
-      allow(mock).to receive(:publish).and_return(true)
-      allow(mock).to receive(:vehicle_parked).and_return(true)
-      allow(mock).to receive(:vehicle_unparked).and_return(true)
-      allow(mock).to receive(:slot_allocated).and_return(true)
-      allow(mock).to receive(:billing_completed).and_return(true)
+    instance_double(KafkaProducer).tap do |mock|
+      allow(mock).to receive_messages(new: mock, publish: true, vehicle_parked: true, vehicle_unparked: true, slot_allocated: true,
+                                      billing_completed: true)
     end
   end
 
@@ -59,17 +55,15 @@ module TestConfiguration
 
   # Mock Prometheus client
   def self.mock_prometheus_client
-    instance_double('PrometheusExporter::Client').tap do |mock|
-      allow(mock).to receive(:default).and_return(mock)
-      allow(mock).to receive(:send_json).and_return(true)
+    instance_double(PrometheusExporter::Client).tap do |mock|
+      allow(mock).to receive_messages(default: mock, send_json: true)
     end
   end
 
   # Mock Sentry
   def self.mock_sentry
-    instance_double('Sentry').tap do |mock|
-      allow(mock).to receive(:capture_message).and_return(true)
-      allow(mock).to receive(:capture_exception).and_return(true)
+    instance_double(Sentry).tap do |mock|
+      allow(mock).to receive_messages(capture_message: true, capture_exception: true)
     end
   end
 end

@@ -2,18 +2,24 @@ require 'rails_helper'
 
 RSpec.describe ParkingSlot, type: :model do
   describe 'associations' do
-    it { should belong_to(:entry_point).optional }
-    it { should have_many(:parking_sessions) }
+    it { is_expected.to belong_to(:entry_point).optional }
+    it { is_expected.to have_many(:parking_sessions) }
   end
 
   describe 'validations' do
     subject { build(:parking_slot) }
 
-    it { should validate_presence_of(:slot_label) }
-    it { should validate_uniqueness_of(:slot_label) }
-    it { should validate_presence_of(:slot_type) }
-    it { should validate_inclusion_of(:slot_type).in_array(%w[SP MP LP]) }
-    it { should validate_presence_of(:distances) }
+    it { is_expected.to validate_presence_of(:slot_label) }
+    it { is_expected.to validate_uniqueness_of(:slot_label) }
+    it { is_expected.to validate_presence_of(:slot_type) }
+
+    it 'validates that :slot_type is either "SP", "MP", or "LP"' do
+      slot = build(:parking_slot, slot_type: 'INVALID')
+      expect(slot).not_to be_valid
+      expect(slot.errors[:slot_type]).to include('is invalid')
+    end
+
+    it { is_expected.to validate_presence_of(:distances) }
   end
 
   describe '#available?' do

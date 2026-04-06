@@ -47,10 +47,11 @@ test.describe('Sessions Management - FEAT-005 - Basic Functionality', () => {
   test('should navigate back to dashboard', async ({ page }) => {
     await page.goto('/sessions-management');
     await page.waitForLoadState('networkidle');
-    
+
     await page.click('[data-testid="nav-home"]');
-    
-    expect(page.url()).toBe('http://localhost:3002/');
+
+    // Verify we're on the home page - check the path instead of hardcoding the host
+    expect(page.url()).toMatch(/\/$/);
   });
 });
 

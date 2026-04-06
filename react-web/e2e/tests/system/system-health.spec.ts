@@ -86,7 +86,9 @@ test.describe('FEAT-016: Check System Health - Health Polling', () => {
     await page.waitForLoadState('networkidle');
     
     // Verify we're still on the dashboard
-    expect(page.url()).toBe('http://localhost:3002/');
+    // Verify we're on the home page - check the path instead of hardcoding the host
+    expect(page.url()).toMatch(/\/$/);
+
   });
 
   test('should update health status after polling', async ({ page }) => {
@@ -315,7 +317,9 @@ test.describe('FEAT-016: Check System Health - UI/UX', () => {
     expect(page.url()).toContain('/park');
     
     await page.click('[data-testid="nav-home"]');
-    expect(page.url()).toBe('http://localhost:3002/');
+    // Verify we're on the home page - check the path instead of hardcoding the host
+    expect(page.url()).toMatch(/\/$/);
+
   });
 
   test('should display loading state during health check', async ({ page }) => {

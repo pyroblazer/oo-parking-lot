@@ -6,7 +6,7 @@ require 'opentelemetry/exporter/otlp'
 require 'opentelemetry/instrumentation/all'
 
 # Skip OpenTelemetry initialization in test and development environment to avoid frozen array issues
-if Rails.env.test? || Rails.env.development?
+if Rails.env.local?
   # Define stub Tracing module for test/development environment
   module Tracing
     def self.included(base)
@@ -123,7 +123,7 @@ module Tracing
 end
 
 # Include tracing in controllers
-ActionController::API.include(Tracing)
+ActiveSupport.on_load(:action_controller) { include Tracing }
 
 # Add tracing to requests
 ActiveSupport::Notifications.subscribe('process_action.action_controller') do |*args|

@@ -76,6 +76,36 @@ credentials/
 coverage/
 .nyc_output/
 *.lcov
+coverage.out
+coverage.html
+coverage.txt
+
+# Test results and reports
+test-results.json
+test-results-final.json
+test-results.txt
+test-results/
+playwright-report/
+rspec-results.xml
+*-results.json
+*-results-slim-*.json
+*-report-*.html
+*.sarif
+gosec-report.json
+brakeman-results.json
+react-native-test-results.txt
+
+# Redis dump
+dump.rdb
+
+# Security scan outputs
+trivy-fs-scan.json
+
+# Detox test artifacts
+react-native-mobile/artifacts/
+
+# Compiled binaries
+go-backend/main
 
 # Misc
 .cache/

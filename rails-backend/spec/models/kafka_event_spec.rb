@@ -1,20 +1,16 @@
 require 'rails_helper'
 
 RSpec.describe KafkaEvent, type: :model do
-  describe 'associations' do
-    # No associations defined in the model
-  end
-
   describe 'validations' do
     subject { build(:kafka_event) }
 
-    it { should validate_presence_of(:event_type) }
-    it { should validate_presence_of(:topic) }
-    it { should validate_presence_of(:event_id) }
-    it { should validate_presence_of(:occurred_at) }
-    it { should validate_presence_of(:status) }
-    it { should validate_inclusion_of(:status).in_array(%w[pending published failed retrying]) }
-    it { should validate_uniqueness_of(:event_id) }
+    it { is_expected.to validate_presence_of(:event_type) }
+    it { is_expected.to validate_presence_of(:topic) }
+    it { is_expected.to validate_presence_of(:event_id) }
+    it { is_expected.to validate_presence_of(:occurred_at) }
+    it { is_expected.to validate_presence_of(:status) }
+    it { is_expected.to validate_inclusion_of(:status).in_array(%w[pending published failed retrying]) }
+    it { is_expected.to validate_uniqueness_of(:event_id) }
   end
 
   describe 'scopes' do
@@ -35,23 +31,23 @@ RSpec.describe KafkaEvent, type: :model do
     end
 
     it '.pending returns only pending events' do
-      expect(KafkaEvent.pending).to include(pending_event)
-      expect(KafkaEvent.pending).not_to include(published_event, failed_event, retrying_event)
+      expect(described_class.pending).to include(pending_event)
+      expect(described_class.pending).not_to include(published_event, failed_event, retrying_event)
     end
 
     it '.published returns only published events' do
-      expect(KafkaEvent.published).to include(published_event)
-      expect(KafkaEvent.published).not_to include(pending_event, failed_event, retrying_event)
+      expect(described_class.published).to include(published_event)
+      expect(described_class.published).not_to include(pending_event, failed_event, retrying_event)
     end
 
     it '.failed returns only failed events' do
-      expect(KafkaEvent.failed).to include(failed_event)
-      expect(KafkaEvent.failed).not_to include(pending_event, published_event, retrying_event)
+      expect(described_class.failed).to include(failed_event)
+      expect(described_class.failed).not_to include(pending_event, published_event, retrying_event)
     end
 
     it '.retrying returns only retrying events' do
-      expect(KafkaEvent.retrying).to include(retrying_event)
-      expect(KafkaEvent.retrying).not_to include(pending_event, published_event, failed_event)
+      expect(described_class.retrying).to include(retrying_event)
+      expect(described_class.retrying).not_to include(pending_event, published_event, failed_event)
     end
 
     it '.for_idempotency returns events with matching idempotency key' do
@@ -59,8 +55,8 @@ RSpec.describe KafkaEvent, type: :model do
       event = create(:kafka_event, idempotency_key: key)
       other_event = create(:kafka_event, idempotency_key: 'other-key')
 
-      expect(KafkaEvent.for_idempotency(key)).to include(event)
-      expect(KafkaEvent.for_idempotency(key)).not_to include(other_event)
+      expect(described_class.for_idempotency(key)).to include(event)
+      expect(described_class.for_idempotency(key)).not_to include(other_event)
     end
   end
 
@@ -249,10 +245,10 @@ RSpec.describe KafkaEvent, type: :model do
       event = create(:kafka_event, status: 'pending')
       event_id = event.id
 
-      threads = 5.times.map do
+      threads = Array.new(5) do
         Thread.new do
           # Each thread loads the event independently to simulate concurrent access
-          event_record = KafkaEvent.find(event_id)
+          event_record = described_class.find(event_id)
           event_record.mark_published!(partition: 1, offset: 100)
         end
       end

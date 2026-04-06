@@ -7,5 +7,6 @@
       "value": "http://localhost:3000",
       "enabled": true
     }
-  ]
+  ],
+  "active_slot_id": "1"
 }

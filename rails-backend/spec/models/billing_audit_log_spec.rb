@@ -13,20 +13,20 @@ RSpec.describe BillingAuditLog, type: :model do
   end
 
   describe 'associations' do
-    it { should belong_to(:parking_session) }
+    it { is_expected.to belong_to(:parking_session) }
   end
 
   describe 'validations' do
     subject { build(:billing_audit_log) }
 
-    it { should belong_to(:parking_session).required(true) }
-    it { should validate_presence_of(:vehicle_type) }
-    it { should validate_presence_of(:slot_label) }
-    it { should validate_presence_of(:slot_type) }
-    it { should validate_presence_of(:entry_point) }
-    it { should validate_presence_of(:total_fee) }
-    it { should validate_inclusion_of(:vehicle_type).in_array(%w[S M L]) }
-    it { should validate_inclusion_of(:slot_type).in_array(%w[SP MP LP]) }
+    it { is_expected.to belong_to(:parking_session).required(true) }
+    it { is_expected.to validate_presence_of(:vehicle_type) }
+    it { is_expected.to validate_presence_of(:slot_label) }
+    it { is_expected.to validate_presence_of(:slot_type) }
+    it { is_expected.to validate_presence_of(:entry_point) }
+    it { is_expected.to validate_presence_of(:total_fee) }
+    it { is_expected.to validate_inclusion_of(:vehicle_type).in_array(%w[S M L]) }
+    it { is_expected.to validate_inclusion_of(:slot_type).in_array(%w[SP MP LP]) }
   end
 
   describe 'scopes' do
@@ -43,7 +43,7 @@ RSpec.describe BillingAuditLog, type: :model do
       end
 
       it 'returns completed audit logs' do
-        expect(BillingAuditLog.all).to include(completed_audit_log)
+        expect(described_class.all).to include(completed_audit_log)
       end
     end
 
@@ -61,7 +61,7 @@ RSpec.describe BillingAuditLog, type: :model do
       end
 
       it 'returns continuous audit logs' do
-        expect(BillingAuditLog.where(is_continuous: true)).to include(continuous_audit_log)
+        expect(described_class.where(is_continuous: true)).to include(continuous_audit_log)
       end
     end
 
@@ -80,7 +80,7 @@ RSpec.describe BillingAuditLog, type: :model do
       end
 
       it 'returns long-term audit logs' do
-        expect(BillingAuditLog.where.not(long_term_days: nil)).to include(long_term_audit_log)
+        expect(described_class.where.not(long_term_days: nil)).to include(long_term_audit_log)
       end
     end
   end
@@ -224,7 +224,7 @@ RSpec.describe BillingAuditLog, type: :model do
   describe 'concurrency' do
     it 'handles concurrent audit log creation' do
       create_method = method(:create)
-      threads = 10.times.map do |i|
+      threads = Array.new(10) do |i|
         Thread.new do
           unique_session = create(:parking_session,
                                   vehicle_type: 'S',
@@ -244,7 +244,7 @@ RSpec.describe BillingAuditLog, type: :model do
       end
 
       threads.each(&:join)
-      expect(BillingAuditLog.count).to eq(10)
+      expect(described_class.count).to eq(10)
     end
   end
 
@@ -393,7 +393,7 @@ RSpec.describe BillingAuditLog, type: :model do
       expect do
         session.destroy
       end.to raise_error(ActiveRecord::InvalidForeignKey)
-      expect(BillingAuditLog.find_by(id: audit_log.id)).to eq(audit_log)
+      expect(described_class.find_by(id: audit_log.id)).to eq(audit_log)
     end
   end
 end

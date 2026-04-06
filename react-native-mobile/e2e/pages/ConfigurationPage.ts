@@ -52,9 +52,15 @@ export class ConfigurationPage extends BasePage {
   readonly languageLabel: any;
   readonly languagePicker: any;
 
+  // System tab
+  readonly systemTab: any;
+  readonly previewButton: any;
+  readonly initializeSuccessModal: any;
+  readonly healthStatusBadge: any;
+
   constructor() {
     super();
-    
+
     // Page selectors
     this.page = element(by.id('configuration-page'));
     this.title = element(by.text('Configuration'));
@@ -63,6 +69,7 @@ export class ConfigurationPage extends BasePage {
     this.initializationTab = element(by.id('initialization-tab'));
     this.apiSettingsTab = element(by.id('api-settings-tab'));
     this.systemSettingsTab = element(by.id('system-settings-tab'));
+    this.systemTab = element(by.id('system-tab'));
 
     // Initialization form
     this.totalSlotsLabel = element(by.text('Total Slots'));
@@ -89,6 +96,11 @@ export class ConfigurationPage extends BasePage {
     this.themePicker = element(by.id('theme-picker'));
     this.languageLabel = element(by.text('Language'));
     this.languagePicker = element(by.id('language-picker'));
+
+    // System tab elements
+    this.previewButton = element(by.id('preview-button'));
+    this.initializeSuccessModal = element(by.id('initialize-success-modal'));
+    this.healthStatusBadge = element(by.id('health-status-badge'));
   }
 
   /**
@@ -286,11 +298,55 @@ export class ConfigurationPage extends BasePage {
   }
 
   /**
+   * Click the System tab button
+   */
+  async clickSystemTab(): Promise<void> {
+    const systemTabElement = element(by.id('system-tab'));
+    await waitFor(systemTabElement)
+      .toBeVisible()
+      .withTimeout(5000);
+    await systemTabElement.tap();
+    await this.waitForLoad();
+  }
+
+  /**
+   * Click the Initialize button in the System tab
+   */
+  async clickInitializeButton(): Promise<void> {
+    await this.click('initialize-button');
+    await this.waitForLoadingToComplete();
+  }
+
+  /**
+   * Click the Preview button in the System tab
+   */
+  async clickPreviewButton(): Promise<void> {
+    await this.click('preview-button');
+    await this.waitForLoad();
+  }
+
+  /**
+   * Check if the initialization success modal is visible
+   * @returns True if the success modal is visible
+   */
+  async isInitializeSuccessVisible(): Promise<boolean> {
+    return await this.isVisible('initialize-success-modal');
+  }
+
+  /**
+   * Check if the health status badge is visible
+   * @returns True if the health status badge is visible
+   */
+  async isHealthStatusVisible(): Promise<boolean> {
+    return await this.isVisible('health-status-badge');
+  }
+
+  /**
    * Verify configuration screen is displayed correctly
    */
   async verifyConfigurationScreen(): Promise<void> {
     await this.waitForVisible();
-    
+
     // Verify tabs are visible
     await waitFor(this.initializationTab)
       .toBeVisible()
@@ -298,7 +354,7 @@ export class ConfigurationPage extends BasePage {
     await waitFor(this.apiSettingsTab)
       .toBeVisible()
       .withTimeout(5000);
-    
+
     // Verify initialization form is visible
     await waitFor(this.totalSlotsLabel)
       .toBeVisible()

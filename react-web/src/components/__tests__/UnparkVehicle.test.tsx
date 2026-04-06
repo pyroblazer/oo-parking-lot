@@ -2,14 +2,26 @@
  * Unpark Vehicle Component Tests
  */
 
+import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
 import UnparkVehicle from '../UnparkVehicle';
 import * as api from '../../api';
-import * as reactRouterDom from 'react-router-dom';
 import type { VehicleType, ParkingSlot, UnparkVehicleResult } from '../../types';
+
+// Mock react-router-dom - must be before importing MemoryRouter
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: vi.fn(),
+    useParams: vi.fn()
+  };
+});
+
+import { MemoryRouter } from 'react-router-dom';
+import * as reactRouterDom from 'react-router-dom';
 
 describe('UnparkVehicle Component', () => {
   const mockNavigate = vi.fn();
@@ -18,7 +30,7 @@ describe('UnparkVehicle Component', () => {
     vi.clearAllMocks();
     vi.spyOn(api, 'unparkVehicle').mockResolvedValue(undefined as any);
     vi.spyOn(api, 'getSession').mockResolvedValue(undefined as any);
-    vi.spyOn(reactRouterDom, 'useNavigate').mockReturnValue(mockNavigate);
+    vi.mocked(reactRouterDom).useNavigate.mockReturnValue(mockNavigate);
   });
 
   afterEach(() => {
@@ -68,7 +80,7 @@ describe('UnparkVehicle Component', () => {
       const submitButton = screen.getByRole('button', { name: /calculate fee/i });
       await userEvent.click(submitButton);
       await waitFor(() => {
-        expect(vi.mocked(api.unparkVehicle)).toHaveBeenCalledWith('session-123');
+        expect(vi.mocked(api.unparkVehicle)).toHaveBeenCalledWith('session-123', expect.any(String));
       });
     });
 
@@ -131,6 +143,36 @@ describe('UnparkVehicle Component', () => {
       await waitFor(() => {
         expect(screen.getByText(/5 hours/i)).toBeInTheDocument();
         expect(screen.getAllByText(/₱80\.00/i).length).toBeGreaterThan(0);
+      });
+    });
+
+    it('displays singular "hour" for 1 hour duration', async () => {
+      const mockParkingSlot: ParkingSlot = {
+        id: 1, slot_label: 'SP-1', slot_type: 'SP', distances: [1, 2, 3],
+        available: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z',
+        x: 0, z: 0, type: 'SP', status: 'available'
+      };
+      const mockResponse: UnparkVehicleResult = {
+        session_id: 'session-123', vehicle_type: 'S' as VehicleType,
+        parking_slot: mockParkingSlot, entry_point: 'A',
+        parked_at: new Date(Date.now() - 1800000).toISOString(),
+        exited_at: new Date().toISOString(), duration_hours: 1, total_fee: 40.0,
+        is_continuous: false,
+        breakdown: {
+          remaining: { total: 40.0, base_fee: 40.0, exceeding_hours: 0, exceeding_fee: 0 },
+          long_term: { days: 0, fee: 0 },
+          total_fee: 40.0, duration_hours: 1, is_continuous: false,
+        },
+      };
+      vi.spyOn(api, 'unparkVehicle').mockResolvedValue(mockResponse);
+      render(<MemoryRouter><UnparkVehicle /></MemoryRouter>);
+      const sessionIdInput = screen.getByLabelText(/session id/i);
+      await userEvent.type(sessionIdInput, 'session-123');
+      const submitButton = screen.getByRole('button', { name: /calculate fee/i });
+      await userEvent.click(submitButton);
+      await waitFor(() => {
+        expect(screen.getByText(/1 hour$/)).toBeInTheDocument();
+        expect(screen.queryByText(/1 hours/)).not.toBeInTheDocument();
       });
     });
 

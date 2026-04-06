@@ -2,30 +2,34 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Playwright Configuration for OO Parking Lot E2E Tests
- * 
+ *
  * CI-optimized configuration for reliable E2E testing.
- * 
+ *
  * Browser Testing Strategy:
  * - CI: Runs only Chromium (most stable, all tests pass)
  */
 export default defineConfig({
-  testDir: './e2e',
-  
+  testDir: './e2e/tests',
+
+  // Global setup file initializes parking lot data once before all tests
+  globalSetup: './e2e/global-setup.ts',
+
   // Run tests in files in parallel
   fullyParallel: true,
-  
+
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
-  
+
   // Retry logic for flaky tests
   // CI: 2 retries for stability
   // Local: 0 retries for fast feedback
   retries: process.env.CI ? 2 : 0,
-  
+
   // Worker configuration
   // CI: 2 workers for balanced performance
-  // Local: 8 workers for optimal performance
-  workers: 8,
+  // Local: 2 workers when sharding in parallel (matches CI, prevents API saturation)
+  // Local: 8 workers for single full-suite run
+  workers: process.env.CI ? 2 : (process.env.PLAYWRIGHT_SHARD ? 2 : 8),
   
   // Reporter to use
   reporter: [
@@ -42,7 +46,7 @@ export default defineConfig({
   // Shared settings for all the projects below
   use: {
     // Base URL to use in actions like `await page.goto('/')`
-    baseURL: 'http://localhost:3002',
+    baseURL: process.env.CI ? 'http://127.0.0.1:3002' : 'http://localhost:3002',
     
     trace: 'off',
     screenshot: 'off',
@@ -107,9 +111,13 @@ export default defineConfig({
 
   // Run your local dev server before starting the tests
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3002',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000, // Increased timeout for CI server startup
+    command: 'bun run dev',
+    url: 'http://127.0.0.1:3002',
+    // Always reuse an existing server if available. This prevents a shard from
+    // killing the dev server when it finishes, which would crash sibling shards
+    // running in parallel. In CI each shard runs on an isolated machine so no
+    // server is pre-running — behaviour is unchanged.
+    reuseExistingServer: true,
+    timeout: process.env.CI ? 120000 : 120000,
   },
 });

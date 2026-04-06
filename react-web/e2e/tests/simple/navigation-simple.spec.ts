@@ -68,7 +68,8 @@ test.describe('Navigation Features', () => {
 
     await page.locator('[data-testid="nav-home"]').click();
 
-    expect(page.url()).toBe('http://localhost:3002/');
+    // Verify we're on the home page - check the path instead of hardcoding the host
+    expect(page.url()).toMatch(/\/$/);
   });
 
   test('should highlight active page button', async ({ page }) => {

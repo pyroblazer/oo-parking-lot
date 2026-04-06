@@ -27,7 +27,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   AppState,
   AppStateStatus,
   Animated,
@@ -35,39 +34,12 @@ import {
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import * as parkingApi from '../api/parkingApi';
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-/** Session data type from API */
-interface Session {
-  session_id: string;
-  vehicle_type: 'S' | 'M' | 'L';
-  parking_slot: {
-    slot_label: string;
-    slot_type: 'SP' | 'MP' | 'LP';
-  };
-  entry_point: string;
-  parked_at: string;
-  exited_at?: string;
-  is_active: boolean;
-  duration_hours?: number;
-  total_fee?: number;
-}
-
-/** API response for sessions list */
-interface SessionsResponse {
-  sessions: Session[];
-  total: number;
-  page: number;
-  per_page: number;
-}
+import type { Session } from '../api/parkingApi';
 
 /** Navigation type */
 type RootStackParamList = {
   ViewSession: { id: string };
-  ParkVehicle: undefined;
+  Park: undefined;
 };
 
 // ============================================================================
@@ -85,14 +57,6 @@ const COLORS = {
   primary: '#1e40af',
   primaryLight: '#3b82f6',
 };
-
-/** Philippine Peso formatter */
-const PESO_FORMATTER = new Intl.NumberFormat('en-PH', {
-  style: 'currency',
-  currency: 'PHP',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 
 /** Per-page options */
 const PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -212,7 +176,7 @@ function SessionCard({ session, onPress }: SessionCardProps): React.JSX.Element 
       
       {/* Entry Point */}
       <Text style={styles.entryPoint}>
-        Entry Point: {session.entry_point || 'N/A'}
+        Entry Point: {typeof session.entry_point === 'string' ? session.entry_point : session.entry_point.identifier || 'N/A'}
       </Text>
       
       {/* Parked At */}
@@ -595,7 +559,7 @@ export default function SessionsScreen(): React.JSX.Element {
    * Handle park vehicle button press
    */
   const handleParkVehicle = useCallback(() => {
-    navigation.navigate('ParkVehicle');
+    navigation.navigate('Park' as never);
   }, [navigation]);
   
   /**

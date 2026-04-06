@@ -13,15 +13,16 @@ module Pricing
     LONG_TERM_RATE = BigDecimal('5000.0')
     LONG_TERM_HOURS = 24
 
-    def calculate
-      duration = total_continuous_duration
+    def calculate(is_continuous: false)
+      # Use continuous duration only when session is actually continuous
+      duration = is_continuous ? total_continuous_duration : duration_hours
       slot_type = session.parking_slot.slot_type
 
       # Return 0 for zero duration to avoid charging for zero-time parking
       return BigDecimal('0') if duration.zero?
 
-      # Round duration up to nearest hour for fee calculation
-      rounded_duration = duration.ceil
+      # Duration is already ceiling-rounded in duration_hours / total_continuous_duration
+      rounded_duration = duration
 
       # Calculate long-term parking (24+ hours)
       full_days, remaining_hours = calculate_long_term(rounded_duration)
@@ -31,43 +32,29 @@ module Pricing
       long_term_fee = BigDecimal(full_days.to_s) * LONG_TERM_RATE
 
       # Calculate fee for remaining hours (includes base rate)
-      remaining_fee = calculate_remaining_fee(remaining_hours, slot_type, full_days: full_days)
+      remaining_fee = calculate_remaining_fee(remaining_hours, slot_type)
 
       # Total fee is the sum of long-term fee and remaining fee
-      # The base rate is already included in remaining_fee when applicable
       total_fee = long_term_fee + remaining_fee
 
       # Convert to integer if value is a whole number (for test compatibility)
       total_fee == total_fee.floor ? total_fee.to_i : total_fee
-
-      # Removed verbose logging to improve performance in high-frequency calculations
-      # logger.info('Standard pricing calculated',
-      #             session_id: session.id,
-      #             duration_hours: duration.to_f,
-      #             rounded_duration: rounded_duration,
-      #             slot_type: slot_type,
-      #             total_fee: total_fee.to_f)
     end
 
-    def breakdown
-      duration = total_continuous_duration
+    def breakdown(is_continuous: false)
+      # Use continuous duration only when session is actually continuous
+      duration = is_continuous ? total_continuous_duration : duration_hours
       slot_type = session.parking_slot.slot_type
 
-      # Round duration up to nearest hour for fee calculation
-      rounded_duration = duration.ceil
+      # Duration is already ceiling-rounded in duration_hours / total_continuous_duration
+      rounded_duration = duration
 
       full_days, remaining_hours = calculate_long_term(rounded_duration)
-      # Long-term fee is a flat rate for each full day (5000 pesos per 24 hours)
-      # The base rate is NOT included in the long-term rate
       long_term_fee = (BigDecimal(full_days.to_s) * LONG_TERM_RATE).round(2)
 
-      remaining_breakdown = calculate_remaining_breakdown(remaining_hours, slot_type, full_days: full_days)
+      remaining_breakdown = calculate_remaining_breakdown(remaining_hours, slot_type)
 
-      # Total fee is the sum of long-term fee and remaining fee
-      # The base rate is already included in remaining_breakdown when applicable
       total_fee = (long_term_fee + remaining_breakdown[:total]).round(2)
-
-      # Convert to integer if value is a whole number (for test compatibility)
       total_fee_int = total_fee == total_fee.floor ? total_fee.to_i : total_fee
 
       {
@@ -88,63 +75,29 @@ module Pricing
 
     private
 
-    def calculate_remaining_fee(hours, slot_type, full_days: 0)
-      # When there are full days, remaining hours are treated as a new parking segment
-      # and charged at the base rate (not hourly rate)
-      # Only charge base rate when there are full days AND remaining hours > 0
-      if full_days.positive?
-        # For long-term parking, remaining hours are charged at the base rate
-        # Only charge base rate when there are actual remaining hours
-        return BASE_RATE if hours > BigDecimal('0')
-
-        return BigDecimal('0')
-      end
-
-      # Return 0 for zero or negative duration (only when no full days)
+    def calculate_remaining_fee(hours, slot_type, full_days: 0, is_continuous: false)
       return BigDecimal('0') if hours <= BigDecimal('0')
+      return BigDecimal('0') if hours < BigDecimal('0.01')
 
-      # Use hours directly without rounding
       if hours <= BigDecimal(BASE_DURATION_HOURS.to_s)
         BASE_RATE
       else
         exceeding_hours = (hours - BigDecimal(BASE_DURATION_HOURS.to_s)).ceil
         BASE_RATE + (BigDecimal(exceeding_hours.to_s) * hourly_rate(slot_type))
-
       end
     end
 
-    def calculate_remaining_breakdown(hours, slot_type, full_days: 0)
-      # When there are full days, remaining hours are treated as a new parking segment
-      # and charged at the base rate (not hourly rate)
-      # Only charge base rate when there are full days AND remaining hours > 0
-      if full_days.positive?
-        # For long-term parking, remaining hours are charged at the base rate
-        # Only charge base rate when there are actual remaining hours
-        if hours > BigDecimal('0')
-          return {
-            total: BASE_RATE,
-            base_fee: BASE_RATE,
-            exceeding_hours: 0,
-            exceeding_fee: BigDecimal('0'),
-            hourly_rate: hourly_rate(slot_type)
-          }
-        else
-          return {
-            total: BigDecimal('0'),
-            base_fee: BigDecimal('0'),
-            exceeding_hours: 0,
-            exceeding_fee: BigDecimal('0'),
-            hourly_rate: hourly_rate(slot_type)
-          }
-        end
-      end
-
+    def calculate_remaining_breakdown(hours, slot_type, full_days: 0, is_continuous: false)
       if hours <= BigDecimal('0')
         return { total: BigDecimal('0'), base_fee: BigDecimal('0'), exceeding_hours: 0, exceeding_fee: BigDecimal('0'),
                  hourly_rate: hourly_rate(slot_type) }
       end
 
-      # Use hours directly without rounding
+      if hours < BigDecimal('0.01')
+        return { total: BigDecimal('0'), base_fee: BigDecimal('0'), exceeding_hours: 0, exceeding_fee: BigDecimal('0'),
+                 hourly_rate: hourly_rate(slot_type) }
+      end
+
       if hours <= BigDecimal(BASE_DURATION_HOURS.to_s)
         {
           total: BASE_RATE,
@@ -169,17 +122,27 @@ module Pricing
 
     protected
 
-    # Calculate duration in hours using BigDecimal
+    # Calculate duration in hours using BigDecimal with ceiling rounding
+    # Matches the rounding logic in ParkingSession#duration_hours
     def duration_hours
       exit_time = session.exited_at || Time.current
-      duration = BigDecimal((exit_time - session.parked_at).to_s) / BigDecimal('3600')
+      # Use integer seconds to avoid floating-point precision issues
+      seconds = (exit_time - session.parked_at).to_i
+      duration = BigDecimal(seconds.to_s) / BigDecimal('3600')
+      duration = duration.round(2)
       # Treat very small durations as 0 to avoid floating point precision issues
-      duration < BigDecimal('0.01') ? BigDecimal('0') : duration
+      return BigDecimal('0') if duration < BigDecimal('0.01')
+
+      # Ceiling rounding: round up to nearest integer
+      # But use floor when decimal part is negligible (< 0.001) to handle FP noise
+      rounded = duration.ceil
+      decimal_part = duration - duration.floor
+      decimal_part < BigDecimal('0.001') ? duration.floor : rounded
     end
 
     # Calculate total continuous duration including merged sessions using BigDecimal
     def total_continuous_duration
-      # Use's session's own method to calculate continuous duration
+      # Use session's own method to calculate continuous duration
       # The session.total_continuous_duration method already rounds to 2 decimal places and calls ceil
       session.total_continuous_duration
     end

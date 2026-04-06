@@ -2,16 +2,16 @@ require 'rails_helper'
 
 RSpec.describe EntryPoint, type: :model do
   describe 'associations' do
-    it { should have_many(:parking_slots).dependent(:nullify) }
-    it { should have_many(:parking_sessions).dependent(:nullify) }
+    it { is_expected.to have_many(:parking_slots).dependent(:nullify) }
+    it { is_expected.to have_many(:parking_sessions).dependent(:nullify) }
   end
 
   describe 'validations' do
     subject { build(:entry_point) }
 
-    it { should validate_presence_of(:identifier) }
-    it { should validate_uniqueness_of(:identifier) }
-    it { should validate_presence_of(:name) }
+    it { is_expected.to validate_presence_of(:identifier) }
+    it { is_expected.to validate_uniqueness_of(:identifier) }
+    it { is_expected.to validate_presence_of(:name) }
   end
 
   describe '#index' do

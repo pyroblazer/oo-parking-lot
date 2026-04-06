@@ -8,8 +8,7 @@ This document provides comprehensive instructions for running all tests across t
 2. [Rails Backend Tests](#rails-backend-tests)
 3. [Go Backend Tests](#go-backend-tests)
 4. [React Web Tests](#react-web-tests)
-5. [React Native Mobile Tests](#react-native-mobile-tests)
-6. [Integration Tests](#integration-tests)
+5. [Integration Tests](#integration-tests)
 7. [User Acceptance Tests](#user-acceptance-tests)
 8. [Running All Tests](#running-all-tests)
 
@@ -17,19 +16,19 @@ This document provides comprehensive instructions for running all tests across t
 
 ### Required Software
 
-- **Ruby**: 3.4.8 or higher
-- **Go**: 1.24.0 or higher
-- **Node.js**: 18.x or higher
-- **npm**: 9.x or higher
-- **Docker**: Latest version
-- **Docker Compose**: Latest version
+-**Ruby**: 3.4.8 or higher
+-**Go**: 1.24.0 or higher
+-**Node.js**: 18.x or higher
+-**npm**: 9.x or higher
+-**Docker**: Latest version
+-**Docker Compose**: Latest version
 
 ### Required Services
 
-- **PostgreSQL**: For Rails and Go backend databases
-- **Redis**: For Sidekiq job queue
-- **Kafka**: For event streaming (optional for unit tests)
-- **Prometheus**: For metrics (optional for unit tests)
+-**PostgreSQL**: For Rails and Go backend databases
+-**Redis**: For Sidekiq job queue
+-**Kafka**: For event streaming (optional for unit tests)
+-**Prometheus**: For metrics (optional for unit tests)
 
 ## Rails Backend Tests
 
@@ -129,28 +128,28 @@ Selenium tests provide end-to-end (E2E) testing for the React Web application, c
 
 ### Prerequisites
 
-1. **React Web Dev Server Running**
-   ```bash
-   cd react-web
-   bun run dev
-   ```
-   The dev server should be running at `http://localhost:3002`
+1.**React Web Dev Server Running**
+ ```bash
+ cd react-web
+ bun run dev
+ ```
+- The dev server should be running at `http://localhost:3002`
 
-2. **Backend API Running**
-   Start either the Go backend or Rails backend:
-   ```bash
-   # Go backend
-   cd go-backend
-   make run
-   
-   # Or Rails backend
-   cd rails-backend
-   bundle exec rails server
-   ```
+2.**Backend API Running**
+- Start either the Go backend or Rails backend:
+ ```bash
+ # Go backend
+ cd go-backend
+ make run
 
-3. **ChromeDriver/GeckoDriver Installed**
-   - ChromeDriver is automatically installed via npm
-   - For Firefox, ensure geckodriver is installed
+ # Or Rails backend
+ cd rails-backend
+ bundle exec rails server
+ ```
+
+3.**ChromeDriver/GeckoDriver Installed**
+ - ChromeDriver is automatically installed via npm
+ - For Firefox, ensure geckodriver is installed
 
 ### Installation
 
@@ -216,47 +215,47 @@ bun run clean:screenshots
 The Selenium test suite covers the following features:
 
 #### Core Operations
-- ✅ Park Vehicle (FEAT-001)
-- ✅ Unpark Vehicle (FEAT-002)
-- ✅ Fee Calculation and Display (FEAT-003)
-- ✅ View Session Details (FEAT-004)
+- Park Vehicle (FEAT-001)
+- Unpark Vehicle (FEAT-002)
+- Fee Calculation and Display (FEAT-003)
+- View Session Details (FEAT-004)
 
 #### Management Features
-- ✅ List Sessions (FEAT-005)
-- ✅ List All Slots (FEAT-006)
-- ✅ Get Available Slots (FEAT-007)
-- ✅ Create Slot (FEAT-008)
-- ✅ Update Slot (FEAT-009)
-- ✅ Delete Slot (FEAT-010)
-- ✅ List Entry Points (FEAT-011)
-- ✅ Create Entry Point (FEAT-012)
-- ✅ Update Entry Point (FEAT-013)
-- ✅ Delete Entry Point (FEAT-014)
+- List Sessions (FEAT-005)
+- List All Slots (FEAT-006)
+- Get Available Slots (FEAT-007)
+- Create Slot (FEAT-008)
+- Update Slot (FEAT-009)
+- Delete Slot (FEAT-010)
+- List Entry Points (FEAT-011)
+- Create Entry Point (FEAT-012)
+- Update Entry Point (FEAT-013)
+- Delete Entry Point (FEAT-014)
 
 #### System Features
-- ✅ Initialize System (FEAT-015)
-- ✅ Check System Health (FEAT-016)
+- Initialize System (FEAT-015)
+- Check System Health (FEAT-016)
 
 ### Test Structure
 
 ```
 selenium-tests/
 ├── package.json
-├── selenium.config.js          # WebDriver configuration
+├── selenium.config.js # WebDriver configuration
 ├── tests/
-│   ├── setup.js                # Jest setup and teardown
-│   ├── park-vehicle.spec.js     # FEAT-001: Park Vehicle
-│   ├── unpark-vehicle.spec.js   # FEAT-002, FEAT-003: Unpark Vehicle & Fee Calculation
-│   ├── view-session.spec.js      # FEAT-004: View Session Details
-│   ├── list-sessions.spec.js    # FEAT-005: List Sessions
-│   ├── list-slots.spec.js       # FEAT-006: List All Slots
-│   ├── available-slots.spec.js  # FEAT-007: Get Available Slots
-│   ├── slot-management.spec.js    # FEAT-008, FEAT-009, FEAT-010: Slot CRUD
-│   ├── entry-point-management.spec.js  # FEAT-011, FEAT-012, FEAT-013, FEAT-014: Entry Point CRUD
-│   ├── system-initialization.spec.js   # FEAT-015: Initialize System
-│   └── health-check.spec.js      # FEAT-016: Check System Health
+│ ├── setup.js # Jest setup and teardown
+│ ├── park-vehicle.spec.js # FEAT-001: Park Vehicle
+│ ├── unpark-vehicle.spec.js # FEAT-002, FEAT-003: Unpark Vehicle & Fee Calculation
+│ ├── view-session.spec.js # FEAT-004: View Session Details
+│ ├── list-sessions.spec.js # FEAT-005: List Sessions
+│ ├── list-slots.spec.js # FEAT-006: List All Slots
+│ ├── available-slots.spec.js # FEAT-007: Get Available Slots
+│ ├── slot-management.spec.js # FEAT-008, FEAT-009, FEAT-010: Slot CRUD
+│ ├── entry-point-management.spec.js # FEAT-011, FEAT-012, FEAT-013, FEAT-014: Entry Point CRUD
+│ ├── system-initialization.spec.js # FEAT-015: Initialize System
+│ └── health-check.spec.js # FEAT-016: Check System Health
 └── utils/
-    └── selenium-helpers.js     # Helper functions for WebDriver operations
+ └── selenium-helpers.js # Helper functions for WebDriver operations
 ```
 
 ### Screenshots
@@ -271,33 +270,33 @@ Screenshots are saved to the `selenium-tests/screenshots/` directory.
 
 #### Tests fail to connect to the application
 1. Ensure the React Web dev server is running:
-   ```bash
-   cd react-web
-   bun run dev
-   ```
+ ```bash
+ cd react-web
+ bun run dev
+ ```
 
 2. Verify the backend API is running:
-   ```bash
-   # Check Go backend
-   curl http://localhost:8082/health
-   
-   # Or check Rails backend
-   curl http://localhost:3000/health
-   ```
+ ```bash
+ # Check Go backend
+ curl http://localhost:8082/health
+
+ # Or check Rails backend
+ curl http://localhost:3000/health
+ ```
 
 3. Check the BASE_URL configuration:
-   ```bash
-   export BASE_URL=http://localhost:8082
-   bun test
-   ```
+ ```bash
+ export BASE_URL=http://localhost:8082
+ bun test
+ ```
 
 #### ChromeDriver issues
 1. Ensure ChromeDriver version matches Chrome browser version
 2. Reinstall ChromeDriver:
-   ```bash
-   cd selenium-tests
-   bun install chromedriver@latest
-   ```
+ ```bash
+ cd selenium-tests
+ bun install chromedriver@latest
+ ```
 
 #### Timeouts
 If tests are timing out, adjust timeouts in `selenium-tests/selenium.config.js`:
@@ -311,13 +310,13 @@ These tests can be integrated into CI/CD pipelines:
 
 ```yaml
 - name: Run Selenium Tests
-  run: |
-    cd selenium-tests
-    bun install
-    bun test
-  env:
-    BASE_URL: http://localhost:8082
-    HEADLESS: true
+ run: |
+ cd selenium-tests
+ bun install
+ bun test
+ env:
+- BASE_URL: http://localhost:8082
+- HEADLESS: true
 ```
 
 ### Additional Resources
@@ -334,11 +333,11 @@ Playwright E2E tests provide comprehensive end-to-end testing for the React Web 
 ### Browser Testing Strategy
 
 **CI Configuration:**
-- **Primary Browser:** Chromium only (all 978 tests pass)
-- **Firefox:** Skipped in CI due to XPCOM loading errors (environmental issue)
-- **WebKit:** Skipped in CI due to element stability issues (10/31 tests fail)
-- **Mobile Chrome:** Skipped in CI due to timeout issues (1/1 test fails)
-- **Mobile Safari:** Skipped in CI due to pointer event issues (6/9 tests fail)
+-**Primary Browser:** Chromium only (all 978 tests pass)
+-**Firefox:** Skipped in CI due to XPCOM loading errors (environmental issue)
+-**WebKit:** Skipped in CI due to element stability issues (10/31 tests fail)
+-**Mobile Chrome:** Skipped in CI due to timeout issues (1/1 test fails)
+-**Mobile Safari:** Skipped in CI due to pointer event issues (6/9 tests fail)
 
 **Local Development:**
 - All browsers are enabled for comprehensive testing
@@ -349,22 +348,22 @@ For detailed information about the browser testing strategy, see [Playwright Bro
 
 ### Prerequisites
 
-1. **Backend API Running**
-   Start either the Go backend or Rails backend:
-   ```bash
-   # Go backend
-   cd go-backend
-   make run
-   
-   # Or Rails backend
-   cd rails-backend
-   bundle exec rails server
-   ```
+1.**Backend API Running**
+- Start either the Go backend or Rails backend:
+ ```bash
+ # Go backend
+ cd go-backend
+ make run
 
-2. **Database and Redis Running**
-   ```bash
-   docker-compose up -d postgres redis
-   ```
+ # Or Rails backend
+ cd rails-backend
+ bundle exec rails server
+ ```
+
+2.**Database and Redis Running**
+ ```bash
+ docker-compose up -d postgres redis
+ ```
 
 ### Installation
 
@@ -427,42 +426,42 @@ bun run test:e2e:report
 ```
 react-web/e2e/
 ├── fixtures/
-│   ├── apiFixtures.ts          # API mock fixtures
-│   └── testData.ts             # Test data helpers
+│ ├── apiFixtures.ts # API mock fixtures
+│ └── testData.ts # Test data helpers
 ├── pages/
-│   ├── BasePage.ts             # Base page class with common methods
-│   ├── DashboardPage.ts        # Dashboard page interactions
-│   ├── ParkVehiclePage.ts     # Park vehicle page interactions
-│   ├── UnparkVehiclePage.ts   # Unpark vehicle page interactions
-│   ├── ViewSessionPage.ts     # View session page interactions
-│   ├── SessionsManagementPage.ts  # Sessions management page
-│   ├── SlotsManagementPage.ts  # Slots management page
-│   ├── EntryPointsManagementPage.ts  # Entry points management page
-│   ├── ConfigurationPage.ts   # Configuration page interactions
-│   └── SettingsPage.ts        # Settings page interactions
+│ ├── BasePage.ts # Base page class with common methods
+│ ├── DashboardPage.ts # Dashboard page interactions
+│ ├── ParkVehiclePage.ts # Park vehicle page interactions
+│ ├── UnparkVehiclePage.ts # Unpark vehicle page interactions
+│ ├── ViewSessionPage.ts # View session page interactions
+│ ├── SessionsManagementPage.ts # Sessions management page
+│ ├── SlotsManagementPage.ts # Slots management page
+│ ├── EntryPointsManagementPage.ts # Entry points management page
+│ ├── ConfigurationPage.ts # Configuration page interactions
+│ └── SettingsPage.ts # Settings page interactions
 ├── tests/
-│   ├── core/
-│   │   ├── park-vehicle.spec.ts        # Park vehicle E2E tests
-│   │   ├── unpark-vehicle.spec.ts      # Unpark vehicle E2E tests
-│   │   └── view-session.spec.ts        # View session E2E tests
-│   ├── management/
-│   │   ├── sessions-management.spec.ts  # Sessions management tests
-│   │   ├── slots-management.spec.ts     # Slots management tests
-│   │   └── entry-points-management.spec.ts  # Entry points management tests
-│   ├── navigation/
-│   │   └── navigation.spec.ts           # Navigation tests
-│   ├── simple/
-│   │   ├── park-vehicle-ultra-simple.spec.ts  # Simple park vehicle test
-│   │   ├── unpark-vehicle-ultra-simple.spec.ts  # Simple unpark vehicle test
-│   │   └── navigation-simple.spec.ts    # Simple navigation test
-│   └── system/
-│       └── system-health.spec.ts        # System health tests
+│ ├── core/
+│ │ ├── park-vehicle.spec.ts # Park vehicle E2E tests
+│ │ ├── unpark-vehicle.spec.ts # Unpark vehicle E2E tests
+│ │ └── view-session.spec.ts # View session E2E tests
+│ ├── management/
+│ │ ├── sessions-management.spec.ts # Sessions management tests
+│ │ ├── slots-management.spec.ts # Slots management tests
+│ │ └── entry-points-management.spec.ts # Entry points management tests
+│ ├── navigation/
+│ │ └── navigation.spec.ts # Navigation tests
+│ ├── simple/
+│ │ ├── park-vehicle-ultra-simple.spec.ts # Simple park vehicle test
+│ │ ├── unpark-vehicle-ultra-simple.spec.ts # Simple unpark vehicle test
+│ │ └── navigation-simple.spec.ts # Simple navigation test
+│ └── system/
+│ └── system-health.spec.ts # System health tests
 └── utils/
-    ├── assertions.ts           # Custom assertions
-    ├── helpers.ts             # Helper functions
-    ├── selectors.ts           # Element selectors
-    ├── waits.ts               # Wait conditions
-    └── test-base.ts           # Test base configuration
+ ├── assertions.ts # Custom assertions
+ ├── helpers.ts # Helper functions
+ ├── selectors.ts # Element selectors
+ ├── waits.ts # Wait conditions
+ └── test-base.ts # Test base configuration
 ```
 
 ### Test Coverage
@@ -470,26 +469,26 @@ react-web/e2e/
 The Playwright E2E test suite covers the following features:
 
 #### Core Operations
-- ✅ Park Vehicle (FEAT-001)
-- ✅ Unpark Vehicle (FEAT-002)
-- ✅ Fee Calculation and Display (FEAT-003)
-- ✅ View Session Details (FEAT-004)
+- Park Vehicle (FEAT-001)
+- Unpark Vehicle (FEAT-002)
+- Fee Calculation and Display (FEAT-003)
+- View Session Details (FEAT-004)
 
 #### Management Features
-- ✅ List Sessions (FEAT-005)
-- ✅ List All Slots (FEAT-006)
-- ✅ Get Available Slots (FEAT-007)
-- ✅ Create Slot (FEAT-008)
-- ✅ Update Slot (FEAT-009)
-- ✅ Delete Slot (FEAT-010)
-- ✅ List Entry Points (FEAT-011)
-- ✅ Create Entry Point (FEAT-012)
-- ✅ Update Entry Point (FEAT-013)
-- ✅ Delete Entry Point (FEAT-014)
+- List Sessions (FEAT-005)
+- List All Slots (FEAT-006)
+- Get Available Slots (FEAT-007)
+- Create Slot (FEAT-008)
+- Update Slot (FEAT-009)
+- Delete Slot (FEAT-010)
+- List Entry Points (FEAT-011)
+- Create Entry Point (FEAT-012)
+- Update Entry Point (FEAT-013)
+- Delete Entry Point (FEAT-014)
 
 #### System Features
-- ✅ Initialize System (FEAT-015)
-- ✅ Check System Health (FEAT-016)
+- Initialize System (FEAT-015)
+- Check System Health (FEAT-016)
 
 ### Configuration
 
@@ -537,54 +536,54 @@ The Playwright E2E tests are integrated into the CI/CD pipeline in [`.github/wor
 
 ```yaml
 playwright-e2e-tests:
-  name: Playwright E2E Tests (Chromium Only)
-  runs-on: ubuntu-latest
-  needs: [eslint]
-  steps:
-    - Checkout code
-    - Set up Bun
-    - Install dependencies
-    - Install Playwright Browsers
-    - Setup Go backend
-    - Build and start Go backend
-    - Wait for Go backend to be ready
-    - Run Playwright E2E tests
-    - Upload test results
-    - Upload screenshots on failure
-    - Upload videos on failure
-    - Upload server logs on failure
+ name: Playwright E2E Tests (Chromium Only)
+ runs-on: ubuntu-latest
+ needs: [eslint]
+ steps:
+ - Checkout code
+ - Set up Bun
+ - Install dependencies
+ - Install Playwright Browsers
+ - Setup Go backend
+ - Build and start Go backend
+ - Wait for Go backend to be ready
+ - Run Playwright E2E tests
+ - Upload test results
+ - Upload screenshots on failure
+ - Upload videos on failure
+ - Upload server logs on failure
 ```
 
 ### Troubleshooting
 
 #### Tests fail to connect to the application
 1. Ensure the backend API is running:
-   ```bash
-   # Check Go backend
-   curl http://localhost:8082/health
-   
-   # Or check Rails backend
-   curl http://localhost:3000/health
-   ```
+ ```bash
+ # Check Go backend
+ curl http://localhost:8082/health
+
+ # Or check Rails backend
+ curl http://localhost:3000/health
+ ```
 
 2. Verify the database is running:
-   ```bash
-   docker-compose ps postgres redis
-   ```
+ ```bash
+ docker-compose ps postgres redis
+ ```
 
 3. Check the baseURL configuration in [`playwright.config.ts`](react-web/playwright.config.ts)
 
 #### Browser installation issues
 1. Reinstall Playwright browsers:
-   ```bash
-   cd react-web
-   bunx playwright install --with-deps
-   ```
+ ```bash
+ cd react-web
+ bunx playwright install --with-deps
+ ```
 
 2. Install specific browser:
-   ```bash
-   bunx playwright install chromium
-   ```
+ ```bash
+ bunx playwright install chromium
+ ```
 
 #### Timeout issues
 1. Increase timeout values in [`playwright.config.ts`](react-web/playwright.config.ts)
@@ -648,37 +647,6 @@ cd react-web
 bun run test:ui
 ```
 
-## React Native Mobile Tests
-
-### Unit Tests
-
-Run React Native mobile unit tests:
-
-```bash
-cd react-native-mobile
-
-# Install dependencies
-npm install
-
-# Run all unit tests
-npm test
-
-# Run specific test file
-npm test -- ParkVehicle.test.js
-npm test -- UnparkVehicle.test.js
-```
-
-### Test Coverage
-
-Generate test coverage report:
-
-```bash
-cd react-native-mobile
-
-# Run tests with coverage
-npm test -- --coverage
-```
-
 ## Integration Tests
 
 ### Full Stack Integration Tests
@@ -729,9 +697,6 @@ cd go-backend && go test ./...
 # React web
 cd react-web && bun test
 
-# React Native mobile
-cd react-native-mobile && npm test
-```
 
 ### Run Tests with Specific Tags
 
@@ -750,25 +715,24 @@ bundle exec rspec --tag uat
 
 ### Unit Tests
 
-- **Rails Backend**: Models, Services, Workers, Controllers
-- **Go Backend**: Models, Services, Repositories, Handlers
-- **React Web**: Components, API functions
-- **React Native Mobile**: Screens, API functions
+-**Rails Backend**: Models, Services, Workers, Controllers
+-**Go Backend**: Models, Services, Repositories, Handlers
+-**React Web**: Components, API functions
 
 ### Integration Tests
 
-- **Rails Backend**: API endpoint integration, database integration
-- **Go Backend**: Service integration, repository integration
-- **Full Stack**: End-to-end parking flow across all services
+-**Rails Backend**: API endpoint integration, database integration
+-**Go Backend**: Service integration, repository integration
+-**Full Stack**: End-to-end parking flow across all services
 
 ### User Acceptance Tests
 
-- **Complete Parking Flow**: Park → Unpark with fee calculation
-- **Vehicle Type Compatibility**: Small/Medium/Large vehicle slot allocation
-- **Slot Allocation Strategy**: Closest available slot assignment
-- **Continuous Parking**: Detection within 1-hour threshold
-- **Long-term Parking**: 24+ hour rate application
-- **Error Handling**: Invalid inputs, no available slots, double parking prevention
+-**Complete Parking Flow**: Park → Unpark with fee calculation
+-**Vehicle Type Compatibility**: Small/Medium/Large vehicle slot allocation
+-**Slot Allocation Strategy**: Closest available slot assignment
+-**Continuous Parking**: Detection within 1-hour threshold
+-**Long-term Parking**: 24+ hour rate application
+-**Error Handling**: Invalid inputs, no available slots, double parking prevention
 
 ## CI/CD Integration
 
@@ -786,23 +750,23 @@ cat .github/workflows/ci.yml
 
 ### Common Issues
 
-1. **Database Connection Failed**
-   - Ensure PostgreSQL is running: `docker-compose up -d postgres`
-   - Check database configuration in `rails-backend/config/database.yml`
+1.**Database Connection Failed**
+ - Ensure PostgreSQL is running: `docker-compose up -d postgres`
+ - Check database configuration in `rails-backend/config/database.yml`
 
-2. **Redis Connection Failed**
-   - Ensure Redis is running: `docker-compose up -d redis`
-   - Check Redis configuration in `rails-backend/config/initializers/sidekiq.rb`
+2.**Redis Connection Failed**
+ - Ensure Redis is running: `docker-compose up -d redis`
+ - Check Redis configuration in `rails-backend/config/initializers/sidekiq.rb`
 
-3. **Port Already in Use**
-   - Kill processes using the port: `lsof -ti:8082 | xargs kill -9`
+3.**Port Already in Use**
+ - Kill processes using the port: `lsof -ti:8082 | xargs kill -9`
 
-4. **Dependency Installation Failed**
-   - Clear cache: `rm -rf node_modules vendor/bundle`
-   - Reinstall dependencies: `bundle install` or `npm install`
+4.**Dependency Installation Failed**
+ - Clear cache: `rm -rf node_modules vendor/bundle`
+ - Reinstall dependencies: `bundle install` or `npm install`
 
-5. **Test Failures Due to Missing Data**
-   - Ensure test database is seeded: `cd rails-backend && rails db:seed`
+5.**Test Failures Due to Missing Data**
+ - Ensure test database is seeded: `cd rails-backend && rails db:seed`
 
 ## Test Data Management
 
@@ -840,27 +804,26 @@ bun test -- --watch
 
 ## Best Practices
 
-1. **Run tests before committing code**
-2. **Ensure test coverage meets minimum thresholds (80%+)**
-3. **Run UAT before production releases**
-4. **Use transactional fixtures for database tests**
-5. **Mock external services (Kafka, Sentry, Prometheus) in unit tests**
-6. **Clean up test data after test runs**
+1.**Run tests before committing code**
+2.**Ensure test coverage meets minimum thresholds (80%+)**
+3.**Run UAT before production releases**
+4.**Use transactional fixtures for database tests**
+5.**Mock external services (Kafka, Sentry, Prometheus) in unit tests**
+6.**Clean up test data after test runs**
 
 ## Test Reports
 
 ### Coverage Reports
 
-- **Rails Backend**: `coverage/index.html`
-- **Go Backend**: `coverage.html`
-- **React Web**: `coverage/index.html`
-- **React Native Mobile**: `coverage/index.html`
+-**Rails Backend**: `coverage/index.html`
+-**Go Backend**: `coverage.html`
+-**React Web**: `coverage/index.html`
 
 ### Test Results
 
-- **Unit Tests**: Individual test results in console
-- **Integration Tests**: Combined results with API responses
-- **UAT**: Scenario-based results with pass/fail status
+-**Unit Tests**: Individual test results in console
+-**Integration Tests**: Combined results with API responses
+-**UAT**: Scenario-based results with pass/fail status
 
 ## Dependencies Verification
 
@@ -906,18 +869,6 @@ bun audit
 bun update
 ```
 
-### React Native Mobile
-
-```bash
-cd react-native-mobile
-
-# Verify all packages can be installed
-npm audit
-
-# Update packages
-npm update
-```
-
 ## Quick Reference
 
 ### Run All Rails Tests
@@ -933,11 +884,6 @@ cd go-backend && go test ./...
 ### Run All React Web Tests
 ```bash
 cd react-web && bun test
-```
-
-### Run All React Native Mobile Tests
-```bash
-cd react-native-mobile && npm test
 ```
 
 ### Run Full Integration Tests

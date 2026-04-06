@@ -90,7 +90,7 @@ export class UnparkVehiclePage extends BasePage {
     // Fee calculation
     this.feeSection = element(by.id('fee-section'));
     this.feeLabel = element(by.text('Fee'));
-    this.feeValue = element(by.id('fee-value');
+    this.feeValue = element(by.id('fee-value'));
 
     // Submit button
     this.unparkButton = element(by.id('unpark-button'));
@@ -105,7 +105,7 @@ export class UnparkVehiclePage extends BasePage {
 
     // Actions
     this.viewSessionButton = element(by.id('view-session-button'));
-    this.unparkAnotherButton = element(by.id('unpark-another-button');
+    this.unparkAnotherButton = element(by.id('unpark-another-button'));
   }
 
   /**

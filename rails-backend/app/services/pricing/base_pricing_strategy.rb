@@ -23,12 +23,12 @@ module Pricing
     end
 
     # Calculate total fee - must be implemented by subclasses
-    def calculate
+    def calculate(is_continuous: false)
       raise NotImplementedError, 'Subclasses must implement #calculate'
     end
 
     # Get detailed breakdown - must be implemented by subclasses
-    def breakdown
+    def breakdown(is_continuous: false)
       raise NotImplementedError, 'Subclasses must implement #breakdown'
     end
 

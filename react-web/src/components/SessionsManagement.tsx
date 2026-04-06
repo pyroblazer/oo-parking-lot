@@ -1,10 +1,10 @@
 /**
  * Sessions Management Component
- * 
+ *
  * Displays parking sessions in a table format with pagination and filtering
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getAllSessions, deleteSession } from '../api';
 import type { ParkingSession } from '../types';
 
@@ -46,6 +46,8 @@ export default function SessionsManagement(): JSX.Element {
       await loadSessions();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete session');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -184,7 +186,7 @@ export default function SessionsManagement(): JSX.Element {
                     </span>
                   </td>
                   <td data-testid={`duration-${session.session_id}`}>
-                    {session.duration_hours ? `${session.duration_hours} hours` : 'N/A'}
+                    {session.duration_hours ? `${session.duration_hours} hour${session.duration_hours !== 1 ? 's' : ''}` : 'N/A'}
                   </td>
                   <td data-testid={`fee-${session.session_id}`}>
                     {session.total_fee ? `₱${session.total_fee.toFixed(2)}` : 'N/A'}

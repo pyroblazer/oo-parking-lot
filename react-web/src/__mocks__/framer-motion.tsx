@@ -7,13 +7,26 @@
 
 import React from 'react';
 
+interface MotionProps {
+  initial?: string | object;
+  animate?: string | object;
+  exit?: string | object;
+  transition?: object;
+  variants?: object;
+  whileHover?: object;
+  whileTap?: object;
+  whileFocus?: object;
+  className?: string;
+  children?: React.ReactNode;
+}
+
 // Mock AnimatePresence component
 export const AnimatePresence: React.FC<{
   children: React.ReactNode;
   mode?: 'sync' | 'wait' | 'popLayout';
   initial?: boolean;
   onExitComplete?: () => void;
-}> = ({ children, mode = 'wait', initial = true, onExitComplete }) => {
+}> = ({ children, initial = true }) => {
   // In tests, just render children immediately without animation delays
   if (initial) {
     return <>{children}</>;
@@ -22,154 +35,109 @@ export const AnimatePresence: React.FC<{
 };
 
 // Mock motion components
-export const motion = {
-  div: React.FC<React.HTMLAttributes<HTMLDivElement> & {
-    initial?: string | object;
-    animate?: string | object;
-    exit?: string | object;
-    transition?: object;
-    variants?: object;
-    whileHover?: object;
-    whileTap?: object;
-    whileFocus?: object;
-    className?: string;
-    children?: React.ReactNode;
-  }> = ({ children, className, ...props }) => (
-    <div className={className} {...props}>
+const MotionDiv = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & MotionProps>(
+  ({ children, className, ...props }, ref) => (
+    <div ref={ref} className={className} {...props}>
       {children}
     </div>
-  ),
-  
-  h2: React.FC<React.HTMLAttributes<HTMLHeadingElement> & {
-    initial?: string | object;
-    animate?: string | object;
-    exit?: string | object;
-    transition?: object;
-    variants?: object;
-    className?: string;
-    children?: React.ReactNode;
-  }> = ({ children, className, ...props }) => (
-    <h2 className={className} {...props}>
+  )
+);
+MotionDiv.displayName = 'motion.div';
+
+const MotionH2 = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement> & MotionProps>(
+  ({ children, className, ...props }, ref) => (
+    <h2 ref={ref} className={className} {...props}>
       {children}
     </h2>
-  ),
-  
-  h3: React.FC<React.HTMLAttributes<HTMLHeadingElement> & {
-    initial?: string | object;
-    animate?: string | object;
-    exit?: string | object;
-    transition?: object;
-    variants?: object;
-    className?: string;
-    children?: React.ReactNode;
-  }> = ({ children, className, ...props }) => (
-    <h3 className={className} {...props}>
+  )
+);
+MotionH2.displayName = 'motion.h2';
+
+const MotionH3 = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement> & MotionProps>(
+  ({ children, className, ...props }, ref) => (
+    <h3 ref={ref} className={className} {...props}>
       {children}
     </h3>
-  ),
-  
-  h4: React.FC<React.HTMLAttributes<HTMLHeadingElement> & {
-    initial?: string | object;
-    animate?: string | object;
-    exit?: string | object;
-    transition?: object;
-    variants?: object;
-    className?: string;
-    children?: React.ReactNode;
-  }> = ({ children, className, ...props }) => (
-    <h4 className={className} {...props}>
+  )
+);
+MotionH3.displayName = 'motion.h3';
+
+const MotionH4 = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement> & MotionProps>(
+  ({ children, className, ...props }, ref) => (
+    <h4 ref={ref} className={className} {...props}>
       {children}
     </h4>
-  ),
-  
-  p: React.FC<React.HTMLAttributes<HTMLParagraphElement> & {
-    initial?: string | object;
-    animate?: string | object;
-    exit?: string | object;
-    transition?: object;
-    variants?: object;
-    className?: string;
-    children?: React.ReactNode;
-  }> = ({ children, className, ...props }) => (
-    <p className={className} {...props}>
+  )
+);
+MotionH4.displayName = 'motion.h4';
+
+const MotionP = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement> & MotionProps>(
+  ({ children, className, ...props }, ref) => (
+    <p ref={ref} className={className} {...props}>
       {children}
     </p>
-  ),
-  
-  form: React.FC<React.FormHTMLAttributes<HTMLFormElement> & {
-    initial?: string | object;
-    animate?: string | object;
-    exit?: string | object;
-    transition?: object;
-    variants?: object;
-    className?: string;
-    children?: React.ReactNode;
-    onSubmit?: React.FormEventHandler<HTMLFormElement>;
-  }> = ({ children, className, onSubmit, ...props }) => (
-    <form className={className} onSubmit={onSubmit} {...props}>
+  )
+);
+MotionP.displayName = 'motion.p';
+
+const MotionForm = React.forwardRef<HTMLFormElement, React.FormHTMLAttributes<HTMLFormElement> & MotionProps & {
+  onSubmit?: React.FormEventHandler<HTMLFormElement>;
+}>(
+  ({ children, className, onSubmit, ...props }, ref) => (
+    <form ref={ref} className={className} onSubmit={onSubmit} {...props}>
       {children}
     </form>
-  ),
-  
-  button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    initial?: string | object;
-    animate?: string | object;
-    exit?: string | object;
-    transition?: object;
-    variants?: object;
-    whileHover?: object;
-    whileTap?: object;
-    className?: string;
-    children?: React.ReactNode;
-  }> = ({ children, className, ...props }) => (
-    <button className={className} {...props}>
+  )
+);
+MotionForm.displayName = 'motion.form';
+
+const MotionButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & MotionProps>(
+  ({ children, className, ...props }, ref) => (
+    <button ref={ref} className={className} {...props}>
       {children}
     </button>
-  ),
-  
-  select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement> & {
-    initial?: string | object;
-    animate?: string | object;
-    exit?: string | object;
-    transition?: object;
-    variants?: object;
-    whileHover?: object;
-    whileFocus?: object;
-    className?: string;
-    children?: React.ReactNode;
-  }> = ({ children, className, ...props }) => (
-    <select className={className} {...props}>
+  )
+);
+MotionButton.displayName = 'motion.button';
+
+const MotionSelect = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement> & MotionProps>(
+  ({ children, className, ...props }, ref) => (
+    <select ref={ref} className={className} {...props}>
       {children}
     </select>
-  ),
-  
-  ul: React.FC<React.HTMLAttributes<HTMLUListElement> & {
-    initial?: string | object;
-    animate?: string | object;
-    exit?: string | object;
-    transition?: object;
-    variants?: object;
-    className?: string;
-    children?: React.ReactNode;
-  }> = ({ children, className, ...props }) => (
-    <ul className={className} {...props}>
+  )
+);
+MotionSelect.displayName = 'motion.select';
+
+const MotionUl = React.forwardRef<HTMLUListElement, React.HTMLAttributes<HTMLUListElement> & MotionProps>(
+  ({ children, className, ...props }, ref) => (
+    <ul ref={ref} className={className} {...props}>
       {children}
     </ul>
-  ),
-  
-  li: React.FC<React.HTMLAttributes<HTMLLIElement> & {
-    initial?: string | object;
-    animate?: string | object;
-    exit?: string | object;
-    transition?: object;
-    variants?: object;
-    className?: string;
-    children?: React.ReactNode;
-  }> = ({ children, className, ...props }) => (
-    <li className={className} {...props}>
+  )
+);
+MotionUl.displayName = 'motion.ul';
+
+const MotionLi = React.forwardRef<HTMLLIElement, React.HTMLAttributes<HTMLLIElement> & MotionProps>(
+  ({ children, className, ...props }, ref) => (
+    <li ref={ref} className={className} {...props}>
       {children}
     </li>
-  ),
+  )
+);
+MotionLi.displayName = 'motion.li';
+
+export const motion = {
+  div: MotionDiv,
+  h2: MotionH2,
+  h3: MotionH3,
+  h4: MotionH4,
+  p: MotionP,
+  form: MotionForm,
+  button: MotionButton,
+  select: MotionSelect,
+  ul: MotionUl,
+  li: MotionLi,
 };
 
 export default motion;

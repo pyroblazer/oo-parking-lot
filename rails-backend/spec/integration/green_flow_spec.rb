@@ -1,4 +1,3 @@
-# rubocop:disable Naming/VariableNumber
 require 'rails_helper'
 
 # Green Flow Integration Test
@@ -20,6 +19,14 @@ RSpec.describe 'Green Flow Integration', type: :request do
   # ============================================================================
   # INITIALIZATION
   # ============================================================================
+
+  # ============================================================================
+  # CLEANUP
+  # ============================================================================
+
+  after do
+    Timecop.return
+  end
 
   describe 'System Initialization' do
     context 'Entry Points Setup' do
@@ -120,6 +127,12 @@ RSpec.describe 'Green Flow Integration', type: :request do
     end
 
     context 'Small Vehicle Flow' do
+      # Verify slot is available again
+      after do
+        @sp_slot_1.reload
+        expect(@sp_slot_1.status).to eq('available')
+      end
+
       it 'successfully parks and unparks a small vehicle' do
         # Step 1: Park small vehicle at entry point A
         # Should get closest SP slot (SP-1 at distance 1)
@@ -159,12 +172,6 @@ RSpec.describe 'Green Flow Integration', type: :request do
         expect(json['data']['fee_breakdown']['remaining']['exceeding_hours']).to eq(0)
         expect(json['data']['fee_breakdown']['remaining']['exceeding_fee']).to eq(0.0)
         expect(json['data']['fee_breakdown']['remaining']['hourly_rate']).to be_present
-      end
-
-      # Verify slot is available again
-      after do
-        @sp_slot_1.reload
-        expect(@sp_slot_1.status).to eq('available')
       end
     end
 
@@ -545,7 +552,7 @@ RSpec.describe 'Green Flow Integration', type: :request do
       expect(json['data'].length).to be >= 3
 
       # Verify entry point identifiers exist (don't hardcode specific values)
-      identifiers = json['data'].map { |ep| ep['identifier'] }
+      identifiers = json['data'].pluck('identifier')
       expect(identifiers).to include(@entry_point_a.identifier, @entry_point_b.identifier, @entry_point_c.identifier)
     end
 
@@ -575,14 +582,6 @@ RSpec.describe 'Green Flow Integration', type: :request do
       expect(json['data']['vehicle_type']).to eq('S')
       expect(json['data']['is_active']).to be true
     end
-  end
-
-  # ============================================================================
-  # CLEANUP
-  # ============================================================================
-
-  after do
-    Timecop.return
   end
 end
 # rubocop:enable Naming/VariableNumber

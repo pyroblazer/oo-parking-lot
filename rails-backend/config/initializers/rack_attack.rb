@@ -3,8 +3,9 @@
 
 require 'rack/attack'
 
-# Skip Rack::Attack initialization in test environment to avoid Redis connection issues
-return if Rails.env.test?
+# Skip Rack::Attack initialization in test and development environments
+# In Docker, requests appear from non-local IPs that get blocked
+return if Rails.env.local?
 
 # Cache store for Rack::Attack (using Redis)
 # Use Rails.cache which is already configured
@@ -46,20 +47,20 @@ end
 # Blocklist Rules
 # ============================================================================
 
-# Block suspicious user agents
-Rack::Attack.blocklist('block suspicious user agents') do |req|
-  suspicious_user_agents = [
-    /curl/i,
-    /wget/i,
-    /python/i,
-    /bot/i,
-    /spider/i,
-    /crawler/i,
-    /scraper/i
-  ]
+# Block suspicious user agents (DISABLED in development/test environments)
+# In production, you may want to enable this to block automated bots
+unless Rails.env.local?
+  Rack::Attack.blocklist('block suspicious user agents') do |req|
+    suspicious_user_agents = [
+      /bot/i,
+      /spider/i,
+      /crawler/i,
+      /scraper/i
+    ]
 
-  user_agent = req.user_agent.to_s.downcase
-  suspicious_user_agents.any? { |pattern| user_agent.match?(pattern) } unless req.path == '/health'
+    user_agent = req.user_agent.to_s.downcase
+    suspicious_user_agents.any? { |pattern| user_agent.match?(pattern) } unless req.path == '/health'
+  end
 end
 
 # Block requests with suspicious parameters (SQL injection patterns)
@@ -85,8 +86,20 @@ end
 # ============================================================================
 
 # Allow health checks and metrics to bypass rate limiting
-Rack::Attack.safelist('allow from localhost') do |req|
-  ['127.0.0.1', '::1'].include?(req.ip)
+# Also allow Docker network IPs (172.18.0.0/16) and localhost
+Rack::Attack.safelist('allow from localhost and docker') do |req|
+  # Allow localhost
+  ['127.0.0.1', '::1'].include?(req.ip) ||
+    # Allow Docker networks (172.17.0.0/16 and 172.18.0.0/16)
+    req.ip.start_with?('172.17.') ||
+    req.ip.start_with?('172.18.') ||
+    # Allow Docker Desktop for Mac (192.168.65.1)
+    req.ip == '192.168.65.1'
+end
+
+# Safelist health check and metrics endpoints - always allow these
+Rack::Attack.safelist('allow health and metrics endpoints') do |req|
+  ['/health', '/metrics'].include?(req.path)
 end
 
 # ============================================================================

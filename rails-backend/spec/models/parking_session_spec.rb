@@ -20,14 +20,14 @@ RSpec.describe ParkingSession, type: :model do
     context 'when session has no exit time' do
       it 'returns true' do
         session = build(:parking_session, exited_at: nil)
-        expect(session.active?).to eq(true)
+        expect(session.active?).to be(true)
       end
     end
 
     context 'when session has exit time' do
       it 'returns false' do
         session = build(:parking_session, exited_at: Time.current)
-        expect(session.active?).to eq(false)
+        expect(session.active?).to be(false)
       end
     end
   end
@@ -79,12 +79,12 @@ RSpec.describe ParkingSession, type: :model do
     end
 
     it 'finds previous session for same vehicle type within 1 hour' do
-      result = ParkingSession.previous_session('S', 1.5.hours.ago)
+      result = described_class.previous_session('S', 1.5.hours.ago)
       expect(result).to eq(previous_session)
     end
 
     it 'does not find sessions older than 1 hour' do
-      result = ParkingSession.previous_session('S', 3.hours.ago)
+      result = described_class.previous_session('S', 3.hours.ago)
       expect(result).to be_nil
     end
 
@@ -96,7 +96,7 @@ RSpec.describe ParkingSession, type: :model do
                               parked_at: 1.5.hours.ago,
                               exited_at: 1.hour.ago)
 
-      result = ParkingSession.previous_session('S', 30.minutes.ago)
+      result = described_class.previous_session('S', 30.minutes.ago)
       expect(result).to eq(recent_session)
     end
   end
@@ -119,7 +119,7 @@ RSpec.describe ParkingSession, type: :model do
                         entry_point: entry_point,
                         parked_at: 30.minutes.ago)
 
-        expect(session.continuous?).to eq(true)
+        expect(session.continuous?).to be(true)
       end
     end
 
@@ -131,7 +131,7 @@ RSpec.describe ParkingSession, type: :model do
                         entry_point: entry_point,
                         parked_at: 30.minutes.ago)
 
-        expect(session.continuous?).to eq(false)
+        expect(session.continuous?).to be(false)
       end
     end
   end

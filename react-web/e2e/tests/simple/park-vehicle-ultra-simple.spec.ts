@@ -11,8 +11,17 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     // Select vehicle type
     await page.selectOption('[data-testid="vehicle-type-select"]', 'S');
 
-    // Select entry point - just select the first available option
-    await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
+    // Wait for entry point select to be available with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 1 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
 
     // Click submit button
     await page.click('[data-testid="park-vehicle-submit"]');
@@ -28,7 +37,18 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     await page.waitForSelector('[data-testid="park-vehicle"]');
 
     await page.selectOption('[data-testid="vehicle-type-select"]', 'M');
-    await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
+
+    // Wait for entry point select to be available with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 1 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
     await page.click('[data-testid="park-vehicle-submit"]');
 
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
@@ -41,7 +61,18 @@ test.describe('FEAT-001: Park Vehicle - Happy Path', () => {
     await page.waitForSelector('[data-testid="park-vehicle"]');
 
     await page.selectOption('[data-testid="vehicle-type-select"]', 'L');
-    await page.selectOption('[data-testid="entry-point-select"]', { index: 0 });
+
+    // Wait for entry point select to be available with retry logic
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.locator('[data-testid="entry-point-select"]').selectOption({ index: 1 }, { timeout: 5000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+        await page.waitForTimeout(300);
+      }
+    }
     await page.click('[data-testid="park-vehicle-submit"]');
 
     await expect(page.locator('.success-message, .error-message')).toBeVisible();
@@ -70,6 +101,11 @@ test.describe('FEAT-001: Park Vehicle - Validation', () => {
 
     // Fill vehicle type only
     await page.selectOption('[data-testid="vehicle-type-select"]', 'S');
+
+    // Wait for form to be ready before clicking submit
+    await page.locator('[data-testid="entry-point-select"]').waitFor({ state: 'attached' });
+    await page.waitForTimeout(200);
+
     await page.click('[data-testid="park-vehicle-submit"]');
 
     // Verify validation error appears

@@ -1,14 +1,24 @@
 /**
  * Parking API Service Layer
- * 
+ *
  * A comprehensive TypeScript API service for the OO Parking Lot System.
  * Adapted for React Native with AsyncStorage support.
- * 
+ *
+ * API URL resolution order:
+ *   1. AsyncStorage key "api_base_url" (set at runtime via Configuration screen)
+ *   2. env var API_BASE_URL (from .env via react-native-dotenv)
+ *   3. Platform-aware fallback (localhost or 10.0.2.2)
+ *
  * @module parkingApi
  */
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+// Env var injected at build time by react-native-dotenv (babel plugin).
+// Falls back to undefined if not set, in which case we use the platform default.
+import { API_BASE_URL as ENV_API_BASE_URL } from '@env';
 
 // ============================================================================
 // TYPES
@@ -33,7 +43,7 @@ export interface HealthCheckResponse {
  * Entry point representation
  */
 export interface EntryPoint {
-  readonly id: string;
+  readonly id: string | number;
   readonly identifier: string;
   readonly name: string;
 }
@@ -42,7 +52,7 @@ export interface EntryPoint {
  * Parking slot representation
  */
 export interface ParkingSlot {
-  readonly id: string;
+  readonly id: string | number;
   readonly slot_label: string;
   readonly slot_type: 'SP' | 'MP' | 'LP';
   readonly distances: readonly number[];
@@ -74,8 +84,9 @@ export interface FeeBreakdown {
 export interface Session {
   readonly session_id: string;
   readonly vehicle_type: 'S' | 'M' | 'L';
+  readonly license_plate?: string;
   readonly parking_slot: ParkingSlot;
-  readonly entry_point: string;
+  readonly entry_point: string | EntryPoint;
   readonly parked_at: string;
   readonly exited_at?: string;
   readonly duration_hours?: number;
@@ -84,6 +95,21 @@ export interface Session {
   readonly fee_breakdown?: FeeBreakdown;
   readonly breakdown?: FeeBreakdown;
   readonly is_active?: boolean;
+}
+
+/**
+ * Recent exit session for continuous parking selection
+ */
+export interface RecentExit {
+  readonly session_id: string;
+  readonly vehicle_type: 'S' | 'M' | 'L';
+  readonly license_plate: string;
+  readonly slot_label: string;
+  readonly entry_point: string;
+  readonly parked_at: string;
+  readonly exited_at: string;
+  readonly minutes_since_exit: number;
+  readonly total_fee: number;
 }
 
 /**
@@ -233,20 +259,35 @@ interface ApiResponse<T> {
   readonly message?: string;
 }
 
-/**
- * Paginated sessions response
- */
-interface _SessionsResponse {
-  readonly sessions: readonly Session[];
-  readonly total: number;
-}
-
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
 /**
- * Get API base URL from AsyncStorage or default
+ * Platform-aware fallback URL when no env var or stored preference exists.
+ *
+ * - iOS Simulator:            http://localhost:8082
+ * - Android emulator (ADB reverse): http://localhost:8082
+ * - Android emulator (no reverse):  http://10.0.2.2:8082
+ * - Physical device:          http://localhost:8082 (user must override via .env or UI)
+ */
+function getFallbackApiBaseUrl(): string {
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:8082';
+  }
+  return 'http://localhost:8082';
+}
+
+/** Build-time default from .env, or platform fallback */
+const DEFAULT_API_BASE_URL: string = ENV_API_BASE_URL || getFallbackApiBaseUrl();
+
+/**
+ * Get API base URL.
+ *
+ * Resolution order:
+ *   1. AsyncStorage (user changed it at runtime via Configuration screen)
+ *   2. .env file (API_BASE_URL, injected at build time)
+ *   3. Platform-aware fallback
  */
 async function getApiBaseUrl(): Promise<string> {
   try {
@@ -257,17 +298,19 @@ async function getApiBaseUrl(): Promise<string> {
   } catch (error) {
     console.warn('Error reading API base URL from AsyncStorage:', error);
   }
-  
-  // Default to Go backend
-  return 'http://localhost:8082';
+
+  return DEFAULT_API_BASE_URL;
 }
 
 /**
- * Set API base URL in AsyncStorage
+ * Set API base URL in AsyncStorage and reset the cached client
+ * so the next API call uses the new URL.
  */
 export async function setApiBaseUrl(url: string): Promise<void> {
   try {
     await AsyncStorage.setItem('api_base_url', url);
+    // Invalidate cached client so it is recreated with the new URL
+    apiClientPromise = null;
   } catch (error) {
     console.error('Error setting API base URL:', error);
     throw error;
@@ -476,15 +519,15 @@ export async function createEntryPoint(
  * @throws ApiError if update fails
  */
 export const updateEntryPoint = async (
-  id: string,
-  entryPoint: { name: string }
+  id: string | number,
+  name: string
 ): Promise<EntryPoint> => {
   try {
     const client = await getApiClient();
-    const response = await client.put<EntryPoint>(`/api/v1/entry_points/${id}`, { entry_point: entryPoint });
-    return response.data;
+    const response = await client.put<ApiResponse<EntryPoint>>(`/api/v1/entry_points/${id}`, { entry_point: { name } });
+    return extractData(response);
   } catch (error) {
-    throw error;
+    handleError(error);
   }
 };
 
@@ -495,12 +538,13 @@ export const updateEntryPoint = async (
  * @returns Promise that resolves when deletion is complete
  * @throws ApiError if deletion fails
  */
-export const deleteEntryPoint = async (id: string): Promise<void> => {
+export const deleteEntryPoint = async (id: string | number): Promise<{ message: string }> => {
   try {
     const client = await getApiClient();
-    await client.delete(`/api/v1/entry_points/${id}`);
+    const response = await client.delete<ApiResponse<{ message: string }>>(`/api/v1/entry_points/${id}`);
+    return extractData(response);
   } catch (error) {
-    throw error;
+    handleError(error);
   }
 };
 
@@ -567,10 +611,10 @@ export const createSlot = async (
 ): Promise<ParkingSlot> => {
   try {
     const client = await getApiClient();
-    const response = await client.post<ParkingSlot>('/api/v1/slots', { slot });
-    return response.data;
+    const response = await client.post<ApiResponse<ParkingSlot>>('/api/v1/slots', slot);
+    return extractData(response);
   } catch (error) {
-    throw error;
+    handleError(error);
   }
 };
 
@@ -583,15 +627,15 @@ export const createSlot = async (
  * @throws ApiError if update fails
  */
 export const updateSlot = async (
-  id: string,
+  id: string | number,
   slot: { slot_label?: string; slot_type?: 'SP' | 'MP' | 'LP'; distances?: number[] }
 ): Promise<ParkingSlot> => {
   try {
     const client = await getApiClient();
-    const response = await client.put<ParkingSlot>(`/api/v1/slots/${id}`, { slot });
-    return response.data;
+    const response = await client.put<ApiResponse<ParkingSlot>>(`/api/v1/slots/${id}`, slot);
+    return extractData(response);
   } catch (error) {
-    throw error;
+    handleError(error);
   }
 };
 
@@ -599,15 +643,16 @@ export const updateSlot = async (
  * Delete a parking slot
  *
  * @param id - Slot ID to delete
- * @returns Promise that resolves when deletion is complete
+ * @returns Promise resolving to deletion result
  * @throws ApiError if deletion fails
  */
-export const deleteSlot = async (id: string): Promise<void> => {
+export const deleteSlot = async (id: string | number): Promise<{ message: string }> => {
   try {
     const client = await getApiClient();
-    await client.delete(`/api/v1/slots/${id}`);
+    const response = await client.delete<ApiResponse<{ message: string }>>(`/api/v1/slots/${id}`);
+    return extractData(response);
   } catch (error) {
-    throw error;
+    handleError(error);
   }
 };
 
@@ -630,30 +675,54 @@ export const deleteSlot = async (id: string): Promise<void> => {
 export async function parkVehicle(
   vehicleType: string,
   entryPointId: string,
-  parkedAt?: string
+  parkedAt?: string,
+  licensePlate?: string,
+  previousSessionId?: string
 ): Promise<Session> {
   try {
     const client = await getApiClient();
-    
-    // CRITICAL: Use URLSearchParams for form-urlencoded format
-    const params = new URLSearchParams();
-    params.append('vehicle_type', vehicleType);
-    params.append('entry_point_id', entryPointId);
-    
-    // Only add parked_at if provided
+
+    const body: Record<string, string> = {
+      vehicle_type: vehicleType,
+      entry_point_id: entryPointId,
+    };
+
     if (parkedAt) {
-      params.append('parked_at', parkedAt);
+      body.parked_at = parkedAt;
     }
-    
-    // CRITICAL: Override Content-Type to application/x-www-form-urlencoded
+
+    if (licensePlate) {
+      body.license_plate = licensePlate;
+    }
+
+    if (previousSessionId) {
+      body.previous_session_id = previousSessionId;
+    }
+
     const response = await client.post<ApiResponse<Session>>(
       '/api/v1/sessions',
-      params,
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
+      body
+    );
+    return extractData(response);
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Get recent exit sessions for continuous parking selection
+ *
+ * @param vehicleType - Vehicle type to filter by
+ * @returns Promise resolving to array of recent exit sessions
+ * @throws ApiError if retrieval fails
+ */
+export async function fetchRecentExits(
+  vehicleType: string
+): Promise<RecentExit[]> {
+  try {
+    const client = await getApiClient();
+    const response = await client.get<ApiResponse<RecentExit[]>>(
+      `/api/v1/sessions/recent_exits?vehicle_type=${vehicleType}`
     );
     return extractData(response);
   } catch (error) {
@@ -663,10 +732,10 @@ export async function parkVehicle(
 
 /**
  * Unpark a vehicle and calculate the parking fee
- * 
+ *
  * CRITICAL: The exited_at parameter must be sent as a URL query parameter,
  * NOT in the request body.
- * 
+ *
  * @param sessionId - Session ID of the vehicle to unpark
  * @param exitedAt - Optional exited_at timestamp in ISO8601 format
  * @returns Promise resolving to session with fee calculation
@@ -752,6 +821,527 @@ export async function listSessions(
 }
 
 // ============================================================================
+// SESSIONS UPDATE/DELETE API
+// ============================================================================
+
+/**
+ * Update a parking session
+ * 
+ * @param sessionId - Session ID to update
+ * @param data - Update data (exited_at, total_fee)
+ * @returns Promise resolving to updated session
+ * @throws ApiError if update fails
+ */
+export async function updateSession(
+  sessionId: string,
+  data: { exited_at?: string; total_fee?: number }
+): Promise<Session> {
+  try {
+    const client = await getApiClient();
+    const response = await client.put<ApiResponse<Session>>(
+      `/api/v1/sessions/${sessionId}`,
+      data
+    );
+    return extractData(response);
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Delete a parking session
+ * 
+ * @param sessionId - Session ID to delete
+ * @returns Promise that resolves when deletion is complete
+ * @throws ApiError if deletion fails
+ */
+export async function deleteSession(sessionId: string): Promise<{ message: string }> {
+  try {
+    const client = await getApiClient();
+    const response = await client.delete<ApiResponse<{ message: string }>>(`/api/v1/sessions/${sessionId}`);
+    return extractData(response);
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+// ============================================================================
+// VEHICLES API
+// ============================================================================
+
+/**
+ * Vehicle representation
+ */
+export interface Vehicle {
+  readonly id: string;
+  readonly license_plate: string;
+  readonly vehicle_type: 'S' | 'M' | 'L';
+  readonly color?: string;
+  readonly brand?: string;
+  readonly model?: string;
+  readonly year?: number;
+  readonly metadata?: Record<string, unknown>;
+  readonly first_seen_at: string;
+  readonly last_seen_at?: string;
+  readonly total_sessions: number;
+  readonly total_spent: number;
+  readonly total_hours_parked: number;
+  readonly is_frequent: boolean;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/**
+ * List all vehicles with pagination
+ * 
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20, max: 100)
+ * @returns Promise resolving to paginated vehicles list
+ * @throws ApiError if retrieval fails
+ */
+export async function listVehicles(
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ vehicles: Vehicle[]; total: number }> {
+  try {
+    const client = await getApiClient();
+    const response = await client.get<ApiResponse<Vehicle[]>>(
+      '/api/v1/vehicles',
+      {
+        params: {
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      vehicles: extractData(response),
+      total,
+    };
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Get a specific vehicle by ID
+ * 
+ * @param id - Vehicle ID
+ * @returns Promise resolving to vehicle details
+ * @throws ApiError if vehicle not found
+ */
+export async function getVehicle(id: string): Promise<Vehicle> {
+  try {
+    const client = await getApiClient();
+    const response = await client.get<ApiResponse<Vehicle>>(
+      `/api/v1/vehicles/${id}`
+    );
+    return extractData(response);
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Create a new vehicle
+ * 
+ * @param vehicle - Vehicle data
+ * @returns Promise resolving to created vehicle
+ * @throws ApiError if creation fails
+ */
+export async function createVehicle(
+  vehicle: {
+    license_plate: string;
+    vehicle_type: 'S' | 'M' | 'L';
+    color?: string;
+    brand?: string;
+    model?: string;
+    year?: number;
+    metadata?: Record<string, unknown>;
+  }
+): Promise<Vehicle> {
+  try {
+    const client = await getApiClient();
+    const response = await client.post<ApiResponse<Vehicle>>(
+      '/api/v1/vehicles',
+      vehicle
+    );
+    return extractData(response);
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Update an existing vehicle
+ * 
+ * @param id - Vehicle ID to update
+ * @param vehicle - Vehicle data to update
+ * @returns Promise resolving to updated vehicle
+ * @throws ApiError if update fails
+ */
+export async function updateVehicle(
+  id: string,
+  vehicle: {
+    license_plate?: string;
+    vehicle_type?: 'S' | 'M' | 'L';
+    color?: string;
+    brand?: string;
+    model?: string;
+    year?: number;
+    metadata?: Record<string, unknown>;
+  }
+): Promise<Vehicle> {
+  try {
+    const client = await getApiClient();
+    const response = await client.put<ApiResponse<Vehicle>>(
+      `/api/v1/vehicles/${id}`,
+      vehicle
+    );
+    return extractData(response);
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Delete a vehicle
+ *
+ * @param id - Vehicle ID to delete
+ * @returns Promise resolving to deletion result
+ * @throws ApiError if deletion fails (e.g., vehicle has active sessions)
+ */
+export async function deleteVehicle(id: string): Promise<{ message: string }> {
+  try {
+    const client = await getApiClient();
+    const response = await client.delete<ApiResponse<{ message: string }>>(`/api/v1/vehicles/${id}`);
+    return extractData(response);
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+// ============================================================================
+// BILLING AUDIT LOGS API
+// ============================================================================
+
+/**
+ * Billing audit log representation
+ */
+export interface BillingAuditLog {
+  readonly id: number;
+  readonly parking_session_id: number;
+  readonly vehicle_type: string;
+  readonly slot_label: string;
+  readonly slot_type: string;
+  readonly entry_point: string;
+  readonly parked_at: string;
+  readonly exited_at: string;
+  readonly total_fee: number;
+  readonly base_fee: number;
+  readonly exceeding_fee: number;
+  readonly exceeding_hours: number;
+  readonly long_term_days: number;
+  readonly long_term_fee: number;
+  readonly duration_hours: number;
+  readonly is_continuous: boolean;
+  readonly base_start_time?: string;
+  readonly fee_breakdown?: {
+    readonly base_fee: number;
+    readonly exceeding_fee: number;
+    readonly long_term_fee: number;
+    readonly total_fee: number;
+    readonly duration_hours: number;
+  };
+  readonly correlation_id?: string;
+  readonly idempotency_key?: string;
+  readonly billing_version: string;
+  readonly calculated_at: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/**
+ * List all billing audit logs with pagination
+ * 
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20, max: 100)
+ * @returns Promise resolving to paginated billing audit logs list
+ * @throws ApiError if retrieval fails
+ */
+export async function listBillingAuditLogs(
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ logs: BillingAuditLog[]; total: number }> {
+  try {
+    const client = await getApiClient();
+    const response = await client.get<ApiResponse<BillingAuditLog[]>>(
+      '/api/v1/billing_audit_logs',
+      {
+        params: {
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      logs: extractData(response),
+      total,
+    };
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Get a specific billing audit log by ID
+ * 
+ * @param id - Billing audit log ID
+ * @returns Promise resolving to billing audit log details
+ * @throws ApiError if log not found
+ */
+export async function getBillingAuditLog(id: number): Promise<BillingAuditLog> {
+  try {
+    const client = await getApiClient();
+    const response = await client.get<ApiResponse<BillingAuditLog>>(
+      `/api/v1/billing_audit_logs/${id}`
+    );
+    return extractData(response);
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Get billing audit logs for a specific session
+ * 
+ * @param sessionId - Parking session ID
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20, max: 100)
+ * @returns Promise resolving to paginated billing audit logs for the session
+ * @throws ApiError if retrieval fails
+ */
+export async function getBillingAuditLogsBySession(
+  sessionId: number,
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ logs: BillingAuditLog[]; total: number }> {
+  try {
+    const client = await getApiClient();
+    const response = await client.get<ApiResponse<BillingAuditLog[]>>(
+      '/api/v1/billing_audit_logs',
+      {
+        params: {
+          session_id: sessionId,
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      logs: extractData(response),
+      total,
+    };
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+// ============================================================================
+// KAFKA EVENTS API
+// ============================================================================
+
+/**
+ * Kafka event representation
+ */
+export interface KafkaEvent {
+  readonly id: string;
+  readonly event_type: string;
+  readonly topic: string;
+  readonly event_id: string;
+  readonly payload: Record<string, unknown>;
+  readonly status: 'pending' | 'published' | 'failed' | 'retrying';
+  readonly retry_count: number;
+  readonly error_message?: string;
+  readonly partition: number;
+  readonly offset?: number;
+  readonly published_at?: string;
+  readonly occurred_at: string;
+  readonly idempotency_key?: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/**
+ * List all Kafka events with pagination
+ * 
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20, max: 100)
+ * @returns Promise resolving to paginated Kafka events list
+ * @throws ApiError if retrieval fails
+ */
+export async function listKafkaEvents(
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ events: KafkaEvent[]; total: number }> {
+  try {
+    const client = await getApiClient();
+    const response = await client.get<ApiResponse<KafkaEvent[]>>(
+      '/api/v1/kafka_events',
+      {
+        params: {
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      events: extractData(response),
+      total,
+    };
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Get a specific Kafka event by ID
+ * 
+ * @param id - Kafka event ID
+ * @returns Promise resolving to Kafka event details
+ * @throws ApiError if event not found
+ */
+export async function getKafkaEvent(id: string): Promise<KafkaEvent> {
+  try {
+    const client = await getApiClient();
+    const response = await client.get<ApiResponse<KafkaEvent>>(
+      `/api/v1/kafka_events/${id}`
+    );
+    return extractData(response);
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Get Kafka events by status
+ * 
+ * @param status - Event status ('pending', 'published', 'failed', 'retrying')
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20, max: 100)
+ * @returns Promise resolving to paginated Kafka events with the specified status
+ * @throws ApiError if retrieval fails
+ */
+export async function getKafkaEventsByStatus(
+  status: 'pending' | 'published' | 'failed' | 'retrying',
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ events: KafkaEvent[]; total: number }> {
+  try {
+    const client = await getApiClient();
+    const response = await client.get<ApiResponse<KafkaEvent[]>>(
+      '/api/v1/kafka_events',
+      {
+        params: {
+          status,
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      events: extractData(response),
+      total,
+    };
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Get Kafka events by event type
+ * 
+ * @param eventType - Event type (e.g., 'vehicle_parked', 'vehicle_unparked')
+ * @param page - Page number (default: 1)
+ * @param perPage - Items per page (default: 20, max: 100)
+ * @returns Promise resolving to paginated Kafka events with the specified type
+ * @throws ApiError if retrieval fails
+ */
+export async function getKafkaEventsByType(
+  eventType: string,
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ events: KafkaEvent[]; total: number }> {
+  try {
+    const client = await getApiClient();
+    const response = await client.get<ApiResponse<KafkaEvent[]>>(
+      '/api/v1/kafka_events',
+      {
+        params: {
+          event_type: eventType,
+          page,
+          per_page: perPage,
+        },
+      }
+    );
+    
+    const total = parseInt(
+      response.headers['x-total-count'] || 
+      response.headers['X-Total-Count'] || 
+      String(response.data.data.length),
+      10
+    );
+    
+    return {
+      events: extractData(response),
+      total,
+    };
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -785,6 +1375,26 @@ export default {
   unpackVehicle,
   getSession,
   listSessions,
+  updateSession,
+  deleteSession,
+  
+  // Vehicles
+  listVehicles,
+  getVehicle,
+  createVehicle,
+  updateVehicle,
+  deleteVehicle,
+  
+  // Billing Audit Logs
+  listBillingAuditLogs,
+  getBillingAuditLog,
+  getBillingAuditLogsBySession,
+  
+  // Kafka Events
+  listKafkaEvents,
+  getKafkaEvent,
+  getKafkaEventsByStatus,
+  getKafkaEventsByType,
   
   // Configuration
   setApiBaseUrl,

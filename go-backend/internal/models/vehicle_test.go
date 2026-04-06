@@ -227,9 +227,9 @@ func TestVehicle_AddSpending(t *testing.T) {
 func TestVehicle_AddHours(t *testing.T) {
 	tests := []struct {
 		name         string
-		initialHours int
-		hours        int
-		expected     int
+		initialHours float64
+		hours        float64
+		expected     float64
 	}{
 		{
 			name:         "add to zero hours",

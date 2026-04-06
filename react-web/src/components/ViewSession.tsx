@@ -105,11 +105,6 @@ function ViewSession(): JSX.Element {
     },
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 },
-  };
-
   if (state.loading) {
     return (
       <motion.div
@@ -294,8 +289,6 @@ function ViewSession(): JSX.Element {
       </motion.div>
     );
   }
-
-  const session = state.data;
 
   const handleUnpark = (): void => {
     if (state.data) {
@@ -734,7 +727,7 @@ function ViewSession(): JSX.Element {
                 <div className="detail-row">
                   <span className="detail-label">Duration:</span>
                   <span className="detail-value">
-                    {state.data.duration_hours} hours
+                    {state.data.duration_hours} hour{state.data.duration_hours !== 1 ? 's' : ''}
                   </span>
                 </div>
               )}

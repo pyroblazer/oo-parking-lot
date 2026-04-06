@@ -1,18 +1,14 @@
 /**
  * Jest Configuration for Detox E2E Tests
- * 
+ *
  * This configuration is specifically for running Detox e2e tests.
  * Unit tests use the jest.config.js in the root directory.
  */
 
-const { DetoxCircusEnvironment } = require('detox/runners/jest-circus');
-
 module.exports = {
-  preset: 'jest-expo',
-  testEnvironment: DetoxCircusEnvironment,
+  testEnvironment: 'detox/runners/jest/testEnvironment',
   testRunner: 'jest-circus/runner',
-  maxWorkers: 8,
-  setupTimeout: 120000,
+  maxWorkers: 1,
   testTimeout: 120000,
   testMatch: [
     '**/e2e/**/*.e2e.ts',
@@ -23,19 +19,19 @@ module.exports = {
     '/e2e/init.ts',
   ],
   reporters: [
-    'detox/runners/jest/streamlineReporter',
-    'jest-junit',
+    'default',
   ],
   verbose: true,
+  transform: {
+    '^.+\\.tsx?$': 'babel-jest',
+  },
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   transformIgnorePatterns: [
-    'node_modules/(?!(@react-native|react-native|detox)/)',
+    'node_modules/(?!(@react-native|react-native|detox|@react-native-async-storage)/)',
   ],
-  globals: {
-    'ts-jest': {
-      tsconfig: {
-        jsx: 'react',
-        esModuleInterop: true,
-      },
-    },
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/$1',
+    '^@env$': '<rootDir>/../__mocks__/env.js',
+    '^react-native$': '<rootDir>/../__mocks__/react-native.js',
   },
 };

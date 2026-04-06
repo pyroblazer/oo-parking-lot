@@ -39,12 +39,190 @@ if Rails.env.test?
   return
 end
 
-# Skip prometheus initialization if client doesn't have required methods
+# Custom metrics
+class ParkingMetrics
+  def initialize(client)
+    @client = client
+    setup_metrics
+  end
+
+  def setup_metrics
+    # Business metrics
+    @slot_allocation_duration = @client.register(
+      :histogram,
+      'parking_slot_allocation_duration_seconds',
+      'Time taken to allocate a parking slot'
+    )
+
+    @billing_calculation_duration = @client.register(
+      :histogram,
+      'parking_billing_calculation_duration_seconds',
+      'Time taken to calculate parking fees'
+    )
+
+    @active_sessions = @client.register(
+      :gauge,
+      'parking_active_sessions',
+      'Number of active parking sessions'
+    )
+
+    @slot_utilization = @client.register(
+      :gauge,
+      'parking_slot_utilization',
+      'Parking slot utilization rate by slot type'
+    )
+
+    @total_revenue = @client.register(
+      :counter,
+      'parking_total_revenue',
+      'Total parking revenue collected'
+    )
+
+    @sessions_by_vehicle_type = @client.register(
+      :counter,
+      'parking_sessions_by_vehicle_type',
+      'Number of parking sessions by vehicle type'
+    )
+
+    @billing_errors = @client.register(
+      :counter,
+      'parking_billing_errors',
+      'Number of billing calculation errors'
+    )
+
+    @allocation_errors = @client.register(
+      :counter,
+      'parking_allocation_errors',
+      'Number of slot allocation errors'
+    )
+
+    @kafka_events_published = @client.register(
+      :counter,
+      'parking_kafka_events_published',
+      'Number of Kafka events published'
+    )
+
+    @kafka_events_failed = @client.register(
+      :counter,
+      'parking_kafka_events_failed',
+      'Number of Kafka events that failed to publish'
+    )
+  rescue StandardError => e
+    Rails.logger.error "Failed to setup Prometheus metrics: #{e.message}"
+  end
+
+  # Track slot allocation duration
+  def track_slot_allocation_duration
+    start_time = Time.current
+    result = yield
+    duration = Time.current - start_time
+    @slot_allocation_duration.observe(duration)
+    result
+  rescue StandardError => e
+    begin
+      @allocation_errors.increment
+    rescue StandardError
+      # Silently ignore metric recording errors
+    end
+    raise e
+  end
+
+  # Track billing calculation duration
+  def track_billing_calculation_duration
+    start_time = Time.current
+    result = yield
+    duration = Time.current - start_time
+    @billing_calculation_duration.observe(duration)
+    result
+  rescue StandardError => e
+    begin
+      @billing_errors.increment
+    rescue StandardError
+      # Silently ignore metric recording errors
+    end
+    raise e
+  end
+
+  # Update active sessions gauge
+  def update_active_sessions(count)
+    @active_sessions.observe(count)
+  rescue StandardError => e
+    Rails.logger.warn "Failed to update active sessions metric: #{e.message}"
+  end
+
+  # Update slot utilization gauge
+  def update_slot_utilization(slot_type, utilization_rate)
+    @slot_utilization.observe(utilization_rate, slot_type: slot_type)
+  rescue StandardError => e
+    Rails.logger.warn "Failed to update slot utilization metric: #{e.message}"
+  end
+
+  # Increment total revenue
+  def increment_total_revenue(amount)
+    @total_revenue.increment(nil, amount)
+  rescue StandardError => e
+    Rails.logger.warn "Failed to increment total revenue metric: #{e.message}"
+  end
+
+  # Increment sessions by vehicle type
+  def increment_sessions_by_vehicle_type(vehicle_type)
+    @sessions_by_vehicle_type.increment({ vehicle_type: vehicle_type })
+  rescue StandardError => e
+    Rails.logger.warn "Failed to increment sessions by vehicle type metric: #{e.message}"
+  end
+
+  # Increment Kafka events published
+  def increment_kafka_events_published(event_type)
+    @kafka_events_published.increment({ event_type: event_type })
+  rescue StandardError => e
+    Rails.logger.warn "Failed to increment kafka events published metric: #{e.message}"
+  end
+
+  # Increment Kafka events failed
+  def increment_kafka_events_failed(event_type)
+    @kafka_events_failed.increment({ event_type: event_type })
+  rescue StandardError => e
+    Rails.logger.warn "Failed to increment kafka events failed metric: #{e.message}"
+  end
+end
+
+# Initialize Prometheus with error handling
 begin
   require 'prometheus_exporter/middleware'
   require 'prometheus_exporter/instrumentation'
-rescue LoadError, NoMethodError => e
+
+  # Add PrometheusExporter::Middleware to Rails config
+  Rails.application.configure do
+    config.middleware.use PrometheusExporter::Middleware
+  end
+
+  # Initialize metrics (only if not test environment)
+  $parking_metrics = ParkingMetrics.new(PrometheusExporter::Client.default)
+
+  # Instrument Sidekiq
+  begin
+    PrometheusExporter::Instrumentation::Sidekiq.start(
+      client: PrometheusExporter::Client.default,
+      labels: { service: 'rails-backend' }
+    )
+  rescue StandardError => e
+    Rails.logger.warn "Failed to instrument Sidekiq for Prometheus: #{e.message}"
+  end
+
+  # Instrument Process
+  begin
+    PrometheusExporter::Instrumentation::Process.start(
+      type: 'web',
+      client: PrometheusExporter::Client.default,
+      labels: { service: 'rails-backend' }
+    )
+  rescue StandardError => e
+    Rails.logger.warn "Failed to instrument Process for Prometheus: #{e.message}"
+  end
+rescue LoadError, StandardError => e
   Rails.logger.warn "Prometheus exporter not available: #{e.message}"
+
+  # Provide no-op fallback so the rest of the app doesn't break
   $parking_metrics = Object.new
   def $parking_metrics.track_billing_calculation_duration
     yield
@@ -77,162 +255,4 @@ rescue LoadError, NoMethodError => e
   def $parking_metrics.increment_kafka_events_failed(event_type)
     # No-op
   end
-  return
 end
-
-# Temporarily disable prometheus initialization due to API issues
-# require 'prometheus_exporter/middleware'
-# require 'prometheus_exporter/instrumentation'
-
-# Rails.application.configure do
-#   # Add Prometheus middleware
-#   config.middleware.use PrometheusExporter::Middleware
-#
-#   # Configure Prometheus exporter
-#   config.prometheus_exporter = {
-#     port: ENV.fetch('PROMETHEUS_EXPORTER_PORT', 9394).to_i,
-#     timeout: 2,
-#     verbose: Rails.env.development?
-#   }
-# end
-
-# Custom metrics
-# class ParkingMetrics
-#   def initialize(client)
-#     @client = client
-#     setup_metrics
-#   end
-#
-#   def setup_metrics
-#     # Business metrics
-#     @slot_allocation_duration = @client.register_histogram(
-#       'parking_slot_allocation_duration_seconds',
-#       'Time taken to allocate a parking slot',
-#       {},
-#       [0.1, 0.5, 1, 2, 5, 10]
-#     )
-#
-#     @billing_calculation_duration = @client.register_histogram(
-#       'parking_billing_calculation_duration_seconds',
-#       'Time taken to calculate parking fees',
-#       {},
-#       [0.1, 0.5, 1, 2, 5]
-#     )
-#
-#     @active_sessions = @client.register_gauge(
-#       'parking_active_sessions',
-#       'Number of active parking sessions'
-#     )
-#
-#     @slot_utilization = @client.register_gauge(
-#       'parking_slot_utilization',
-#       'Parking slot utilization rate by slot type',
-#       labels: [:slot_type]
-#     )
-#
-#     @total_revenue = @client.register_counter(
-#       'parking_total_revenue',
-#       'Total parking revenue collected'
-#     )
-#
-#     @sessions_by_vehicle_type = @client.register_counter(
-#       'parking_sessions_by_vehicle_type',
-#       'Number of parking sessions by vehicle type',
-#       labels: [:vehicle_type]
-#     )
-#
-#     @billing_errors = @client.register_counter(
-#       'parking_billing_errors',
-#       'Number of billing calculation errors'
-#     )
-#
-#     @allocation_errors = @client.register_counter(
-#       'parking_allocation_errors',
-#       'Number of slot allocation errors'
-#     )
-#
-#     @kafka_events_published = @client.register_counter(
-#       'parking_kafka_events_published',
-#       'Number of Kafka events published',
-#       labels: [:event_type]
-#     )
-#
-#     @kafka_events_failed = @client.register_counter(
-#       'parking_kafka_events_failed',
-#       'Number of Kafka events that failed to publish',
-#       labels: [:event_type]
-#     )
-#   end
-#
-#   # Track slot allocation duration
-#   def track_slot_allocation_duration
-#     start_time = Time.current
-#     result = yield
-#     duration = Time.current - start_time
-#     @slot_allocation_duration.observe(duration)
-#     result
-#   rescue StandardError
-#     @allocation_errors.increment
-#     raise
-#   end
-#
-#   # Track billing calculation duration
-#   def track_billing_calculation_duration
-#     start_time = Time.current
-#     result = yield
-#     duration = Time.current - start_time
-#     @billing_calculation_duration.observe(duration)
-#     result
-#   rescue StandardError
-#     @billing_errors.increment
-#     raise
-#   end
-#
-#   # Update active sessions gauge
-#   def update_active_sessions(count)
-#     @active_sessions.set(count)
-#   end
-#
-#   # Update slot utilization gauge
-#   def update_slot_utilization(slot_type, utilization_rate)
-#     @slot_utilization.set({ slot_type: slot_type }, utilization_rate)
-#   end
-#
-#   # Increment total revenue
-#   def increment_total_revenue(amount)
-#     @total_revenue.increment(by: amount)
-#   end
-#
-#   # Increment sessions by vehicle type
-#   def increment_sessions_by_vehicle_type(vehicle_type)
-#     @sessions_by_vehicle_type.increment(labels: { vehicle_type: vehicle_type })
-#   end
-#
-#   # Increment Kafka events published
-#   def increment_kafka_events_published(event_type)
-#     @kafka_events_published.increment(labels: { event_type: event_type })
-#   end
-#
-#   # Increment Kafka events failed
-#   def increment_kafka_events_failed(event_type)
-#     @kafka_events_failed.increment(labels: { event_type: event_type })
-#   end
-# end
-#
-# # Initialize metrics (only if not test environment)
-# unless Rails.env.test?
-#   $parking_metrics = ParkingMetrics.new(PrometheusExporter::Client.default)
-#
-#   # Instrument Sidekiq
-#   PrometheusExporter::Instrumentation::Sidekiq.start(
-#     client: PrometheusExporter::Client.default,
-#     labels: { service: 'rails-backend' }
-#   )
-#
-#   # Instrument Process
-#   PrometheusExporter::Instrumentation::Process.start(
-#     type: 'web',
-#     client: PrometheusExporter::Client.default,
-#     labels: { service: 'rails-backend' }
-#   )
-# end

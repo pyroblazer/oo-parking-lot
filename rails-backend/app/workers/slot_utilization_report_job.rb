@@ -33,7 +33,7 @@ class SlotUtilizationReportJob
                                .where.not(exited_at: nil)
 
       if sessions.any?
-        avg_duration = sessions.map { |s| (s.exited_at - s.parked_at) / 3600.0 }.sum / sessions.count
+        avg_duration = sessions.sum { |s| (s.exited_at - s.parked_at) / 3600.0 } / sessions.count
         avg_occupancy_by_type[slot_type] = avg_duration.round(2)
       else
         avg_occupancy_by_type[slot_type] = 0

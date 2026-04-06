@@ -6,7 +6,7 @@ import { APIRequestContext } from '@playwright/test';
  * Provides API helper functions for setting up and tearing down test data.
  */
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8082';
+const API_BASE_URL = process.env.API_BASE_URL || 'http://127.0.0.1:8082';
 
 /**
  * API response interfaces
@@ -252,7 +252,7 @@ export class ApiFixtures {
    * @returns Entry points response
    */
   async getEntryPoints(): Promise<EntryPointsResponse> {
-    const response = await this.request.get(`${API_BASE_URL}/api/v1/entry-points`);
+    const response = await this.request.get(`${API_BASE_URL}/api/v1/entry_points`);
     return await response.json();
   }
 
@@ -265,7 +265,7 @@ export class ApiFixtures {
     name: string;
     location: string;
   }): Promise<any> {
-    const response = await this.request.post(`${API_BASE_URL}/api/v1/entry-points`, {
+    const response = await this.request.post(`${API_BASE_URL}/api/v1/entry_points`, {
       data,
     });
     return await response.json();
@@ -281,7 +281,7 @@ export class ApiFixtures {
     name?: string;
     location?: string;
   }): Promise<any> {
-    const response = await this.request.put(`${API_BASE_URL}/api/v1/entry-points/${id}`, {
+    const response = await this.request.put(`${API_BASE_URL}/api/v1/entry_points/${id}`, {
       data,
     });
     return await response.json();
@@ -293,7 +293,7 @@ export class ApiFixtures {
    * @returns Response
    */
   async deleteEntryPoint(id: string): Promise<any> {
-    const response = await this.request.delete(`${API_BASE_URL}/api/v1/entry-points/${id}`);
+    const response = await this.request.delete(`${API_BASE_URL}/api/v1/entry_points/${id}`);
     return await response.json();
   }
 
@@ -376,7 +376,7 @@ export class ApiFixtures {
    */
   async clearAllEntryPoints(): Promise<any> {
     try {
-      const response = await this.request.delete(`${API_BASE_URL}/api/v1/entry-points`);
+      const response = await this.request.delete(`${API_BASE_URL}/api/v1/entry_points`);
       return await response.json();
     } catch (error) {
       console.warn('Clear all entry points not supported:', error);
@@ -564,6 +564,156 @@ export class ApiFixtures {
         timestamp: new Date().toISOString(),
       };
     }
+  }
+
+  // ==================== Vehicles API ====================
+
+  /**
+   * List vehicles
+   */
+  async listVehicles(page?: number, perPage?: number): Promise<any> {
+    const params = new URLSearchParams();
+    if (page) params.append('page', page.toString());
+    if (perPage) params.append('per_page', perPage.toString());
+    const url = `${API_BASE_URL}/api/v1/vehicles${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await this.request.get(url);
+    return await response.json();
+  }
+
+  /**
+   * Create a vehicle
+   */
+  async createVehicle(data: {
+    license_plate: string;
+    vehicle_type: 'S' | 'M' | 'L';
+    color?: string;
+    brand?: string;
+    model?: string;
+    year?: number;
+  }): Promise<any> {
+    const response = await this.request.post(`${API_BASE_URL}/api/v1/vehicles`, { data });
+    return await response.json();
+  }
+
+  /**
+   * Get a vehicle by ID
+   */
+  async getVehicle(id: string): Promise<any> {
+    const response = await this.request.get(`${API_BASE_URL}/api/v1/vehicles/${id}`);
+    return await response.json();
+  }
+
+  /**
+   * Update a vehicle
+   */
+  async updateVehicle(id: string, data: {
+    license_plate?: string;
+    vehicle_type?: 'S' | 'M' | 'L';
+    color?: string;
+    brand?: string;
+    model?: string;
+    year?: number;
+  }): Promise<any> {
+    const response = await this.request.put(`${API_BASE_URL}/api/v1/vehicles/${id}`, { data });
+    return await response.json();
+  }
+
+  /**
+   * Delete a vehicle
+   */
+  async deleteVehicle(id: string): Promise<any> {
+    const response = await this.request.delete(`${API_BASE_URL}/api/v1/vehicles/${id}`);
+    return await response.json();
+  }
+
+  // ==================== Billing Audit Logs API ====================
+
+  /**
+   * List billing audit logs
+   */
+  async listBillingAuditLogs(page?: number, perPage?: number): Promise<any> {
+    const params = new URLSearchParams();
+    if (page) params.append('page', page.toString());
+    if (perPage) params.append('per_page', perPage.toString());
+    const url = `${API_BASE_URL}/api/v1/billing_audit_logs${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await this.request.get(url);
+    return await response.json();
+  }
+
+  /**
+   * Get a billing audit log by ID
+   */
+  async getBillingAuditLog(id: string): Promise<any> {
+    const response = await this.request.get(`${API_BASE_URL}/api/v1/billing_audit_logs/${id}`);
+    return await response.json();
+  }
+
+  /**
+   * Get billing audit logs by session ID
+   */
+  async getBillingAuditLogsBySession(sessionId: string): Promise<any> {
+    const response = await this.request.get(`${API_BASE_URL}/api/v1/billing_audit_logs/session/${sessionId}`);
+    return await response.json();
+  }
+
+  // ==================== Kafka Events API ====================
+
+  /**
+   * List kafka events
+   */
+  async listKafkaEvents(page?: number, perPage?: number): Promise<any> {
+    const params = new URLSearchParams();
+    if (page) params.append('page', page.toString());
+    if (perPage) params.append('per_page', perPage.toString());
+    const url = `${API_BASE_URL}/api/v1/kafka_events${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await this.request.get(url);
+    return await response.json();
+  }
+
+  /**
+   * Get a kafka event by ID
+   */
+  async getKafkaEvent(id: string): Promise<any> {
+    const response = await this.request.get(`${API_BASE_URL}/api/v1/kafka_events/${id}`);
+    return await response.json();
+  }
+
+  /**
+   * Get kafka events by status
+   */
+  async getKafkaEventsByStatus(status: string): Promise<any> {
+    const response = await this.request.get(`${API_BASE_URL}/api/v1/kafka_events/status/${status}`);
+    return await response.json();
+  }
+
+  /**
+   * Get kafka events by event type
+   */
+  async getKafkaEventsByType(eventType: string): Promise<any> {
+    const response = await this.request.get(`${API_BASE_URL}/api/v1/kafka_events/event-type/${eventType}`);
+    return await response.json();
+  }
+
+  // ==================== Park/Unpark Direct API ====================
+
+  /**
+   * Park a vehicle via the sessions API (form-urlencoded)
+   */
+  async parkVehicle(vehicleType: string, entryPointId: string): Promise<any> {
+    const response = await this.request.post(`${API_BASE_URL}/api/v1/sessions`, {
+      form: { vehicle_type: vehicleType, entry_point_id: entryPointId },
+    });
+    return await response.json();
+  }
+
+  /**
+   * Unpark a vehicle via the sessions API
+   */
+  async unparkVehicle(sessionId: string, exitedAt?: string): Promise<any> {
+    const url = `${API_BASE_URL}/api/v1/sessions/${sessionId}/unpark`;
+    const params = exitedAt ? `?exited_at=${encodeURIComponent(exitedAt)}` : '';
+    const response = await this.request.post(`${url}${params}`);
+    return await response.json();
   }
 }
 

@@ -1,444 +1,550 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Linking } from 'react-native';
-import { unparkVehicle } from '../api';
-import type { 
-  SessionId, 
-  UnparkVehicleResult,
-  AsyncState,
-  ScreenProps
-} from '../types';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { unpackVehicle } from '../api/parkingApi';
+import type { Session } from '../api/parkingApi';
+import type { NavigationProp, RouteProp } from '../types';
 
-// Helper function to extract error message consistently
-const extractErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (error && typeof error === 'object' && 'response' in error) {
-    const responseError = error as { response?: { data?: { error?: string }; status?: number } };
-    if (responseError.response?.status === 404) {
-      return 'Session not found. It may have already been completed.';
-    }
-    return responseError.response?.data?.error ?? 'An unknown error occurred';
-  }
-  if (error && typeof error === 'object' && 'message' in error) {
-    const messageError = error as { message?: string };
-    return messageError.message ?? 'An unknown error occurred';
-  }
-  return 'An unknown error occurred';
-};
+// Slot type display names
+const SLOT_TYPE_NAMES: Record<string, string> = {
+  SP: 'Small Parking',
+  MP: 'Medium Parking',
+  LP: 'Large Parking',
+} as const;
 
-// Helper function to extract data consistently
-const extractData = <T,>(response: T | { data: T }): T => {
-  if (response && typeof response === 'object' && 'data' in response) {
-    return (response as { data: T }).data;
-  }
-  return response as T;
-};
+// Vehicle type display names
+const VEHICLE_TYPE_NAMES: Record<string, string> = {
+  S: 'Small',
+  M: 'Medium',
+  L: 'Large',
+} as const;
 
-// Create async state object helper
-const createAsyncState = <T,>(): AsyncState<T, string> => ({
-  data: null,
-  loading: false,
-  error: null,
-});
+// Hourly rate by slot type
+const HOURLY_RATES: Record<string, number> = {
+  SP: 20,
+  MP: 60,
+  LP: 100,
+} as const;
 
-// Helper function to get hourly rate by slot type
-function getHourlyRate(slotType: string): number {
-  switch (slotType) {
-    case 'SP': return 20;
-    case 'MP': return 60;
-    case 'LP': return 100;
-    default: return 20;
-  }
-}
-
-// Helper function to format timestamp
 function formatTimestamp(timestamp: string): string {
   return new Date(timestamp).toLocaleString();
 }
 
-// Helper function to format currency
 function formatCurrency(amount: number): string {
   return `₱${amount.toFixed(2)}`;
 }
 
-interface UnparkVehicleProps extends ScreenProps<{}> {}
-
-interface LongTermBreakdown {
-  days: number;
-  fee: number;
+interface UnparkVehicleProps {
+  navigation: NavigationProp;
+  route: RouteProp<{ sessionId?: string }>;
 }
 
-interface ExtendedFeeBreakdown {
-  total_fee: number;
-  duration_hours: number;
-  base_fee: number;
-  exceeding_fee: number;
-  exceeding_hours: number;
-  long_term?: LongTermBreakdown;
-}
-
-function UnparkVehicle({ navigation }: UnparkVehicleProps): React.JSX.Element {
-  const [sessionId, setSessionId] = useState<SessionId>('');
-  const [state, setState] = useState<AsyncState<UnparkVehicleResult, string>>(createAsyncState<UnparkVehicleResult>());
+function UnparkVehicle({ navigation, route }: UnparkVehicleProps): React.JSX.Element {
+  const [sessionId, setSessionId] = useState(route.params?.sessionId || '');
+  const [result, setResult] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleCalculateFee = async (): Promise<void> => {
-    if (!sessionId) {
-      setState(prev => ({
-        ...prev,
-        error: 'Session ID is required',
-      }));
+    const trimmed = sessionId.trim();
+    if (!trimmed) {
+      setError('Please enter a session ID');
       return;
     }
 
-    setState({
-      data: null,
-      loading: true,
-      error: null,
-    });
+    setLoading(true);
+    setError(null);
+    setResult(null);
 
     try {
-      const response = await unparkVehicle(sessionId);
-      const responseData = extractData<UnparkVehicleResult>(response);
-      setState({
-        data: responseData,
-        loading: false,
-        error: null,
-      });
+      const sessionData = await unpackVehicle(trimmed, new Date().toISOString());
+      setResult(sessionData);
     } catch (err) {
-      const errorMessage = extractErrorMessage(err);
-      setState({
-        data: null,
-        loading: false,
-        error: errorMessage,
-      });
-      
-      // Clear session ID on 404 error
-      if (err && typeof err === 'object' && 'response' in err) {
-        const responseError = err as { response?: { status?: number } };
-        if (responseError.response?.status === 404) {
-          setSessionId('');
-        }
-      }
+      const message = err instanceof Error ? err.message : 'Failed to calculate fee';
+      setError(message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handlePrintReceipt = (): void => {
-    // Print functionality - can be implemented with react-native-print or similar
-    console.log('Print Receipt for session:', sessionId);
+  const handleReset = (): void => {
+    setSessionId('');
+    setResult(null);
+    setError(null);
   };
 
-  const handleViewSessions = (): void => {
-    navigation.navigate('Sessions');
-  };
-
-  const getFeeBreakdown = (session: UnparkVehicleResult): ExtendedFeeBreakdown => {
-    const breakdown = session.fee_breakdown || {
-      total_fee: session.total_fee,
-      duration_hours: session.duration_hours,
-      base_fee: 40,
-      exceeding_fee: 0,
-      exceeding_hours: 0,
-    };
-
-    // Calculate long-term if duration exceeds 24 hours
-    const fullDays = Math.floor(session.duration_hours / 24);
-    if (fullDays > 0) {
-      return {
-        ...breakdown,
-        long_term: {
-          days: fullDays,
-          fee: fullDays * 5000,
-        },
-      };
-    }
-
-    return breakdown;
-  };
+  // Helper to get fee breakdown from either field name
+  const feeBreakdown = result && ('fee_breakdown' in result ? result.fee_breakdown : result.breakdown);
+  const slotLabel = result?.parking_slot?.slot_label || 'N/A';
+  const slotType = result?.parking_slot?.slot_type || 'SP';
+  const hourlyRate = HOURLY_RATES[slotType] || 20;
+  const entryPointDisplay = typeof result?.entry_point === 'string'
+    ? result.entry_point
+    : result?.entry_point.identifier ?? 'N/A';
+  const vehicleType = result?.vehicle_type || 'S';
+  const totalFee = result?.total_fee ?? 0;
+  const durationHours = result?.duration_hours ?? 0;
+  const isContinuous = result?.is_continuous ?? false;
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>🚗 Unpark Vehicle</Text>
-      
-      {state.error && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>❌ {state.error}</Text>
-          {state.error.includes('Session not found') && (
-            <TouchableOpacity onPress={handleViewSessions} style={styles.sessionsLink}>
-              <Text style={styles.sessionsLinkText}>View Sessions List</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Title */}
+        <Text style={styles.title}>Unpark Vehicle</Text>
+        <Text style={styles.subtitle}>
+          {result ? 'Fee Calculation Result' : 'Enter a session ID to calculate the parking fee'}
+        </Text>
+
+        {/* Error */}
+        {error && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {/* Input Form */}
+        {!result && (
+          <View style={styles.card}>
+            <Text style={styles.label}>Session ID</Text>
+            <TextInput
+              style={styles.input}
+              value={sessionId}
+              onChangeText={setSessionId}
+              placeholder="Enter Session ID"
+              placeholderTextColor="#64748b"
+              editable={!loading}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="go"
+              onSubmitEditing={handleCalculateFee}
+            />
+
+            <TouchableOpacity
+              style={[styles.calculateButton, (loading || !sessionId.trim()) && styles.buttonDisabled]}
+              onPress={handleCalculateFee}
+              disabled={loading || !sessionId.trim()}
+              activeOpacity={0.7}
+              accessibilityLabel="Calculate fee"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: loading || !sessionId.trim() }}
+            >
+              {loading ? (
+                <ActivityIndicator testID="activity-indicator" color="#fff" />
+              ) : (
+                <Text style={styles.calculateButtonText}>Calculate Fee</Text>
+              )}
             </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      <View style={styles.form}>
-        <Text style={styles.label}>Session ID:</Text>
-        <TextInput
-          style={styles.input}
-          value={sessionId}
-          onChangeText={setSessionId}
-          placeholder="Enter Session ID"
-          placeholderTextColor="#999"
-          editable={!state.loading}
-          keyboardType="numeric"
-          autoCapitalize="characters"
-          autoCorrect={false}
-        />
-
-        <TouchableOpacity 
-          style={[styles.button, state.loading && styles.buttonDisabled]} 
-          onPress={handleCalculateFee}
-          disabled={state.loading}
-          activeOpacity={0.7}
-        >
-          {state.loading ? (
-            <ActivityIndicator testID="activity-indicator" color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Calculate Fee</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {state.data && (
-        <View style={styles.feeBreakdownCard}>
-          {state.data.is_continuous && (
-            <View style={styles.continuousBanner}>
-              <Text style={styles.continuousText}>⚠️ This vehicle returned within 1 hour of previous exit</Text>
-              <Text style={styles.continuousSubtext}>Fee calculated from {formatTimestamp(state.data.parked_at)}</Text>
-            </View>
-          )}
-          
-          <Text style={styles.breakdownTitle}>Fee Breakdown</Text>
-          
-          <View style={styles.breakdownSection}>
-            <Text style={styles.breakdownLine}>├─ Base Fee: ₱40.00 (first 3 hours)</Text>
           </View>
-          
-          {state.data.duration_hours > 3 && (
+        )}
+
+        {/* Result */}
+        {result && (
+          <View style={styles.resultCard}>
+            {/* Success Header */}
+            <View style={styles.resultHeader}>
+              <Text style={styles.resultHeaderIcon}>✅</Text>
+              <Text style={styles.resultHeaderTitle}>Vehicle Unparked Successfully</Text>
+            </View>
+
+            {/* Continuous Parking Badge */}
+            {isContinuous && (
+              <View style={styles.continuousBanner}>
+                <Text style={styles.continuousText}>🔄 Continuous Parking Session</Text>
+                <Text style={styles.continuousSubtext}>
+                  Fee calculated from original parked time
+                </Text>
+              </View>
+            )}
+
+            {/* Fee Breakdown */}
             <View style={styles.breakdownSection}>
-              <Text style={styles.breakdownLine}>├─ Exceeding {Math.ceil(state.data.duration_hours - 3)} hours</Text>
-              <Text style={styles.breakdownLine}>│   Rate: ₱{getHourlyRate(state.data.parking_slot?.type || 'SP')}/hour</Text>
-              <Text style={styles.breakdownLine}>│   Fee: ₱{((Math.ceil(state.data.duration_hours - 3)) * getHourlyRate(state.data.parking_slot?.type || 'SP')).toFixed(2)}</Text>
+              <Text style={styles.breakdownTitle}>Fee Breakdown</Text>
+
+              {/* Base Fee */}
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Base Fee (first 3 hours)</Text>
+                <Text style={styles.breakdownValue}>₱40.00</Text>
+              </View>
+
+              {/* Exceeding Hours */}
+              {(() => {
+                const exceedingHours = feeBreakdown?.remaining?.exceeding_hours
+                  ?? (durationHours > 3 ? Math.ceil(durationHours - 3) : 0);
+                const exceedingFee = feeBreakdown?.remaining?.exceeding_fee
+                  ?? (exceedingHours > 0 ? exceedingHours * hourlyRate : 0);
+                if (exceedingHours > 0) {
+                  return (
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>
+                        Exceeding {exceedingHours}h × ₱{hourlyRate}/hr
+                      </Text>
+                      <Text style={styles.breakdownValue}>{formatCurrency(exceedingFee)}</Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Long Term */}
+              {(() => {
+                const days = feeBreakdown?.long_term?.days ?? 0;
+                const longFee = feeBreakdown?.long_term?.fee ?? 0;
+                if (days > 0) {
+                  return (
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>
+                        Long-term {days} day(s) × ₱5,000/day
+                      </Text>
+                      <Text style={styles.breakdownValue}>{formatCurrency(longFee)}</Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()}
+
+              <View style={styles.divider} />
+
+              {/* Total */}
+              <View style={styles.breakdownRow}>
+                <Text style={styles.totalLabel}>Total Fee</Text>
+                <Text style={styles.totalFee}>{formatCurrency(totalFee)}</Text>
+              </View>
             </View>
-          )}
-          
-          {(() => {
-            const breakdown = getFeeBreakdown(state.data);
-            if (breakdown.long_term && breakdown.long_term.days > 0) {
-              return (
-                <View style={styles.breakdownSection}>
-                  <Text style={styles.breakdownLine}>├─ Long-Term: {breakdown.long_term.days} days</Text>
-                  <Text style={styles.breakdownLine}>│   Rate: ₱5,000.00/day</Text>
-                  <Text style={styles.breakdownLine}>│   Fee: ₱{(breakdown.long_term.days * 5000).toFixed(2)}</Text>
+
+            <View style={styles.divider} />
+
+            {/* Session Details */}
+            <View style={styles.detailsSection}>
+              <Text style={styles.detailsTitle}>Session Details</Text>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Session ID</Text>
+                <Text style={styles.detailValueMono}>{result.session_id}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Vehicle Type</Text>
+                <Text style={styles.detailValue}>
+                  {VEHICLE_TYPE_NAMES[vehicleType]} ({vehicleType})
+                </Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Parking Slot</Text>
+                <Text style={styles.detailValue}>
+                  {slotLabel} ({SLOT_TYPE_NAMES[slotType] || slotType})
+                </Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Entry Point</Text>
+                <Text style={styles.detailValue}>{entryPointDisplay}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Parked At</Text>
+                <Text style={styles.detailValue}>{formatTimestamp(result.parked_at)}</Text>
+              </View>
+
+              {result.exited_at && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Exited At</Text>
+                  <Text style={styles.detailValue}>{formatTimestamp(result.exited_at)}</Text>
                 </View>
-              );
-            }
-            return null;
-          })()}
-          
-          <View style={styles.separator} />
-          
-          <View style={styles.totalSection}>
-            <Text style={styles.totalLabel}>└─ Total Fee:</Text>
-            <Text style={styles.totalFee}>{formatCurrency(state.data.total_fee)}</Text>
-          </View>
+              )}
 
-          <View style={styles.sessionDetails}>
-            <Text style={styles.sessionDetailLabel}>Session ID:</Text>
-            <Text style={styles.sessionDetailValue}>{state.data.session_id}</Text>
-            
-            <Text style={styles.sessionDetailLabel}>Vehicle Type:</Text>
-            <Text style={styles.sessionDetailValue}>{state.data.vehicle_type}</Text>
-            
-            <Text style={styles.sessionDetailLabel}>Parking Slot:</Text>
-            <Text style={styles.sessionDetailValue}>{state.data.parking_slot.label} ({state.data.parking_slot.type})</Text>
-            
-            <Text style={styles.sessionDetailLabel}>Entry Point:</Text>
-            <Text style={styles.sessionDetailValue}>{state.data.entry_point}</Text>
-            
-            <Text style={styles.sessionDetailLabel}>Parked At:</Text>
-            <Text style={styles.sessionDetailValue}>{formatTimestamp(state.data.parked_at)}</Text>
-            
-            <Text style={styles.sessionDetailLabel}>Exited At:</Text>
-            <Text style={styles.sessionDetailValue}>{formatTimestamp(state.data.exited_at)}</Text>
-            
-            <Text style={styles.sessionDetailLabel}>Duration:</Text>
-            <Text style={styles.sessionDetailValue}>{Math.ceil(state.data.duration_hours)} hours</Text>
-          </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Duration</Text>
+                <Text style={styles.detailValue}>{Math.ceil(durationHours)} hour{Math.ceil(durationHours) !== 1 ? 's' : ''}</Text>
+              </View>
+            </View>
 
-          <TouchableOpacity 
-            style={styles.printButton} 
-            onPress={handlePrintReceipt}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.printButtonText}>🖨️ Print Receipt</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </ScrollView>
+            {/* Actions */}
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={styles.viewSessionButton}
+                onPress={() => {
+                  if (result.session_id) {
+                    navigation.navigate('ViewSession', { id: result.session_id });
+                  }
+                }}
+                activeOpacity={0.7}
+                accessibilityLabel="View session details"
+                accessibilityRole="button"
+              >
+                <Text style={styles.viewSessionButtonText}>View Session</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.resetButton}
+                onPress={handleReset}
+                activeOpacity={0.7}
+                accessibilityLabel="Unpark another vehicle"
+                accessibilityRole="button"
+              >
+                <Text style={styles.resetButtonText}>Unpark Another</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
+
+const COLORS = {
+  primary: '#1e40af',
+  primaryLight: '#3b82f6',
+  success: '#16a34a',
+  warning: '#d97706',
+  danger: '#dc2626',
+  background: '#f8fafc',
+  surface: '#ffffff',
+  text: '#0f172a',
+  textSecondary: '#64748b',
+  border: '#e2e8f0',
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#667eea',
-    textAlign: 'center',
-    marginTop: 40,
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 4,
   },
-  form: {
-    backgroundColor: 'white',
+  subtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 20,
+  },
+  errorBox: {
+    backgroundColor: '#fee2e2',
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    marginBottom: 16,
+  },
+  errorText: {
+    color: COLORS.danger,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
     padding: 20,
-    borderRadius: 10,
-    margin: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 10,
+    color: COLORS.text,
+    marginBottom: 8,
   },
   input: {
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    borderRadius: 5,
-    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: '#f9f9f9',
-    minHeight: 44,
+    backgroundColor: COLORS.background,
+    color: COLORS.text,
+    minHeight: 48,
+    marginBottom: 16,
   },
-  button: {
-    backgroundColor: '#667eea',
-    padding: 15,
-    borderRadius: 5,
+  calculateButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 15,
-    minHeight: 44,
+    justifyContent: 'center',
+    minHeight: 48,
   },
   buttonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#94a3b8',
+    opacity: 0.6,
   },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  errorBox: {
-    backgroundColor: '#fee2e2',
-    padding: 15,
-    borderRadius: 5,
-    marginHorizontal: 20,
-    marginBottom: 20,
-  },
-  errorText: {
-    color: '#991b1b',
-    textAlign: 'center',
+  calculateButtonText: {
+    color: COLORS.surface,
     fontSize: 16,
-  },
-  sessionsLink: {
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  sessionsLinkText: {
-    color: '#1e40af',
-    fontSize: 14,
     fontWeight: '600',
-    textDecorationLine: 'underline',
   },
-  feeBreakdownCard: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-    margin: 20,
+  resultCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: COLORS.border,
+  },
+  resultHeader: {
+    backgroundColor: COLORS.success,
+    padding: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  resultHeaderIcon: {
+    fontSize: 20,
+  },
+  resultHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.surface,
   },
   continuousBanner: {
     backgroundColor: '#fef3c7',
     padding: 12,
-    borderRadius: 5,
-    marginBottom: 15,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#d97706',
+    borderLeftColor: COLORS.warning,
   },
   continuousText: {
-    color: '#d97706',
     fontSize: 14,
     fontWeight: '600',
+    color: COLORS.warning,
   },
   continuousSubtext: {
-    color: '#d97706',
     fontSize: 12,
+    color: COLORS.warning,
     marginTop: 4,
   },
-  breakdownTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 15,
-  },
   breakdownSection: {
-    marginBottom: 10,
+    padding: 20,
   },
-  breakdownLine: {
-    fontSize: 14,
-    color: '#334155',
-    lineHeight: 20,
+  breakdownTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 12,
   },
-  separator: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 15,
-  },
-  totalSection: {
+  breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
+    paddingVertical: 6,
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  breakdownValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.text,
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#334155',
+    fontWeight: '700',
+    color: COLORS.text,
   },
   totalFee: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1e40af',
+    fontWeight: '700',
+    color: COLORS.primary,
   },
-  sessionDetails: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginHorizontal: 20,
   },
-  sessionDetailLabel: {
+  detailsSection: {
+    padding: 20,
+  },
+  detailsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    flex: 1,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.text,
+    flex: 1,
+    textAlign: 'right',
+  },
+  detailValueMono: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 5,
+    color: COLORS.text,
+    fontFamily: 'monospace',
+    flex: 1,
+    textAlign: 'right',
   },
-  sessionDetailValue: {
-    fontSize: 14,
-    color: '#334155',
-    marginBottom: 10,
+  actionsRow: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
   },
-  printButton: {
-    backgroundColor: '#1e40af',
-    padding: 15,
-    borderRadius: 5,
+  viewSessionButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 20,
-    minHeight: 44,
+    justifyContent: 'center',
+    minHeight: 48,
   },
-  printButtonText: {
-    color: 'white',
-    fontSize: 16,
+  viewSessionButtonText: {
+    color: COLORS.surface,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resetButton: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  resetButtonText: {
+    color: COLORS.text,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

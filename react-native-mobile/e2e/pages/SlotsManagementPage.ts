@@ -96,7 +96,7 @@ export class SlotsManagementPage extends BasePage {
     this.cancelSlotButton = element(by.id('cancel-slot-button'));
 
     // Refresh
-    this.refreshButton = element(by.id('refresh-button');
+    this.refreshButton = element(by.id('refresh-button'));
   }
 
   /**
@@ -195,7 +195,7 @@ export class SlotsManagementPage extends BasePage {
    */
   async addSlot(slotNumber: string, slotType: 'Small' | 'Medium' | 'Large', floor: string): Promise<void> {
     await this.clickAddSlot();
-    await this.waitFor(this.slotModal)
+    await waitFor(this.slotModal)
       .toBeVisible()
       .withTimeout(5000);
     
@@ -220,7 +220,7 @@ export class SlotsManagementPage extends BasePage {
     floor: string
   ): Promise<void> {
     await this.clickEditSlotByIndex(index);
-    await this.waitFor(this.slotModal)
+    await waitFor(this.slotModal)
       .toBeVisible()
       .withTimeout(5000);
     
@@ -356,6 +356,16 @@ export class SlotsManagementPage extends BasePage {
   /**
    * Click Refresh button
    */
+  /**
+   * Click Filter button to open filter options
+   */
+  async clickFilter(): Promise<void> {
+    await waitFor(this.filterButton)
+      .toBeVisible()
+      .withTimeout(5000);
+    await this.filterButton.tap();
+  }
+
   async clickRefresh(): Promise<void> {
     await this.click('refresh-button');
     await this.waitForLoadingToComplete();

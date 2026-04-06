@@ -130,6 +130,28 @@ export class ApiFixtures {
   }
 
   /**
+   * Make a PUT request to the API
+   */
+  private async put<T>(endpoint: string, body: any): Promise<ApiResponse<T>> {
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
    * Make a DELETE request to the API
    */
   private async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
@@ -417,6 +439,89 @@ export class ApiFixtures {
       await new Promise(resolve => setTimeout(resolve, interval));
     }
     return false;
+  }
+
+  // ==================== Vehicles API ====================
+
+  /**
+   * List vehicles
+   */
+  async listVehicles(page: number = 1, perPage: number = 20): Promise<ApiResponse<any>> {
+    return await this.get(`/api/v1/vehicles?page=${page}&per_page=${perPage}`);
+  }
+
+  /**
+   * Create a vehicle
+   */
+  async createVehicle(data: {
+    license_plate: string;
+    vehicle_type: 'S' | 'M' | 'L';
+    color?: string;
+    brand?: string;
+    model?: string;
+    year?: number;
+  }): Promise<ApiResponse<any>> {
+    return await this.post('/api/v1/vehicles', data);
+  }
+
+  /**
+   * Update a vehicle
+   */
+  async updateVehicle(id: string, data: {
+    license_plate?: string;
+    vehicle_type?: 'S' | 'M' | 'L';
+    color?: string;
+    brand?: string;
+    model?: string;
+    year?: number;
+  }): Promise<ApiResponse<any>> {
+    return await this.put(`/api/v1/vehicles/${id}`, data);
+  }
+
+  /**
+   * Delete a vehicle
+   */
+  async deleteVehicle(id: string): Promise<ApiResponse<any>> {
+    return await this.delete(`/api/v1/vehicles/${id}`);
+  }
+
+  // ==================== Billing Audit Logs API ====================
+
+  /**
+   * List billing audit logs
+   */
+  async listBillingAuditLogs(page: number = 1, perPage: number = 20): Promise<ApiResponse<any>> {
+    return await this.get(`/api/v1/billing_audit_logs?page=${page}&per_page=${perPage}`);
+  }
+
+  /**
+   * Get billing audit logs by session
+   */
+  async getBillingAuditLogsBySession(sessionId: string): Promise<ApiResponse<any>> {
+    return await this.get(`/api/v1/billing_audit_logs/session/${sessionId}`);
+  }
+
+  // ==================== Kafka Events API ====================
+
+  /**
+   * List kafka events
+   */
+  async listKafkaEvents(page: number = 1, perPage: number = 20): Promise<ApiResponse<any>> {
+    return await this.get(`/api/v1/kafka_events?page=${page}&per_page=${perPage}`);
+  }
+
+  /**
+   * Get kafka events by status
+   */
+  async getKafkaEventsByStatus(status: string): Promise<ApiResponse<any>> {
+    return await this.get(`/api/v1/kafka_events/status/${status}`);
+  }
+
+  /**
+   * Get kafka events by event type
+   */
+  async getKafkaEventsByType(eventType: string): Promise<ApiResponse<any>> {
+    return await this.get(`/api/v1/kafka_events/event-type/${eventType}`);
   }
 }
 

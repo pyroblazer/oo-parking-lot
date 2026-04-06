@@ -9,7 +9,7 @@ RSpec.describe AnalyticsReportJob, type: :worker do
     before do
       Timecop.freeze(Time.current.beginning_of_day)
       # Stub PrometheusExporter::Client to avoid NameError
-      allow(PrometheusExporter::Client).to receive(:default).and_return(instance_double('PrometheusExporter::Client', send_json: nil))
+      allow(PrometheusExporter::Client).to receive(:default).and_return(instance_double(PrometheusExporter::Client, send_json: nil))
     end
 
     after do
@@ -139,7 +139,7 @@ RSpec.describe AnalyticsReportJob, type: :worker do
 
     context 'with Prometheus metrics' do
       it 'sends report to Prometheus' do
-        prometheus_client = instance_double('PrometheusExporter::Client')
+        prometheus_client = instance_double(PrometheusExporter::Client)
         allow(PrometheusExporter::Client).to receive(:default).and_return(prometheus_client)
         expect(prometheus_client).to receive(:send_json).with(
           type: 'analytics_report',

@@ -5,6 +5,8 @@
  * used throughout the application with strict typing and advanced TypeScript features.
  */
 
+import { ComponentType, ReactElement } from 'react';
+
 // ============================================================================
 // PRIMITIVE TYPE ALIASES
 // ============================================================================
@@ -111,6 +113,7 @@ export interface ParkingSlot {
   readonly slot_label: string;
   readonly slot_type: 'SP' | 'MP' | 'LP';
   readonly distances: number[];
+  readonly distances_map?: Record<string, number>;
   readonly available: boolean;
   readonly created_at: string;
   readonly updated_at: string;
@@ -123,6 +126,7 @@ export interface ParkingSession {
   readonly is_active: boolean;  // Whether session is currently active
   readonly is_continuous: boolean;  // Whether this is a continuous parking session
   readonly vehicle_type: string;
+  readonly license_plate?: string;  // Vehicle license plate
   readonly parking_slot_id: number;
   readonly entry_point_id: number;
   readonly parked_at: string;
@@ -141,6 +145,96 @@ export interface ParkingSession {
     readonly identifier: string;
     readonly name: string;
   };
+}
+
+/** Recent exit session for continuous parking selection */
+export interface RecentExit {
+  readonly session_id: string;
+  readonly vehicle_type: string;
+  readonly license_plate: string;
+  readonly slot_label: string;
+  readonly entry_point: string;
+  readonly parked_at: string;
+  readonly exited_at: string;
+  readonly minutes_since_exit: number;
+  readonly total_fee: number;
+}
+
+/** Vehicle interface */
+export interface Vehicle {
+  readonly id: string;
+  readonly license_plate: string;
+  readonly vehicle_type: 'S' | 'M' | 'L';
+  readonly color?: string;
+  readonly brand?: string;
+  readonly model?: string;
+  readonly year?: number;
+  readonly metadata?: Record<string, unknown>;
+  readonly first_seen_at: string;
+  readonly last_seen_at?: string;
+  readonly total_sessions: number;
+  readonly total_spent: number;
+  readonly total_hours_parked: number;
+  readonly is_frequent: boolean;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/** Billing audit log interface */
+export interface BillingAuditLog {
+  readonly id: number;
+  readonly parking_session_id: number;
+  readonly vehicle_type: string;
+  readonly slot_label: string;
+  readonly slot_type: string;
+  readonly entry_point: string;
+  readonly parked_at: string;
+  readonly exited_at: string;
+  readonly total_fee: number;
+  readonly base_fee: number;
+  readonly exceeding_fee: number;
+  readonly exceeding_hours: number;
+  readonly long_term_days: number;
+  readonly long_term_fee: number;
+  readonly duration_hours: number;
+  readonly is_continuous: boolean;
+  readonly base_start_time?: string;
+  readonly fee_breakdown: {
+    readonly base_fee: number;
+    readonly exceeding_fee: number;
+    readonly long_term_fee: number;
+    readonly total_fee: number;
+    readonly duration_hours: number;
+  };
+  readonly correlation_id?: string;
+  readonly idempotency_key?: string;
+  readonly billing_version: string;
+  readonly calculated_at: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/** Kafka event interface */
+export interface KafkaEvent {
+  readonly id: string;
+  readonly event_type: string;
+  readonly topic: string;
+  readonly partition: number;
+  readonly offset?: number;
+  readonly event_key?: string;
+  readonly event_payload: Record<string, unknown>;
+  readonly correlation_id?: string;
+  readonly causation_id?: string;
+  readonly idempotency_key?: string;
+  readonly event_id: string;
+  readonly occurred_at: string;
+  readonly published_at?: string;
+  readonly status: 'pending' | 'published' | 'failed' | 'retrying';
+  readonly retry_count: number;
+  readonly error_message?: string;
+  readonly metadata?: Record<string, unknown>;
+  readonly created_at: string;
+  readonly updated_at: string;
 }
 
 /** Available slots response interface */
@@ -212,9 +306,6 @@ export interface CreateEntryPointRequest {
 export interface UpdateEntryPointRequest {
   readonly identifier?: string;
   readonly name?: string;
-  readonly distance_to_slot_1?: number;
-  readonly distance_to_slot_2?: number;
-  readonly distance_to_slot_3?: number;
 }
 
 // ============================================================================

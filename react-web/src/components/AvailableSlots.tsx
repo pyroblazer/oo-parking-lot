@@ -5,7 +5,7 @@
  * Includes scroll-triggered animations and staggered reveals.
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAvailableSlots, getEntryPoints } from '../api';
 import type {
@@ -16,23 +16,6 @@ import type {
   AsyncState,
 } from '../types';
 import './AvailableSlots.css';
-
-/**
- * Vehicle type compatibility information
- */
-const VEHICLE_TYPE_COMPATIBILITY = {
-  S: ['SP', 'MP', 'LP'],
-  M: ['MP', 'LP'],
-  L: ['LP'],
-} as const;
-
-/**
- * Get vehicle type compatibility description
- */
-function getVehicleTypeCompatibility(vehicleType: VehicleType): string {
-  const compatibleTypes = VEHICLE_TYPE_COMPATIBILITY[vehicleType];
-  return compatibleTypes.join(', ').toUpperCase();
-}
 
 /**
  * AvailableSlots component

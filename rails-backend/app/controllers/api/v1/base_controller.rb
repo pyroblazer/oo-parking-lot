@@ -23,11 +23,13 @@ module Api
         }, status: :internal_server_error
       end
 
-      def render_success(data, status: :ok)
-        render json: {
+      def render_success(data, status: :ok, pagination: nil)
+        response = {
           success: true,
           data: data
-        }, status: status
+        }
+        response[:pagination] = pagination if pagination
+        render json: response, status: status
       end
 
       def render_bad_request(message)
@@ -35,6 +37,13 @@ module Api
           success: false,
           error: message
         }, status: :bad_request
+      end
+
+      def render_not_found(message)
+        render json: {
+          success: false,
+          error: message
+        }, status: :not_found
       end
 
       def render_conflict(message)
@@ -55,7 +64,7 @@ module Api
         render json: {
           success: false,
           error: message
-        }, status: :unprocessable_entity
+        }, status: :unprocessable_content
       end
     end
   end

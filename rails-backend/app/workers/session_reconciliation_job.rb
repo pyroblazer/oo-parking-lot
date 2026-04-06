@@ -12,7 +12,7 @@ class SessionReconciliationJob
     # Find active sessions that have been active for more than 24 hours
     long_active_sessions = ParkingSession
                            .where(exited_at: nil)
-                           .where('parked_at < ?', 24.hours.ago)
+                           .where(parked_at: ...24.hours.ago)
 
     logger.info("Found #{long_active_sessions.count} long-active sessions")
 

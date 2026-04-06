@@ -1,1 +1,1 @@
-ParkingSlot.pluck(:slot_type).uniq
+ParkingSlot.distinct.pluck(:slot_type)

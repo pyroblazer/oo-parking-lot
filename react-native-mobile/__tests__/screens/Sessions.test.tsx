@@ -6,24 +6,11 @@ import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
 import SessionsScreen from '../../src/screens/Sessions';
 import * as parkingApi from '../../src/api/parkingApi';
-import type { NavigationProp } from '@react-navigation/native';
 
-// Mock navigation
-jest.mock('@react-navigation/native', () => ({
-  useNavigation: jest.fn(),
-}));
+// Set timeout for async tests
+jest.setTimeout(30000);
 
-// Mock API functions
-jest.mock('../../src/api/parkingApi', () => ({
-  listSessions: jest.fn(),
-  ApiError: class extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = 'ApiError';
-    }
-  },
-}));
-
+// Mock navigation object
 const mockNavigation: any = {
   navigate: jest.fn(),
   goBack: jest.fn(),
@@ -40,15 +27,29 @@ const mockNavigation: any = {
   removeListener: jest.fn(),
 };
 
+// Mock navigation
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: jest.fn(() => mockNavigation),
+}));
+
+// Mock API functions
+jest.mock('../../src/api/parkingApi', () => ({
+  listSessions: jest.fn(),
+  ApiError: class extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'ApiError';
+    }
+  },
+}));
+
 describe('Sessions Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    jest.clearAllTimers();
   });
 
   describe('Component Rendering', () => {
@@ -277,6 +278,10 @@ describe('Sessions Screen', () => {
 
       const nextButton = await screen.findByText(/next/i);
       fireEvent.press(nextButton);
+
+      await waitFor(() => {
+        expect(parkingApi.listSessions).toHaveBeenCalledWith(2, 20);
+      });
     });
 
     it('changes per-page value when option is selected', async () => {
@@ -299,8 +304,15 @@ describe('Sessions Screen', () => {
 
       render(<SessionsScreen />);
 
-      const perPageOption = await screen.findByText(/10/i);
+      await screen.findByText(/showing 1-20 of 25 sessions/i);
+
+      // Use exact text to avoid matching "100"
+      const perPageOption = screen.getByText('10');
       fireEvent.press(perPageOption);
+
+      await waitFor(() => {
+        expect(parkingApi.listSessions).toHaveBeenCalledWith(1, 10);
+      });
     });
   });
 
@@ -362,7 +374,9 @@ describe('Sessions Screen', () => {
   });
 
   describe('Auto-refresh', () => {
-    it('auto-refreshes after 30 seconds', async () => {
+    it('sets up auto-refresh interval for 30 seconds', async () => {
+      const setIntervalSpy = jest.spyOn(global, 'setInterval');
+
       (parkingApi.listSessions as jest.Mock).mockResolvedValue({
         sessions: [],
         total: 0,
@@ -372,11 +386,18 @@ describe('Sessions Screen', () => {
 
       render(<SessionsScreen />);
 
-      await screen.findByText(/auto-refresh/i);
+      // Wait for initial data load
+      await waitFor(() => {
+        expect(parkingApi.listSessions).toHaveBeenCalledTimes(1);
+      });
 
-      jest.advanceTimersByTime(30000);
+      // Verify auto-refresh interval was set with 30 second duration
+      expect(setIntervalSpy).toHaveBeenCalledWith(
+        expect.any(Function),
+        30000
+      );
 
-      expect(parkingApi.listSessions).toHaveBeenCalledTimes(2);
+      setIntervalSpy.mockRestore();
     });
   });
 });

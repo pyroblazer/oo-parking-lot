@@ -5,35 +5,29 @@ module Api
       def index
         db_status = check_database
 
-        if db_status == 'healthy'
-          render json: {
-            status: 'ok',
-            service: 'parking-lot-api',
-            version: '1.0.0',
-            timestamp: Time.current.iso8601,
-            checks: {
-              database: {
-                status: db_status
-              }
+        http_status = db_status == 'healthy' ? :ok : :service_unavailable
+
+        render json: {
+          status: db_status == 'healthy' ? 'ok' : 'error',
+          success: db_status == 'healthy',
+          service: 'parking-lot-api',
+          version: '1.0.0',
+          timestamp: Time.current.iso8601,
+          checks: {
+            database: {
+              status: db_status
             }
-          }, status: :ok
-        else
-          render json: {
-            status: 'error',
-            service: 'parking-lot-api',
-            version: '1.0.0',
-            timestamp: Time.current.iso8601,
-            checks: {
-              database: {
-                status: db_status
-              }
-            }
-          }, status: :service_unavailable
-        end
+          },
+          data: {
+            status: db_status,
+            timestamp: Time.current.iso8601
+          }
+        }, status: http_status
       rescue StandardError => e
         Rails.logger.error "Health check error: #{e.message}"
         render json: {
           status: 'error',
+          success: false,
           service: 'parking-lot-api',
           version: '1.0.0',
           timestamp: Time.current.iso8601,
@@ -41,6 +35,10 @@ module Api
             database: {
               status: 'unhealthy'
             }
+          },
+          data: {
+            status: 'unhealthy',
+            timestamp: Time.current.iso8601
           }
         }, status: :service_unavailable
       end

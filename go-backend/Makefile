@@ -41,7 +41,13 @@ run:
 # Setup test databases
 test-setup:
 	@echo "Setting up test databases..."
-	@go run ./cmd/test-setup/main.go
+	@psql -U postgres -h localhost -c "DROP DATABASE IF EXISTS oo_parking_lot_handlers_test;" 2>/dev/null || true
+	@psql -U postgres -h localhost -c "DROP DATABASE IF EXISTS oo_parking_lot_test;" 2>/dev/null || true
+	@psql -U postgres -h localhost -c "CREATE DATABASE oo_parking_lot_handlers_test;"
+	@psql -U postgres -h localhost -c "CREATE DATABASE oo_parking_lot_test;"
+	@psql -U postgres -h localhost -d oo_parking_lot_handlers_test -f scripts/init-db.sql 2>&1 | grep -v "NOTICE:" || true
+	@psql -U postgres -h localhost -d oo_parking_lot_test -f scripts/init-db.sql 2>&1 | grep -v "NOTICE:" || true
+	@echo "Test databases setup completed successfully"
 
 # Run tests with coverage
 test: test-setup

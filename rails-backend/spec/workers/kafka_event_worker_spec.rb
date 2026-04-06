@@ -14,7 +14,7 @@ RSpec.describe KafkaEventWorker, type: :worker do
   describe '#perform' do
     context 'with VEHICLE_PARKED event' do
       it 'publishes vehicle parked event' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
         expect(producer).to receive(:vehicle_parked).with(
           session: session,
@@ -41,7 +41,7 @@ RSpec.describe KafkaEventWorker, type: :worker do
       end
 
       it 'publishes vehicle unparked event' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
         fee = 40.0
         breakdown = { total_fee: fee, duration_hours: 1 }
@@ -64,7 +64,7 @@ RSpec.describe KafkaEventWorker, type: :worker do
 
     context 'with SLOT_ALLOCATED event' do
       it 'publishes slot allocated event' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
 
         expect(producer).to receive(:slot_allocated).with(
@@ -101,7 +101,7 @@ RSpec.describe KafkaEventWorker, type: :worker do
       end
 
       it 'publishes billing completed event' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
 
         expect(producer).to receive(:billing_completed).with(
@@ -138,7 +138,7 @@ RSpec.describe KafkaEventWorker, type: :worker do
       end
 
       it 'publishes session merged event' do
-        producer = instance_double('KafkaProducer')
+        producer = instance_double(KafkaProducer)
         allow(KafkaProducer).to receive(:new).and_return(producer)
 
         expect(producer).to receive(:session_merged).with(

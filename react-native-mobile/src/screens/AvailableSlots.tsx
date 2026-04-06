@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, ListRenderItemInfo } from 'react-native';
-import { getAvailableSlots, getEntryPoints } from '../api';
-import type { 
-  VehicleType, 
-  EntryPointIdentifier, 
-  EntryPoint, 
-  ParkingSlot, 
-  AvailableSlotsResponse,
+import { getAvailableSlots, listEntryPoints as getEntryPoints, type ParkingSlot } from '../api/parkingApi';
+import type {
+  VehicleType,
+  EntryPointIdentifier,
+  EntryPoint,
   AsyncState,
   ScreenProps
 } from '../types';
@@ -27,14 +25,6 @@ const extractErrorMessage = (error: unknown): string => {
   return 'An unknown error occurred';
 };
 
-// Helper function to extract data consistently
-const extractData = <T,>(response: T | { data: T }): T => {
-  if (response && typeof response === 'object' && 'data' in response) {
-    return (response as { data: T }).data;
-  }
-  return response as T;
-};
-
 // Create async state object helper
 const createAsyncState = <T,>(): AsyncState<T, string> => ({
   data: null,
@@ -49,7 +39,7 @@ function AvailableSlots({ navigation: _navigation }: AvailableSlotsProps): React
   const [entryPointId, setEntryPointId] = useState<EntryPointIdentifier>('');
   const [entryPoints, setEntryPoints] = useState<EntryPoint[]>([]);
   const [slots, setSlots] = useState<ParkingSlot[]>([]);
-  const [state, setState] = useState<AsyncState<AvailableSlotsResponse, string>>(createAsyncState<AvailableSlotsResponse>());
+  const [state, setState] = useState<AsyncState<ParkingSlot[], string>>(createAsyncState<ParkingSlot[]>());
 
   useEffect(() => {
     void loadEntryPoints();
@@ -58,10 +48,9 @@ function AvailableSlots({ navigation: _navigation }: AvailableSlotsProps): React
   const loadEntryPoints = async (): Promise<void> => {
     try {
       const data = await getEntryPoints();
-      const entryPointsData = extractData<EntryPoint[]>(data);
-      setEntryPoints(entryPointsData);
-      if (entryPointsData.length > 0) {
-        setEntryPointId(entryPointsData[0].identifier);
+      setEntryPoints(data);
+      if (data.length > 0) {
+        setEntryPointId(data[0].identifier);
       }
     } catch (err) {
       setState(prev => ({
@@ -87,11 +76,10 @@ function AvailableSlots({ navigation: _navigation }: AvailableSlotsProps): React
     });
 
     try {
-      const response = await getAvailableSlots(vehicleType, entryPointId);
-      const responseData = extractData<AvailableSlotsResponse>(response);
-      setSlots([...(responseData.available_slots || [])]);
+      const availableSlots = await getAvailableSlots(vehicleType, entryPointId);
+      setSlots([...availableSlots]);
       setState({
-        data: responseData,
+        data: availableSlots,
         loading: false,
         error: null,
       });
@@ -105,51 +93,54 @@ function AvailableSlots({ navigation: _navigation }: AvailableSlotsProps): React
   };
 
   const renderSlot = ({ item }: ListRenderItemInfo<ParkingSlot>): React.JSX.Element => (
-    <TouchableOpacity style={styles.slotCard}>
+    <TouchableOpacity style={styles.slotCard} testID="slot-item">
       <View style={styles.slotHeader}>
-        <View style={[styles.slotType, item.type === 'SP' ? styles.slotTypeSP : item.type === 'MP' ? styles.slotTypeMP : styles.slotTypeLP]}>
-          <Text style={styles.slotTypeText}>{item.type}</Text>
+        <View style={[styles.slotType, item.slot_type === 'SP' ? styles.slotTypeSP : item.slot_type === 'MP' ? styles.slotTypeMP : styles.slotTypeLP]} testID="slot-type">
+          <Text style={styles.slotTypeText}>{item.slot_type}</Text>
         </View>
-        <Text style={styles.slotLabel}>{item.label}</Text>
+        <Text style={styles.slotLabel} testID="slot-label">{item.slot_label}</Text>
       </View>
       <View style={styles.slotDetails}>
-        <Text style={styles.slotDetail}><Text style={styles.slotDetailLabel}>Distance:</Text> {item.distance_from_entry} units</Text>
+        <Text style={styles.slotDetail}><Text style={styles.slotDetailLabel}>Distances:</Text> {item.distances.join(', ')}</Text>
         <Text style={[styles.slotDetail, styles.available]}>✅ Available</Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="available-slots-page">
       <Text style={styles.title}>🅿️ Available Parking Slots</Text>
       
       {state.error && (
-        <View style={styles.errorBox}>
+        <View style={styles.errorBox} testID="error-message">
           <Text style={styles.errorText}>❌ {state.error}</Text>
         </View>
       )}
 
       <View style={styles.searchForm}>
         <Text style={styles.label}>Vehicle Type:</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.pickerButton}
           onPress={() => setVehicleType('S')}
+          testID="vehicle-type-small"
         >
           <Text style={[styles.pickerButtonText, vehicleType === 'S' && styles.pickerButtonActive]}>
             Small (S) {vehicleType === 'S' ? '✓' : ''}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.pickerButton}
           onPress={() => setVehicleType('M')}
+          testID="vehicle-type-medium"
         >
           <Text style={[styles.pickerButtonText, vehicleType === 'M' && styles.pickerButtonActive]}>
             Medium (M) {vehicleType === 'M' ? '✓' : ''}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.pickerButton}
           onPress={() => setVehicleType('L')}
+          testID="vehicle-type-large"
         >
           <Text style={[styles.pickerButtonText, vehicleType === 'L' && styles.pickerButtonActive]}>
             Large (L) {vehicleType === 'L' ? '✓' : ''}
@@ -159,10 +150,11 @@ function AvailableSlots({ navigation: _navigation }: AvailableSlotsProps): React
 
       <Text style={styles.label}>Entry Point:</Text>
       {entryPoints.map((ep) => (
-        <TouchableOpacity 
+        <TouchableOpacity
           key={ep.id}
           style={[styles.pickerButton, entryPointId === ep.identifier && styles.pickerButtonActive]}
           onPress={() => setEntryPointId(ep.identifier)}
+          testID={`entry-point-${ep.identifier}`}
         >
           <Text style={styles.pickerButtonText}>
             {ep.name} ({ep.identifier}) {entryPointId === ep.identifier ? '✓' : ''}
@@ -170,10 +162,11 @@ function AvailableSlots({ navigation: _navigation }: AvailableSlotsProps): React
         </TouchableOpacity>
       ))}
 
-      <TouchableOpacity 
-        style={[styles.searchButton, state.loading && styles.searchButtonDisabled]} 
+      <TouchableOpacity
+        style={[styles.searchButton, state.loading && styles.searchButtonDisabled]}
         onPress={handleSearch}
         disabled={state.loading}
+        testID="search-button"
       >
         {state.loading ? (
           <ActivityIndicator testID="activity-indicator" color="#fff" />
@@ -186,12 +179,13 @@ function AvailableSlots({ navigation: _navigation }: AvailableSlotsProps): React
         <FlatList
           data={slots}
           renderItem={renderSlot}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.slotsList}
           numColumns={2}
+          testID="available-slots-list"
         />
       ) : (
-        <View style={styles.noSlots}>
+        <View style={styles.noSlots} testID="no-slots">
           <Text style={styles.noSlotsText}>No available slots found for the selected criteria.</Text>
         </View>
       )}
@@ -248,7 +242,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#64748b',
   },
   searchButtonText: {
     color: 'white',

@@ -61,7 +61,9 @@ test.describe('Navigation Features - Basic Navigation', () => {
     
     await page.click('[data-testid="nav-home"]');
     
-    expect(page.url()).toBe('http://localhost:3002/');
+    // Verify we're on the home page - check the path instead of hardcoding the host
+    expect(page.url()).toMatch(/\/$/);
+
   });
 
   test('should highlight active page button', async ({ page }) => {
@@ -91,7 +93,9 @@ test.describe('Navigation Features - URL Changes', () => {
     
     await page.click('[data-testid="nav-home"]');
     
-    expect(page.url()).toBe('http://localhost:3002/');
+    // Verify we're on the home page - check the path instead of hardcoding the host
+    expect(page.url()).toMatch(/\/$/);
+
   });
 
   test('should update URL when navigating to park', async ({ page }) => {
@@ -251,7 +255,9 @@ test.describe('Navigation Features - Navigation History', () => {
     expect(page.url()).toContain('/park');
     
     await page.goBack();
-    expect(page.url()).toBe('http://localhost:3002/');
+    // Verify we're on the home page - check the path instead of hardcoding the host
+    expect(page.url()).toMatch(/\/$/);
+
   });
 
   test('should navigate forward using browser forward button', async ({ page }) => {
@@ -262,7 +268,9 @@ test.describe('Navigation Features - Navigation History', () => {
     expect(page.url()).toContain('/park');
     
     await page.goBack();
-    expect(page.url()).toBe('http://localhost:3002/');
+    // Verify we're on the home page - check the path instead of hardcoding the host
+    expect(page.url()).toMatch(/\/$/);
+
     
     await page.goForward();
     expect(page.url()).toContain('/park');
@@ -282,7 +290,9 @@ test.describe('Navigation Features - Navigation History', () => {
     expect(page.url()).toContain('/park');
     
     await page.goBack();
-    expect(page.url()).toBe('http://localhost:3002/');
+    // Verify we're on the home page - check the path instead of hardcoding the host
+    expect(page.url()).toMatch(/\/$/);
+
   });
 });
 

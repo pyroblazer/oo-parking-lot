@@ -1,13 +1,13 @@
 /**
  * Unpark Vehicle Component
- * 
+ *
  * Implements FEAT-002: Unpark Vehicle with fee calculation
  * Implements FEAT-003: Fee Calculation Display with tree structure
- * 
+ *
  * @module UnparkVehicle
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { unparkVehicle } from '../api';
@@ -243,7 +243,7 @@ function UnparkVehicle(): JSX.Element {
     });
 
     try {
-      const response = await unparkVehicle(sessionId);
+      const response = await unparkVehicle(sessionId, new Date().toISOString());
       setState({
         data: response,
         loading: false,
@@ -268,11 +268,6 @@ function UnparkVehicle(): JSX.Element {
         staggerChildren: 0.1,
       },
     },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 },
   };
 
   return (
@@ -607,6 +602,7 @@ function UnparkVehicle(): JSX.Element {
                 type="submit"
                 className="btn btn-primary"
                 disabled={state.loading}
+                data-testid="calculate-fee-button"
               >
                 {state.loading ? 'Calculating...' : 'Calculate Fee'}
               </button>
@@ -644,7 +640,11 @@ function UnparkVehicle(): JSX.Element {
                   </div>
                   <div className="result-row">
                     <span className="result-label">Entry Point:</span>
-                    <span className="result-value">{state.data.entry_point.identifier}</span>
+                    <span className="result-value">
+                      {typeof state.data.entry_point === 'object'
+                        ? (state.data.entry_point as any).name || (state.data.entry_point as any).identifier
+                        : state.data.entry_point}
+                    </span>
                   </div>
                   <div className="result-row">
                     <span className="result-label">Parked At:</span>
@@ -657,17 +657,17 @@ function UnparkVehicle(): JSX.Element {
                   <div className="result-row">
                     <span className="result-label">Duration:</span>
                     <span className="result-value">
-                      {state.data.duration_hours} hours
+                      {state.data.duration_hours} hour{state.data.duration_hours !== 1 ? 's' : ''}
                     </span>
                   </div>
                   <div className="result-row">
                     <span className="result-label">Total Fee:</span>
-                    <span className="result-value highlight">₱{state.data.total_fee.toFixed(2)}</span>
+                    <span className="result-value highlight total-fee" data-testid="fee-amount">₱{state.data.total_fee.toFixed(2)}</span>
                   </div>
                   
                 </div>
                 
-                <FeeBreakdown breakdown={state.data?.fee_breakdown || state.data?.breakdown} isContinuous={state.data?.is_continuous} />
+                <FeeBreakdown breakdown={state.data?.breakdown} isContinuous={state.data?.is_continuous} />
               </motion.div>
             )}
           </AnimatePresence>

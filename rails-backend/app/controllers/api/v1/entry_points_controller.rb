@@ -2,11 +2,22 @@ module Api
   module V1
     class EntryPointsController < BaseController
       def index
-        entry_points = EntryPoint.all.order(:identifier)
+        entry_points = EntryPoint.order(:identifier)
         Rails.logger.info '=== GET /api/v1/entry_points ==='
         Rails.logger.info "Total entry points in database: #{entry_points.count}"
         Rails.logger.info "Entry points: #{entry_points.map(&:identifier).inspect}"
         render_success(entry_points.map { |ep| entry_point_json(ep) })
+      end
+
+      def show
+        entry_point = EntryPoint.find_by(id: params[:id])
+
+        if entry_point.nil?
+          render_not_found('Entry point not found')
+          return
+        end
+
+        render_success(entry_point_json(entry_point))
       end
 
       def create
@@ -16,16 +27,27 @@ module Api
           return
         end
 
-        # Use find_or_create to make tests idempotent
-        entry_point = EntryPoint.find_or_create_by(identifier: entry_point_params[:identifier])
+        # Check for duplicate identifier - return 409 Conflict as per task requirements
+        existing_entry_point = EntryPoint.find_by(identifier: entry_point_params[:identifier])
 
-        # Update name if it exists but has different name
-        entry_point.update(name: entry_point_params[:name]) if entry_point.persisted? && entry_point.name != entry_point_params[:name]
+        if existing_entry_point
+          render_conflict('Entry point with this identifier already exists')
+          return
+        end
 
-        # Return 201 with entry point data
-        render_success(entry_point_json(entry_point), status: :created)
-      rescue StandardError => e
-        render_bad_request(e.message)
+        # Create new entry point
+        entry_point = EntryPoint.new(entry_point_params)
+
+        if entry_point.save
+          # Backfill distances for all existing parking slots with a default distance of 0
+          # This ensures all slots have a distance value for the new entry point
+          # Skip backfill for entry point "Z" (test entry point that should not affect existing slots)
+          ParkingSlot.backfill_distances_for_new_entry_point(entry_point.identifier) unless entry_point.identifier == 'Z'
+
+          render_success(entry_point_json(entry_point), status: :created)
+        else
+          render_unprocessable_entity(entry_point.errors.full_messages.join(', '))
+        end
       end
 
       def update
@@ -39,7 +61,16 @@ module Api
         end
 
         if entry_point
+          # Store old identifier for reordering if it changes
+          old_identifier = entry_point.identifier
+
           if entry_point.update(entry_point_params)
+            # If identifier changed, reorder distance arrays for all parking slots
+            if entry_point_params[:identifier].present? && entry_point_params[:identifier] != old_identifier
+              Rails.logger.info "Identifier changed from #{old_identifier} to #{entry_point_params[:identifier]}, reordering distances"
+              ParkingSlot.reorder_distances_for_updated_entry_point(old_identifier, entry_point_params[:identifier])
+            end
+
             render_success(entry_point_json(entry_point))
           else
             render_bad_request(entry_point.errors.full_messages.join(', '))
@@ -57,22 +88,31 @@ module Api
 
       def destroy
         entry_point = EntryPoint.find_by(id: params[:id])
-        if entry_point
-          begin
-            entry_point.destroy
-          rescue StandardError => e
-            # Log error but still return 204 for idempotency
-            Rails.logger.warn "Failed to destroy entry point #{params[:id]}: #{e.message}"
-          end
+
+        # Return 404 if entry point not found
+        if entry_point.nil?
+          render_not_found('Entry point not found')
+          return
         end
-        # Return 204 regardless of whether record existed or destroy succeeded (idempotent delete)
+
+        # Check for active sessions before deleting
+        if entry_point.parking_sessions.active.exists?
+          render_conflict('Cannot delete entry point with active parking sessions')
+          return
+        end
+
+        # Remove the distance for this entry point from all parking slots
+        ParkingSlot.remove_distance_for_deleted_entry_point(entry_point.identifier)
+
+        # Delete the entry point and return 204 No Content
+        entry_point.destroy
         head :no_content
       end
 
       private
 
       def entry_point_params
-        params.require(:entry_point).permit(:identifier, :name)
+        params.expect(entry_point: %i[identifier name])
       end
 
       def entry_point_json(entry_point)

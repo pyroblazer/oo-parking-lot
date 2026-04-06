@@ -22,7 +22,7 @@ RSpec.describe FeeCalculator, type: :service do
   describe '#calculate' do
     it 'delegates to PricingEngine' do
       calculator = described_class.new(session)
-      pricing_engine = instance_double('PricingEngine', calculate: BigDecimal('100.0'))
+      pricing_engine = instance_double(PricingEngine, calculate: BigDecimal('100.0'))
       allow(PricingEngine).to receive(:new).with(session).and_return(pricing_engine)
 
       result = calculator.calculate
@@ -40,7 +40,7 @@ RSpec.describe FeeCalculator, type: :service do
   describe '#breakdown' do
     it 'delegates to PricingEngine' do
       calculator = described_class.new(session)
-      pricing_engine = instance_double('PricingEngine', breakdown: {
+      pricing_engine = instance_double(PricingEngine, breakdown: {
                                          total_fee: BigDecimal('80.0'),
                                          duration_hours: 2,
                                          is_continuous: false,
@@ -290,7 +290,7 @@ RSpec.describe FeeCalculator, type: :service do
 
     context 'without continuous parking' do
       # Clean up any existing sessions to ensure isolation
-      before(:each) do
+      before do
         ParkingSession.delete_all
       end
 

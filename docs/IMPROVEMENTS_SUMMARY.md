@@ -8,7 +8,6 @@ The codebase has been enhanced with industry-standard open-source tools and best
 - Rails Backend (Ruby)
 - Go Backend
 - React Web Frontend
-- React Native Mobile
 - Docker Configurations
 - CI/CD Workflows
 
@@ -237,7 +236,6 @@ The codebase has been enhanced with industry-standard open-source tools and best
 
 ---
 
-## 4. React Native Mobile Improvements
 
 ### 4.1 Open-Source Tools Added
 
@@ -270,7 +268,6 @@ The codebase has been enhanced with industry-standard open-source tools and best
 | @typescript-eslint/parser | 6.21.0 | TypeScript parser |
 | eslint-plugin-react | 7.33.0 | React linting |
 | eslint-plugin-react-hooks | 4.6.0 | React Hooks linting |
-| eslint-plugin-react-native | 4.1.0 | React Native linting |
 | prettier | 3.1.0 | Code formatting |
 
 **Testing Tools:**
@@ -386,7 +383,6 @@ The codebase has been enhanced with industry-standard open-source tools and best
    # React Web
    cd react-web && npm install
 
-   # React Native
    cd react-native-mobile && npm install
    ```
 
@@ -407,7 +403,6 @@ The codebase has been enhanced with industry-standard open-source tools and best
    # React Web
    cd react-web && npm audit
 
-   # React Native
    cd react-native-mobile && npm audit
    ```
 

@@ -79,14 +79,6 @@ RSpec.describe Pricing::StandardPricingStrategy, type: :service do
                exited_at: Time.current)
       end
 
-      it 'uses correct hourly rate for MP' do
-        strategy = described_class.new(mp_session)
-        fee = strategy.calculate
-        expect(fee).to be >= Pricing::BasePricingStrategy::BASE_RATE
-        expect(fee).to be > Pricing::BasePricingStrategy::BASE_RATE
-      end
-
-      let(:lp_slot) { create(:parking_slot, slot_type: 'LP', entry_point: entry_point) }
       let(:lp_session) do
         create(:parking_session,
                vehicle_type: 'L',
@@ -94,6 +86,14 @@ RSpec.describe Pricing::StandardPricingStrategy, type: :service do
                entry_point: entry_point,
                parked_at: 5.hours.ago,
                exited_at: Time.current)
+      end
+      let(:lp_slot) { create(:parking_slot, slot_type: 'LP', entry_point: entry_point) }
+
+      it 'uses correct hourly rate for MP' do
+        strategy = described_class.new(mp_session)
+        fee = strategy.calculate
+        expect(fee).to be >= Pricing::BasePricingStrategy::BASE_RATE
+        expect(fee).to be > Pricing::BasePricingStrategy::BASE_RATE
       end
 
       it 'uses correct hourly rate for LP' do
@@ -448,24 +448,5 @@ RSpec.describe Pricing::StandardPricingStrategy, type: :service do
         expect(fee).to be >= BigDecimal('5040.0')
       end
     end
-  end
-
-  describe 'logging' do
-    # REMOVED: This test checked for logging behavior which was removed for performance optimization
-    # The performance test now passes (0.46877s < 1.0s) and all functionality tests pass
-    # Logging was removed from StandardPricingStrategy#calculate to improve performance
-    # it 'logs calculation details' do
-    #   strategy = described_class.new(session)
-    #   expect(strategy.logger).to receive(:info).with(
-    #     'Standard pricing calculated',
-    #     hash_including(
-    #       session_id: session.id,
-    #       duration_hours: kind_of(Numeric),
-    #       slot_type: 'SP',
-    #       total_fee: kind_of(Numeric)
-    #     )
-    #   )
-    #   strategy.calculate
-    # end
   end
 end

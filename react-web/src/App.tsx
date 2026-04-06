@@ -5,6 +5,7 @@
  * visual effects including cursor-driven spotlight, parallax, and kinetic typography.
  */
 
+import React from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import ParkVehicle from './components/ParkVehicle';
 import UnparkVehicle from './components/UnparkVehicle';
@@ -13,8 +14,11 @@ import AvailableSlots from './components/AvailableSlots';
 import SlotsManagement from './components/SlotsManagement';
 import EntryPointsManagement from './components/EntryPointsManagement';
 import SessionsManagement from './components/SessionsManagement';
+import BillingAuditLogsManagement from './components/BillingAuditLogsManagement';
+import KafkaEventsManagement from './components/KafkaEventsManagement';
 import SpotlightMask from './effects/SpotlightMask';
 import FluidParticleBackground from './effects/FluidParticleBackground';
+import { ParkingProvider } from './context/ParkingContext';
 import './App.css';
 
 /**
@@ -31,34 +35,38 @@ const isTestEnvironment = (): boolean => {
  */
 function App(): JSX.Element {
   return (
-    <BrowserRouter>
-      <div className="app">
-        {/* Visual Effects Layer - Only render in non-test environments */}
-        {!isTestEnvironment() && <FluidParticleBackground />}
-        {!isTestEnvironment() && <SpotlightMask />}
+    <ParkingProvider>
+      <BrowserRouter>
+        <div className="app">
+          {/* Visual Effects Layer - Only render in non-test environments */}
+          {!isTestEnvironment() && <FluidParticleBackground />}
+          {!isTestEnvironment() && <SpotlightMask />}
 
-        <header className="app-header">
-          <h1 className="kinetic-typography">🚗️ OO Parking Lot</h1>
-          <nav className="app-nav">
-            <NavigationButtons />
-          </nav>
-        </header>
+          <header className="app-header">
+            <h1 className="kinetic-typography">🚗️ OO Parking Lot</h1>
+            <nav className="app-nav">
+              <NavigationButtons />
+            </nav>
+          </header>
 
-        <main className="app-main">
-         <Routes>
-             <Route path="/" element={<ParkVehicle />} />
-             <Route path="/park" element={<ParkVehicle />} />
-             <Route path="/unpark" element={<UnparkVehicle />} />
-             <Route path="/session" element={<ViewSession />} />
-             <Route path="/session/:id" element={<ViewSession />} />
-             <Route path="/slots" element={<AvailableSlots />} />
-             <Route path="/slots-management" element={<SlotsManagement />} />
-             <Route path="/entry-points-management" element={<EntryPointsManagement />} />
-             <Route path="/sessions-management" element={<SessionsManagement />} />
-           </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+          <main className="app-main">
+           <Routes>
+               <Route path="/" element={<ParkVehicle />} />
+               <Route path="/park" element={<ParkVehicle />} />
+               <Route path="/unpark" element={<UnparkVehicle />} />
+               <Route path="/session" element={<ViewSession />} />
+               <Route path="/session/:id" element={<ViewSession />} />
+               <Route path="/slots" element={<AvailableSlots />} />
+               <Route path="/slots-management" element={<SlotsManagement />} />
+               <Route path="/entry-points-management" element={<EntryPointsManagement />} />
+               <Route path="/sessions-management" element={<SessionsManagement />} />
+               <Route path="/billing-audit-logs" element={<BillingAuditLogsManagement />} />
+               <Route path="/kafka-events" element={<KafkaEventsManagement />} />
+             </Routes>
+          </main>
+        </div>
+      </BrowserRouter>
+    </ParkingProvider>
   );
 }
 
@@ -77,6 +85,8 @@ function NavigationButtons(): JSX.Element {
       <MagneticButton onClick={() => navigate('/slots-management')} data-testid="nav-slots-management">Slots Management</MagneticButton>
       <MagneticButton onClick={() => navigate('/entry-points-management')} data-testid="nav-entry-points">Entry Points</MagneticButton>
       <MagneticButton onClick={() => navigate('/sessions-management')} data-testid="nav-sessions">Sessions Management</MagneticButton>
+      <MagneticButton onClick={() => navigate('/billing-audit-logs')} data-testid="nav-billing">Billing Logs</MagneticButton>
+      <MagneticButton onClick={() => navigate('/kafka-events')} data-testid="nav-kafka">Kafka Events</MagneticButton>
     </>
   );
 }

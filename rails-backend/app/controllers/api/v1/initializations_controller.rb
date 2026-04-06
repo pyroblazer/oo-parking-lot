@@ -23,10 +23,12 @@ module Api
           return
         end
 
-        # Clear active parking sessions to allow reinitialization
-        # Completed sessions are preserved so continuous parking detection works correctly
-        # across multiple test runs with fixed timestamps (is_continuous relies on prior sessions)
-        ParkingSession.where(exited_at: nil).destroy_all
+        # Clear ALL parking sessions to allow reinitialization.
+        # Completed sessions must also be removed because the Green Flow uses fixed past
+        # timestamps (e.g. 2024-01-15). Stale completed sessions from a previous test run
+        # that share those same timestamps would be found by the continuous? check and
+        # incorrectly extend the billing window, producing wrong durations and fees.
+        ParkingSession.destroy_all
 
         # Reset all parking slots to available status
         ParkingSlot.update_all(status: 'available', entry_point_id: nil, last_occupied_at: nil)
@@ -47,11 +49,12 @@ module Api
         # Create parking slots
         if initialization_params[:parking_slots].present?
           # Validate all slots first before processing
+          # Note: We now support unlimited entry points, so we don't validate exact distance count
+          # The system will automatically backfill missing distances when editing slots
           invalid_slot = initialization_params[:parking_slots].find do |slot_params|
             slot_params[:slot_label].blank? ||
               slot_params[:slot_type].blank? ||
-              slot_params[:distances].blank? ||
-              slot_params[:distances].length != 3
+              slot_params[:distances].blank?
           end
 
           if invalid_slot
@@ -60,7 +63,7 @@ module Api
             elsif invalid_slot[:slot_type].blank?
               render_unprocessable_entity('slot_type is required')
             else
-              render_unprocessable_entity('Distances must be an array of exactly 3 values')
+              render_unprocessable_entity('Distances array is required')
             end
             return
           end
@@ -97,6 +100,7 @@ module Api
         Rails.logger.info "Total parking slots after init: #{ParkingSlot.count}"
 
         render_success({
+                         success: true,
                          entry_points_created: entry_points_created,
                          parking_slots_created: parking_slots_created,
                          message: 'System initialized successfully'

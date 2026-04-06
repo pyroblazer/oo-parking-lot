@@ -5,9 +5,12 @@ class EntryPoint < ApplicationRecord
   validates :identifier, presence: true, uniqueness: { case_sensitive: true }
   validates :name, presence: true
 
-  # Get the index of this entry point for distance calculations
-  # Entry points are ordered by their identifier (A=0, B=1, C=2, etc.)
+  # Get index of this entry point based on identifier
+  # A=0, B=1, C=2, ..., Z=25 (alphabetical order)
   def index
-    identifier.ord - 'A'.ord
+    return nil if identifier.blank?
+
+    # Calculate index based on alphabetical position (A=0, B=1, C=2, ..., Z=25)
+    identifier.upcase.ord - 'A'.ord
   end
 end

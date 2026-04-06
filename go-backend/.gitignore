@@ -63,3 +63,15 @@ tmp/
 # Debug files
 debug
 debug.test
+
+# Compiled server binary
+main
+
+# Security scan results
+gosec-results.sarif
+gosec-report.json
+*.sarif
+
+# Test and coverage artifacts
+coverage.out
+go-test-results.json

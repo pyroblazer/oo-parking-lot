@@ -6,14 +6,15 @@ RSpec.describe SlotUtilizationReportJob, type: :worker do
   describe '#perform' do
     before do
       # Stub PrometheusExporter::Client to avoid NameError
-      prometheus_client = instance_double('PrometheusExporter::Client', send_json: nil)
+      prometheus_client = instance_double(PrometheusExporter::Client, send_json: nil)
       stub_const('PrometheusExporter::Client', Class.new do
         def self.default
-          @default ||= instance_double('PrometheusExporter::Client', send_json: nil)
+          @default ||= instance_double(PrometheusExporter::Client, send_json: nil)
         end
       end)
       allow(PrometheusExporter::Client).to receive(:default).and_return(prometheus_client)
     end
+
     context 'with overall slot utilization' do
       before do
         create_list(:parking_slot, 10, entry_point: entry_point, status: 'available')
@@ -99,7 +100,7 @@ RSpec.describe SlotUtilizationReportJob, type: :worker do
 
       it 'orders slots by usage count' do
         report = described_class.new.perform
-        usage_counts = report[:most_used_slots].map { |s| s[:usage_count] }
+        usage_counts = report[:most_used_slots].pluck(:usage_count)
         expect(usage_counts).to eq(usage_counts.sort.reverse)
       end
     end
@@ -177,7 +178,7 @@ RSpec.describe SlotUtilizationReportJob, type: :worker do
 
     context 'with Prometheus metrics' do
       it 'sends report to Prometheus' do
-        prometheus_client = instance_double('PrometheusExporter::Client')
+        prometheus_client = instance_double(PrometheusExporter::Client)
         allow(PrometheusExporter::Client).to receive(:default).and_return(prometheus_client)
         expect(prometheus_client).to receive(:send_json).with(
           type: 'slot_utilization_report',

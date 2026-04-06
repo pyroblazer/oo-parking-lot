@@ -75,7 +75,7 @@ export class EntryPointsManagementPage extends BasePage {
     this.cancelEntryPointButton = element(by.id('cancel-entry-point-button'));
 
     // Refresh
-    this.refreshButton = element(by.id('refresh-button');
+    this.refreshButton = element(by.id('refresh-button'));
   }
 
   /**
@@ -165,7 +165,7 @@ export class EntryPointsManagementPage extends BasePage {
    */
   async addEntryPoint(name: string, location: string): Promise<void> {
     await this.clickAddEntryPoint();
-    await this.waitFor(this.entryPointModal)
+    await waitFor(this.entryPointModal)
       .toBeVisible()
       .withTimeout(5000);
     
@@ -187,7 +187,7 @@ export class EntryPointsManagementPage extends BasePage {
     location: string
   ): Promise<void> {
     await this.clickEditEntryPointByIndex(index);
-    await this.waitFor(this.entryPointModal)
+    await waitFor(this.entryPointModal)
       .toBeVisible()
       .withTimeout(5000);
     

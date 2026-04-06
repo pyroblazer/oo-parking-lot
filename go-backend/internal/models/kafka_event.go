@@ -55,7 +55,7 @@ type KafkaEvent struct {
 	EventType      string        `json:"event_type" db:"event_type"`
 	Topic          string        `json:"topic" db:"topic"`
 	Partition      int           `json:"partition" db:"partition"`
-	Offset         *int64        `json:"offset" db:"offset"`
+	KafkaOffset    *int64        `json:"offset" db:"kafka_offset"`
 	EventKey       *string       `json:"event_key" db:"event_key"`
 	EventPayload   EventPayload  `json:"event_payload" db:"event_payload"`
 	CorrelationID  *string       `json:"correlation_id" db:"correlation_id"`
@@ -137,7 +137,7 @@ func (k *KafkaEvent) IncrementRetry() {
 func (k *KafkaEvent) MarkPublished(partition int, offset int64) {
 	k.Status = "published"
 	k.Partition = partition
-	k.Offset = &offset
+	k.KafkaOffset = &offset
 	now := time.Now()
 	k.PublishedAt = &now
 }

@@ -1,0 +1,16 @@
+{
+  "id": "ci-go",
+  "name": "CI Go Backend",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8082",
+      "enabled": true
+    },
+    {
+      "key": "active_slot_id",
+      "value": "377",
+      "enabled": true
+    }
+  ]
+}

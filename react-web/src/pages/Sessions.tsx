@@ -1,13 +1,13 @@
 /**
  * Sessions Page
- * 
+ *
  * Displays all parking sessions with filtering, sorting, and unpark functionality.
  * Features include live duration counters, unpark modal with time override, and fee receipt display.
- * 
+ *
  * @module Sessions
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import * as parkingApi from '../api/parkingApi';
 
 // ============================================================================
@@ -517,7 +517,7 @@ function FeeReceiptModal({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Entry Point:</span>
-                <span className="font-medium">{receipt.entry_point}</span>
+                <span className="font-medium">{typeof receipt.entry_point === 'string' ? receipt.entry_point : receipt.entry_point?.identifier || ''}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Parked At:</span>
@@ -532,7 +532,7 @@ function FeeReceiptModal({
               {receipt.duration_hours !== undefined && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Duration:</span>
-                  <span className="font-medium">{receipt.duration_hours} hours</span>
+                  <span className="font-medium">{receipt.duration_hours} hour{receipt.duration_hours !== 1 ? 's' : ''}</span>
                 </div>
               )}
             </div>

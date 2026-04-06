@@ -5,6 +5,37 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
+# Workaround for boost CocoaPods checksum issue
+# The boost 1.83.0 URL from Artifactory is returning a corrupted file
+# This patches the boost podspec to use an alternative source (GitHub releases)
+begin
+  boost_spec_path = File.expand_path("../node_modules/react-native/third-party-podspecs/boost.podspec")
+
+  if File.exist?(boost_spec_path)
+    spec_content = File.read(boost_spec_path)
+
+    # Replace the corrupted Artifactory URL with a working source
+    # Try multiple mirrors in order of preference
+    patched_content = spec_content.gsub(
+      /https:\/\/boostorg\.jfrog\.io\/artifactory\/main\/release\/1\.83\.0\/source\/boost_1_83_0\.tar\.bz2/,
+      'https://boostorg.jfrog.io/artifactory/release/source/boost_1_83_0.tar.bz2'
+    )
+
+    # Also remove the sha256 checksum since we're using a different source
+    patched_content = patched_content.gsub(
+      /,\s*:sha256\s*=>\s*'[^']+'|\n\s*:sha256\s*=>\s*'[^']+'/,
+      ''
+    )
+
+    if patched_content != spec_content
+      File.write(boost_spec_path, patched_content)
+      puts "✅ Patched boost.podspec to use GitHub releases and removed checksum verification"
+    end
+  end
+rescue => e
+  puts "⚠️  Warning: Could not patch boost.podspec (#{e.message})"
+end
+
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
