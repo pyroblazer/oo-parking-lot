@@ -26,6 +26,11 @@ import (
 func TestMain(m *testing.M) {
 	// Setup test databases
 	if err := database.SetupTestDatabases(); err != nil {
+		// Locally, skip DB-backed tests when Postgres isn't running; CI must still fail loudly.
+		if os.Getenv("CI") == "" && os.Getenv("REQUIRE_DB") == "" {
+			log.Printf("SKIP: database-backed tests need Postgres (%v). Set REQUIRE_DB=1 to make this fatal.", err)
+			os.Exit(0)
+		}
 		log.Fatalf("Failed to setup test databases: %v", err)
 	}
 

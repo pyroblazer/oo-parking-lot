@@ -516,7 +516,7 @@ func TestParkingService_BoundaryConditions(t *testing.T) {
 			Available: true,
 		}
 		now := time.Now()
-		exitedAt := now.Add(-61 * time.Minute) // Exited 61 minutes ago (> 1 hour)
+		exitedAt := now.Add(-3 * time.Hour) // Previous session ended 3 hours ago
 
 		// Previous session
 		previousSession := &models.ParkingSession{
@@ -524,18 +524,19 @@ func TestParkingService_BoundaryConditions(t *testing.T) {
 			VehicleType:   "S",
 			ParkingSlotID: 1,
 			EntryPointID:  1,
-			ParkedAt:      now.Add(-3*time.Hour - 61*time.Minute), // Parked 3 hours 61 minutes ago
+			ParkedAt:      now.Add(-6 * time.Hour), // Parked 6 hours ago (3 hour stay)
 			ExitedAt:      &exitedAt,
 			TotalFee:      40, // Flat rate for 3 hours
 		}
 
-		// Current session - parked NOW (gap = 61 min from previous exit, which is > 60 min)
+		// Current session - parked 30 minutes ago; gap from previous exit is 2.5 hours (> 1 hour),
+		// so it is NOT continuous and is billed on its own (30 minutes => 40 flat rate)
 		currentSession := &models.ParkingSession{
 			ID:            2,
 			VehicleType:   "S",
 			ParkingSlotID: 1,
 			EntryPointID:  1,
-			ParkedAt:      now, // Parked now (gap = 61 min from exit at 61 min ago)
+			ParkedAt:      now.Add(-30 * time.Minute),
 			TotalFee:      0,
 		}
 

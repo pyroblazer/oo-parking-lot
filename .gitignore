@@ -126,3 +126,8 @@ go-backend/main
 # bun.lock
 # go.sum
 # Gemfile.lock
+
+# Test reports
+results.json
+results.xml
+report.html
