@@ -164,3 +164,21 @@ INSERT INTO parking_slots (slot_label, slot_type, distances, available, created_
     ('LP-1', 'LP', '[15, 15, 15]', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('LP-2', 'LP', '[2, 5, 6]', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (slot_label) DO NOTHING;
+
+
+-- Reservations table (booking a slot ahead of arrival)
+CREATE TABLE IF NOT EXISTS reservations (
+    id BIGSERIAL PRIMARY KEY,
+    parking_slot_id BIGINT NOT NULL REFERENCES parking_slots(id),
+    vehicle_type VARCHAR(50) NOT NULL,
+    license_plate VARCHAR(20),
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- One slot cannot hold two overlapping active bookings; the service also checks
+-- overlap in application code, this constraint is the backstop.
+CREATE INDEX IF NOT EXISTS idx_reservations_slot_status ON reservations(parking_slot_id, status, start_time, end_time);

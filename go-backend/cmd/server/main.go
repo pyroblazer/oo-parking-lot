@@ -115,12 +115,14 @@ func main() {
 	vehicleRepo := repositories.NewVehicleRepository(db.GetDB())
 	billingAuditLogRepo := repositories.NewBillingAuditLogRepository(db.GetDB())
 	kafkaEventRepo := repositories.NewKafkaEventRepository(db.GetDB())
+	reservationRepo := repositories.NewReservationRepository(db.GetDB())
 
 	// Initialize services
 	parkingService := services.NewParkingServiceWithFullRepos(entryPointRepo, parkingSlotRepo, sessionRepo, vehicleRepo, billingAuditLogRepo, kafkaEventRepo)
 
 	// Initialize handlers
 	parkingHandler := handlers.NewParkingHandler(parkingService)
+	reservationHandler := handlers.NewReservationHandler(services.NewReservationService(reservationRepo, parkingSlotRepo))
 
 	// Setup router
 	router := mux.NewRouter()
@@ -161,6 +163,13 @@ func main() {
 		// CORS middleware already ran and set the headers; just return 200.
 		w.WriteHeader(http.StatusOK)
 	}
+
+	// Reservations (book a slot ahead of arrival)
+	api.HandleFunc("/reservations", reservationHandler.Create).Methods("POST")
+	api.HandleFunc("/reservations", reservationHandler.List).Methods("GET")
+	api.HandleFunc("/reservations", preflightHandler).Methods("OPTIONS")
+	api.HandleFunc("/reservations/{id}/cancel", reservationHandler.Cancel).Methods("POST")
+	api.HandleFunc("/reservations/{id}/cancel", preflightHandler).Methods("OPTIONS")
 
 	// Parking sessions routes
 	api.HandleFunc("/sessions", parkingHandler.ParkVehicle).Methods("POST")
