@@ -29,7 +29,7 @@ jobs:
 
   rubocop:
     name: RuboCop Linting
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -48,7 +48,7 @@ jobs:
 
   go-lint:
     name: Go Linting
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: ./go-backend
@@ -72,7 +72,7 @@ jobs:
 
   eslint:
     name: ESLint Linting
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: ./react-web
@@ -98,7 +98,7 @@ jobs:
 
   rspec-tests:
     name: RSpec Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [rubocop]
     defaults:
       run:
@@ -177,7 +177,7 @@ jobs:
 
   go-tests:
     name: Go Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [go-lint]
     defaults:
       run:
@@ -308,7 +308,7 @@ jobs:
 
   frontend-tests:
     name: Frontend Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [eslint]
     defaults:
       run:
@@ -344,7 +344,7 @@ jobs:
 
   playwright-e2e-tests:
     name: Playwright E2E Tests (Chromium Only) - Shard ${{ matrix.shard }}/${{ strategy.job-total }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [eslint]
     strategy:
       fail-fast: false
@@ -490,7 +490,7 @@ jobs:
 
   playwright-e2e-tests-consolidate:
     name: Consolidate Playwright Test Results
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [playwright-e2e-tests]
     if: always()
 
@@ -607,7 +607,7 @@ jobs:
 
   build-rails:
     name: Build Rails
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [rspec-tests]
     defaults:
       run:
@@ -661,7 +661,7 @@ jobs:
 
   build-go:
     name: Build Go
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [go-tests]
     defaults:
       run:
@@ -694,7 +694,7 @@ jobs:
 
   build-frontend:
     name: Build Frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [frontend-tests, playwright-e2e-tests-consolidate, detox-e2e-tests]
     defaults:
       run:
@@ -727,7 +727,7 @@ jobs:
 
   brakeman-scan:
     name: Brakeman Security Scan (Rails)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [rubocop]
     defaults:
       run:
@@ -759,7 +759,7 @@ jobs:
 
   bundler-audit:
     name: Bundler Audit (Rails)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [rubocop]
     defaults:
       run:
@@ -785,7 +785,7 @@ jobs:
 
   npm-audit:
     name: NPM Audit (React Web)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [eslint]
     defaults:
       run:
@@ -809,7 +809,7 @@ jobs:
 
   gosec:
     name: GoSec Security Scan (Go)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [go-lint]
     defaults:
       run:
@@ -850,7 +850,7 @@ jobs:
 
   trivy-scan:
     name: Trivy Vulnerability Scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build-rails, build-go, build-frontend]
 
     steps:
@@ -878,7 +878,7 @@ jobs:
 
   newman-ruby-tests:
     name: Newman Tests (Ruby Backend)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [rubocop]
 
     services:
@@ -1053,7 +1053,7 @@ jobs:
 
   newman-go-tests:
     name: Newman Tests (Go Backend)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [go-lint]
 
     services:
@@ -1236,7 +1236,7 @@ jobs:
 
   performance-benchmark:
     name: Performance Benchmark
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build-rails, build-go, build-frontend]
     continue-on-error: true
 

@@ -56,7 +56,7 @@ func (r *ReservationRepository) List(status string) ([]models.Reservation, error
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []models.Reservation
 	for rows.Next() {
